@@ -74,22 +74,31 @@ require(emmeans)
 
  
  #PATHS###
- 
- #check for OS --> define home path (script independent of OS)
- ifelse(Sys.info()['sysname']=='Linux',
-        home_path<-'~',
-        home_path<-'C:/Users/Nico')
- 
- 
- #project path
- project_path<-'/PowerFolders/project_sega'
- data_path<-'/PowerFolders/project_sega/data/AuditoryOddball' 
- data_path_eeg<-'/PowerFolders/project_sega/data/AuditoryOddball_EEG'
- 
- datapath<-paste0(home_path,data_path)
- datapath_eeg<-paste0(home_path,data_path_eeg)
- 
- 
+if (Sys.info()["sysname"] == "Linux") {
+  home_path <- "~"
+  project_path <- "/PowerFolders/project_sega"
+  data_path <- "/PowerFolders/project_sega/data/AuditoryOddball"
+  data_path_eeg <- "/PowerFolders/project_sega/data/AuditoryOddball_EEG"
+}
+
+if (Sys.info()["sysname"] == "Windows") {
+  home_path <- "C:/Users/Nico"
+  project_path <- "/PowerFolders/project_sega"
+  data_path <- "/PowerFolders/project_sega/data/AuditoryOddball"
+  data_path_eeg <- "/PowerFolders/project_sega/data/AuditoryOddball_EEG"
+}
+
+if (Sys.info()["sysname"] == "Darwin") {
+  home_path <- "~" # individual
+  project_path <- "/code" # output path
+  data_path <- "/code/input/AuditoryOddball"
+  data_path_eeg <- "/code/input/AuditoryOddball_EEG"
+}
+
+datapath <- paste0(home_path, data_path) # input .csv + .hdf5 files
+datapath_eeg <- paste0(home_path, data_path_eeg) # input .txt files (eeg)
+
+
  #FUNCTIONS###
  
  func_pd_preprocess<-function(x){
@@ -365,7 +374,7 @@ df_list<-pbmapply(fun_merge_all_ids,et_data=list_et_data,trial_data=list_trial_d
 ## ------------ DATA PREPROCESSING (Creating variables, PD preprocessing) --------#####
 ##CREATE a trial_index, trial_number, and trial in oddball phase variable####
 #INFO: Trial is defined --> .thisTrialN (trials within sequence) x .thisRepn (repetition of sequences in block) x block_counter (blocks)
-df_list<-sapply(df_list,function(x){
+df_list<-lapply(df_list,function(x){
   #all trials
   x$trial_index<-with(x,droplevels(interaction(.thisTrialN,.thisRepN,block_counter))) #name to indentify individual trials
   x$trial_number<-with(x,rep(seq_along(table(trial_index)),times=table(trial_index))) #all trials including empty trials
@@ -943,8 +952,8 @@ df_erp_rpd_agg<-merge(df_rpd_agg,df_erp,by='merger_id')
 
 ##compare
 require(lme4)
-summary(lmer(scale(rpd)~trial+manipulation+oddball_pitch+(1|id),df_erp_rpd_agg[df_erp_rpd_agg$reverse==F,]))
-summary(lmer(scale(rpd)~trial+manipulation+(1|id),df_erp_rpd_agg[df_erp_rpd_agg$reverse==T,]))
+# summary(lmer(scale(rpd)~trial+manipulation+oddball_pitch+(1|id),df_erp_rpd_agg[df_erp_rpd_agg$reverse==F,]))
+# summary(lmer(scale(rpd)~trial+manipulation+(1|id),df_erp_rpd_agg[df_erp_rpd_agg$reverse==T,]))
 ##--> looks fine for normal, not working for reverse
 
 #visualize
