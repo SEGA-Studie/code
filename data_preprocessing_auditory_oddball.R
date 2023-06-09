@@ -47,9 +47,8 @@ datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
 # List all .hdf and .csv files
 data_files <- list.files(path = datapath, full.names = TRUE)
 
-# Get eye tracking data
+# Get eye tracking data and store them in a list of df (one per subject)
 data_files_et <- data_files[grepl(".hdf5", data_files)]
-
 list_et_data <- list(0)
 for (i in 1:length(data_files_et)) {
   list_et_data[[i]] <- h5read(
@@ -57,10 +56,9 @@ for (i in 1:length(data_files_et)) {
     name = "data_collection/events/eyetracker/BinocularEyeSampleEvent")
   print(paste0("read ET data file: ", i))
  }
-
 h5closeAll()
 
-# Including date and time of recording, list names for each subject are unique.
+# List names for each subject are unique including date and time of recording.
 n_last <- 29
 id_names <- substr(
   data_files_et,
@@ -99,12 +97,11 @@ constant_variables <- c(
   "left_eye_cam_y", "right_eye_cam_y",
   "left_eye_cam_z", "right_eye_cam_z"
   )
-
 list_et_data <- lapply(
   list_et_data, function(x) {
     x[!(names(x) %in% constant_variables)]})
 
-# Get trial data
+# Get trial data and store them in a list of df (one per subject)
 data_files_trial <- data_files[grepl(".csv", data_files)]
 list_trial_data <- list(0)
 trial_variables <- c(
@@ -124,23 +121,19 @@ trial_variables <- c(
   "oddball_frequency",
   "standard_frequency"
   )
-
 for (i in 1:length(data_files_trial)) {
   list_trial_data[[i]] <- fread(data_files_trial[i], select = trial_variables)
   print(paste0("read TRIAL data file: ", i))
   }
-
-# one df for each subject stored in a list
 list_trial_data <- lapply(list_trial_data, data.frame)
 
-# Including date and time of recording, list names for each subject are unique.
+# List names for each subject are unique including date and time of recording.
 n <- 29
 id_names <- substr(
   data_files_trial,
   nchar(data_files_trial) - n_last + 1,
   nchar(data_files_trial))
 names(list_trial_data) <- id_names
-
 
 # subject data frames are row-wise combined
 df_trial <- plyr::rbind.fill(list_trial_data)
@@ -436,9 +429,6 @@ df_trial$oddball <- as.factor(ifelse(grepl(
   "oddball",
   df_trial$trial),
   "oddball", "standard"))
-# distinguish between pilot data (test) and study data
-df_trial$id_type <- ifelse(df_trial$id %in% c("3", "555555", "t002", "t01"),
-"test", "study")
 
 table(df_trial$block_counter, df_trial$phase)
 table(df_trial$trial)
@@ -448,35 +438,38 @@ hist(df_trial$rpd, 50)
 with(df_trial, by(rpd, trial, mean, na.rm = TRUE))
 lmm <- lmer(
   rpd ~ oddball * manipulation * reverse + trial_number_in_block + (1 | id),
-  data = df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev") &
-  df_trial$id_type == "study", ])
+  data = df_trial[
+    df_trial$phase %in% c("oddball_block", "oddball_block_rev"), ])
 summary(lmm)
-contrast(emmeans(lmm, ~oddball), "pairwise")
+contrast(emmeans(lmm, ~ oddball), "pairwise")
 
 ggplot(
   df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev") &
-  is.finite(df_trial$rpd) & df_trial$id_type == "study", ],
-  aes(x = trial_number, y = rpd, group = oddball, color = oddball)) +
-  geom_smooth() + facet_grid(rows = vars(reverse), cols = vars(manipulation))
+  is.finite(df_trial$rpd), ], aes(
+    x = trial_number,
+    y = rpd,
+    group = oddball,
+    color = oddball)) +
+  geom_smooth() +
+  facet_grid(rows = vars(reverse), cols = vars(manipulation))
 
 ggplot(
   df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev") &
   df_trial$trial_number_in_block >= 10 & is.finite(
-    df_trial$rpd) & df_trial$id_type == "study", ],
+    df_trial$rpd), ],
   aes(x = trial_number_in_block, y = rpd, group = oddball, color = oddball)) +
   geom_smooth() +
   facet_grid(rows = vars(reverse), cols = vars(manipulation)) + theme_bw()
 
 ggplot(
   df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev") &
-  is.finite(df_trial$rpd) & df_trial$id_type == "study", ],
+  is.finite(df_trial$rpd), ],
   aes(x = as.factor(trial_number_in_block), y = rpd)) +
   geom_boxplot() +
   facet_grid(
     rows = vars(reverse),
     cols = vars(manipulation, oddball)) +
     theme_bw()
-
 
 # DATA ANALYSIS: Baseline phase
 df_baseline <- df[df$phase %in% c("baseline", "baseline_calibration"), ]
@@ -525,10 +518,6 @@ levels = c("before", "after"))
 df_oddball$order <- ifelse(grepl("rev", df_oddball$trial), "reverse", "normal")
 table(df_oddball$order, df_oddball$block_counter)
 
-table(df_oddball$id)
-df_oddball$id_type <- ifelse(
-  df_oddball$id %in% c("3", "555555", "t002", "t01"), "test", "study")
-
 # define trials in oddball phase
 df_oddball$trial_index_oddballphase <- with(
   # name to indentify individual trials
@@ -558,7 +547,8 @@ geom_density(alpha = 0.2) + facet_wrap(~trial)
 # VISUALIZATION
 tiff(file = paste0(
   home_path,
-  project_path, "/output/figure_audio_effectofmanipulation_pupilresponse_testdata.tiff"),
+  project_path,
+  "/output/figure_audio_effectofmanipulation_pupilresponse_testdata.tiff"),
   width = 8,
   height = 4,
   units = "in",

@@ -41,6 +41,9 @@ trialdata is stored in a .csv file.
 - lme4
 - lmerTest
 - emmeans
+- hexbin
+- gridExtra
+
 ## Paths
 Code is independent of OS although paths have to be adjusted.
 ## Data import and reshaping
@@ -51,7 +54,7 @@ Code is independent of OS although paths have to be adjusted.
 3. blink correction (75 ms > Na <= 250 ms)
 4. scatter plot smoothing
 5. two-pass approach 
-6. interpolation between eyes
+6. interpolation
 7. average across both eyes
 
 ## Data analysis
