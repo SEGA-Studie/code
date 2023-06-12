@@ -345,6 +345,15 @@ func_pd_preprocess <- function(x) {
 list_split_trial <- pblapply(
   list_split_trial, func_pd_preprocess)
 
+# Anna insert rpd_low in list
+list_split_trial <- lapply(list_split_trial, function(x) {
+  rpd_low <- mean(x$pd[x$ts_trial < 0.250])
+  trial_corr_pd <- x$pd - rpd_low
+  x[, "rpd_low"] <- rep(rpd_low, times = nrow(x))
+  x[, "trial_corr_pd"] <- trial_corr_pd
+  return(x)
+})
+
 df <- dplyr::bind_rows(list_split_trial)
 
 # split by block and id
@@ -352,7 +361,7 @@ list_split_blocks <- split(df,
 droplevels(interaction(df$block_counter, df$id)))
 
 list_split_blocks <- lapply(list_split_blocks, function(x) {
-  # name to indentify individual trials within BLOCK
+  # name to identify individual trials within BLOCK
   x$trial_index_in_block <- with(x,
   droplevels(interaction(.thisTrialN, .thisRepN)))
   # all trials including empty trials
@@ -380,14 +389,14 @@ ggplot(
   aes(x = pd)) + geom_histogram(bins = 100) + facet_wrap(~id)
 
 # reduce ET data to per trial data (and merge with df_trial)
-# pupil diamter late in trial duration
+# pupil diameter late in trial duration
 rpd_high <- sapply(list_split_trial, function(x) {
   mean(x$pd[x$ts_trial > 0.875 & x$ts_trial < 1.125])})
-# pupil diamter early in trial duration
+# pupil diameter early in trial duration
 rpd_low <- sapply(list_split_trial, function(x) {
   mean(x$pd[x$ts_trial < 0.250])})
 
-# news varisbles to index specific trials
+# news variables to index specific trials
 trial_number <- sapply(list_split_trial, function(x) {
   unique(x$trial_number)})
 trial_number_in_block <- sapply(list_split_trial, function(x) {
@@ -409,7 +418,7 @@ interaction(.thisTrialN, .thisRepN, block_counter))
 df_trial$merger_id <- interaction(df_trial$id, df_trial$trial_index)
 df_trial <- merge(df_trial, df_et_trial, id = "merger_id")
 
-# new variable rpd indicates pupillary response
+# rpd = trial-baseline corrected pupil diameter
 df_trial$rpd <- df_trial$rpd_high - df_trial$rpd_low
 
 # new variables manipulation indicates whether before or after manipulation
@@ -473,7 +482,9 @@ ggplot(
 
 # DATA ANALYSIS: Baseline phase
 df_baseline <- df[df$phase %in% c("baseline", "baseline_calibration"), ]
-# Number of pupl data per baseline trial (white, black and grey slide)
+df_baseline <- df_baseline[is.finite(df_baseline$pd), ]
+
+# Number of pupil data per baseline trial (white, black and grey slide)
 with(df_baseline[df_baseline$phase == "baseline_calibration", ], table(trial))
 # Check: Block counter should be in line with aforementioned table
 with(df_baseline, table(trial, block_counter))
@@ -481,15 +492,71 @@ with(df_baseline, by(
   timestamp_exp, interaction(baseline_trial_counter, phase, id),
   mean, na.rm = TRUE))
 
-df_baseline <- df_baseline[is.finite(df_baseline$pd) , ]
-
-# estimate mean pd per id
+# subject baseline is defined as mean of baseline trial during calibration phase
 df_meanpd <- with(
   df_baseline[df_baseline$phase == "baseline_calibration" &
   df_baseline$trial == "baseline" , ], by(as.numeric(pd), id, mean))
-
 df_meanpd <- data.frame(names(df_meanpd), as.numeric(df_meanpd))
 names(df_meanpd) <- c("id", "mean_pd")
+df_baseline <- merge(df_baseline, df_meanpd, by = "id")
+
+# Visualization: LAPR group comparison
+# New df with baseline trial only from calibration phase
+df_baseline_calibration <- df_baseline[
+  df_baseline$phase == "baseline_calibration", ]
+
+# Plot 1: LAPR_Subplots with pd (without correction)
+ggplot(
+# Baseline trial duration is theoretically 5 seconds.
+df_baseline_calibration[df_baseline_calibration$ts_trial < 5.0, ],
+aes(x = ts_trial,
+y = pd,
+group = group,
+color = group)) +
+geom_smooth() +
+theme_bw() +
+xlab("trial duration [s]") +
+ylab("pupil dilation [mm]") +
+labs(title = "LAPR for group and trial") +
+facet_wrap(~ factor(trial,
+levels = c("baseline", "baseline_whiteslide", "baseline_blackslide" )))
+
+ggsave(
+  "output/lapr_subplots_pd.tiff",
+  device = "tiff",
+  width = 6,
+  height = 4,
+  units = "in",
+  compression = "lzw",
+  dpi = 800
+)
+
+# Plot 2: LAPR_Subplots with trial_baseline corrected pd
+ggplot(
+# Baseline trial duration is theoretically 5 seconds.
+df_baseline_calibration[df_baseline_calibration$ts_trial < 5.0, ],
+aes(x = ts_trial,
+y = trial_corr_pd,
+group = group,
+color = group)) +
+geom_smooth() +
+theme_bw() +
+xlab("trial duration [s]") +
+ylab("pupil dilation [mm]")+
+labs(title = "LAPR for group and trial") +
+facet_wrap(~ factor(trial,
+levels = c("baseline", "baseline_whiteslide", "baseline_blackslide" )))
+
+ggsave(
+  "output/lapr_subplots_trial_baseline_corrected_pd.tiff",
+  device = "tiff",
+  width = 6,
+  height = 4,
+  units = "in",
+  compression = "lzw",
+  dpi = 800
+)
+
 
 # DATA ANLAYSIS: Oddball phase
 table(df$phase)
@@ -500,7 +567,7 @@ table(df_oddball$trial)
 # merge with baseline PD
 df_oddball <- merge(df_oddball, df_meanpd, by = "id")
 
-# baselinecorrected pd
+# subject-baseline corrected pd
 df_oddball$rpd <- df_oddball$pd - df_oddball$mean_pd
 hist(df_oddball$rpd, 50)
 
