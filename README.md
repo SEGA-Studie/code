@@ -1,16 +1,17 @@
 # Purpose
-Analysis of the Auditory Oddball Task conducted for the SEGA Study (2022–2025): Pupil diameter as a proxy for Locus Coeruleus-Norepinephrine (LC-NE) activity in an ASD–NonASD group comparison. 
+Analysis of the Auditory Oddball Task conducted for the SEGA Study (2022–2025): Pupil diameter as a proxy for Locus Coeruleus-Norepinephrine (LC-NE) activity in an ASD–NonASD group comparison.
 
 # Requirements
 Installing Biomanager: https://www.bioconductor.org/install/  
 Installing libraries (see below)
+R version 4.3.0
 
 # The Eye Tracker
 model: Tobii Pro Spectrum  
 sampling rate: 300 Hz -> 300 samples per sec. -> one sample every 3,3 ms
 # Input data
 ## Eye tracking data
-Eye tracking (et) data is stored in a .hdf5 file. 
+Eye tracking data is stored in a .hdf5 format. 
 Event types suported by the eye tracker:  
 https://www.psychopy.org/api/iohub/device/eyetracker_interface/Tobii_Implementation_Notes.html
 ### Variables:
@@ -28,7 +29,7 @@ https://www.psychopy.org/api/iohub/device/eyetracker_interface/Tobii_Implementat
 *filter* id = 0
 
 ## Trial data
-trialdata is stored in a .csv file.  
+trialdata is stored in a .csv format.  
 *timestamp_exp* (trial data) + *logged_time* (ET data) represent time since start of experiment, used for matching with logged_time variabale from eye tracker.
 
 # Code structure

@@ -1,4 +1,4 @@
-# Script purpose: READ ADN ANALYZE DATA - SEGA PROJECT - AUDITORY ODDBALL
+# Script purpose: READ AND ANALYZE DATA - SEGA PROJECT - AUDITORY ODDBALL
 # Author: Nico Bast
 # Date Created: `r paste(Sys.Date())`
 # Copyright (c) Nico Bast, `r paste(format(Sys.Date(), "%Y"))`
@@ -345,14 +345,22 @@ func_pd_preprocess <- function(x) {
 list_split_trial <- pblapply(
   list_split_trial, func_pd_preprocess)
 
-# Anna insert rpd_low in list
+# trial-baseline correction
+counter <- 0
 list_split_trial <- lapply(list_split_trial, function(x) {
   rpd_low <- mean(x$pd[x$ts_trial < 0.250])
+  if (is.na(unique(rpd_low))) {
+    counter <<- counter + 1
+  }
   trial_corr_pd <- x$pd - rpd_low
   x[, "rpd_low"] <- rep(rpd_low, times = nrow(x))
   x[, "trial_corr_pd"] <- trial_corr_pd
   return(x)
 })
+# Percentage of missing trial baseline
+missing_trial_baselines <- 100 / (length(list_split_trial)) * counter
+print(paste0(round(missing_trial_baselines, digits = 2),
+             " % of trials with trial baseline == NA."))
 
 df <- dplyr::bind_rows(list_split_trial)
 
@@ -372,6 +380,7 @@ list_split_blocks <- lapply(list_split_blocks, function(x) {
 
 # melt to data.frame
 df <- dplyr::bind_rows(list_split_blocks)
+
 # melt to split by trial (for further processing)
 list_split_trial <- split(df, droplevels(interaction(df$id, df$trial_number)))
 
@@ -392,7 +401,7 @@ ggplot(
 # pupil diameter late in trial duration
 rpd_high <- sapply(list_split_trial, function(x) {
   mean(x$pd[x$ts_trial > 0.875 & x$ts_trial < 1.125])})
-# pupil diameter early in trial duration
+
 rpd_low <- sapply(list_split_trial, function(x) {
   mean(x$pd[x$ts_trial < 0.250])})
 
@@ -522,7 +531,7 @@ facet_wrap(~ factor(trial,
 levels = c("baseline", "baseline_whiteslide", "baseline_blackslide" )))
 
 ggsave(
-  "output/lapr_subplots_pd.tiff",
+  "output/Plot_1_lapr_subplots_pd.tiff",
   device = "tiff",
   width = 6,
   height = 4,
@@ -542,13 +551,13 @@ color = group)) +
 geom_smooth() +
 theme_bw() +
 xlab("trial duration [s]") +
-ylab("pupil dilation [mm]")+
-labs(title = "LAPR for group and trial") +
+ylab("trial-corr. pupil dilation [mm]") +
+labs(title = "Trial-corrected LAPR for group and trial") +
 facet_wrap(~ factor(trial,
-levels = c("baseline", "baseline_whiteslide", "baseline_blackslide" )))
+levels = c("baseline", "baseline_whiteslide", "baseline_blackslide")))
 
 ggsave(
-  "output/lapr_subplots_trial_baseline_corrected_pd.tiff",
+  "output/Plot_2_lapr_subplots_trial_corrected.tiff",
   device = "tiff",
   width = 6,
   height = 4,
@@ -767,247 +776,247 @@ plot(contrast(emmeans(lmm, ~ trial_type), "pairwise"))
 
 # Primary eeg analysis
 # Reag eeg data
-data_files_eeg <- list.files(
-  path = datapath_eeg, full.names = TRUE)
-list_eeg_data <- lapply(
-  data_files_eeg,
-  read.table,
-  header = TRUE,
-  fill = TRUE,
-  skip = 2)
+ data_files_eeg <- list.files(
+   path = datapath_eeg, full.names = TRUE)
+ list_eeg_data <- lapply(
+   data_files_eeg,
+   read.table,
+   header = TRUE,
+   fill = TRUE,
+   skip = 2)
 
-df_MMN_500oddball <- list_eeg_data[[1]]
-df_MMN_750oddball <- list_eeg_data[[2]]
-df_P3_500oddball <- list_eeg_data[[3]]
-df_P3_750oddball <- list_eeg_data[[4]]
-
-
-df_MMN_500oddball <- reshape2::melt(df_MMN_500oddball, id.vars = "File")
-df_MMN_750oddball <- reshape2::melt(df_MMN_750oddball, id.vars = "File")
-df_P3_500oddball <- reshape2::melt(df_P3_500oddball, id.vars = "File")
-df_P3_750oddball <- reshape2::melt(df_P3_750oddball, id.vars = "File")
-
-df_erp <- rbind(
-  df_MMN_500oddball,
-  df_MMN_750oddball,
-  df_P3_500oddball,
-  df_P3_750oddball)
-
-# define variables
-df_erp$electrode <- substr(df_erp$variable, 1, 7)
-df_erp$manipulation <- substr(
-  df_erp$variable,
-  nchar(as.character(df_erp$variable)) - 5,
-  nchar(as.character(df_erp$variable)))
-
-df_erp$pitch <- substr(
-  df_erp$variable, nchar(as.character(df_erp$variable)) - 12,
-  nchar(as.character(df_erp$variable)) - 9)
-df_erp$reverse <- as.logical(
-  ifelse(
-    nchar(as.character(df_erp$variable)) > 42, "T", "F"))
-
-df_erp$erp <- substr(df_erp$variable, 18, 20)
-df_erp$erp <- ifelse(df_erp$erp == "_MM", "MMN", df_erp$erp)
-df_erp$trial <- substr(df_erp$variable, 22, 26)
-df_erp$trial <- ifelse(grepl("db", df_erp$trial), "oddball", "standard")
-
-# remove characters
-df_erp$electrode <- gsub("_", "", df_erp$electrode)
-df_erp$manipulation <- gsub("_", "", df_erp$manipulation)
-df_erp$pitch <- gsub("_", "", df_erp$pitch)
-df_erp$erp <- gsub("_", "", df_erp$erp)
-
-# change decimal - ERP amplitude variable
-df_erp$value <- gsub(",", ".", df_erp$value)
-df_erp$value <- ifelse(df_erp$value == "???", NA, df_erp$value)
-df_erp$value <- as.numeric(df_erp$value)
-df_erp$erp_amplitude <- df_erp$value
-df_erp <- df_erp[, !(names(df_erp) == "value")]
-
-#extract id
-df_erp$id <- ifelse(
-  grepl("SEGA_AuditoryOddball", df_erp$File),
-  substr(df_erp$File, 21, 24), substr(df_erp$File, 6, 8))
-df_erp$id <- as.numeric(gsub("_", "", df_erp$id))
-
-# Which id has EEG and also ET data?
-names(table(df_erp$id)) %in% names(table(df$id)) # 3 # 4
-names(table(df$id)) %in% names(table(df_erp$id)) # 32 # 82
-table(df$id)
-
-# converge EEG with eye tracking oddball data on condition level
-# prepare ET data - allign variables
-df_oddball$manipulation <- ifelse(
-  df_oddball$block_counter < 8, "before", "after")
-df_oddball$pitch <- ifelse(
-  df_oddball$trial == "oddball",
-  df_oddball$oddball_frequency,
-  df_oddball$standard_frequency)
-df_oddball$reverse <- as.logical(ifelse(
-  df_oddball$block_counter %in% c(5, 12), "T", "F"))
-
-# create aggregated varaibles per condition (id, manipulation, reverse, phase)
-df_oddball$merger_id <- with(
-  df_oddball, interaction(id, manipulation, reverse, trial_type))
-oddball_per_condition_high <- with(
-  df_oddball[df_oddball$ts_trial > 0.75 & df_oddball$ts_trial < 1.25, ],
-  by(as.numeric(rpd), merger_id, mean, na.rm = TRUE))
-oddball_per_condition_low <- with(
-  df_oddball[df_oddball$ts_trial > 0 & df_oddball$ts_trial < 0.25, ], by(
-    as.numeric(rpd), merger_id, mean, na.rm = TRUE))
-oddball_per_condition <- as.numeric(
-  oddball_per_condition_high - oddball_per_condition_low)
-
-id_per_condition <- as.character(
-  with(df_oddball, by(id, merger_id, head, n = 1)))
-manipulation_per_condition <- as.character(
-  with(df_oddball, by(manipulation, merger_id, head, n = 1)))
-reverse_per_condition <- as.logical(
-  with(df_oddball, by(reverse, merger_id, head, n = 1)))
-trial_type_per_condition <- as.character(
-  with(df_oddball, by(trial_type, merger_id, head, n = 1)))
-
-df_rpd_agg <- data.frame(
-  id_per_condition,
-  manipulation_per_condition,
-  reverse_per_condition,
-  oddball_per_condition,
-  trial_type_per_condition)
-names(df_rpd_agg) <- c("id", "manipulation", "reverse", "rpd", "trial_type")
-df_rpd_agg$trial_type <- ifelse(
-  df_rpd_agg$trial_type == "oddball", "oddball", "standard")
-
-# rather plausible
-# merge
-df_erp$merger_id <- with(
-  df_erp, interaction(id, manipulation, trial, reverse))
-df_rpd_agg$merger_id <- with(
-  df_rpd_agg, interaction(id, manipulation, trial_type, reverse))
-df_rpd_agg <- df_rpd_agg[, !(names(df_rpd_agg) %in% c(
-  "id", "manipulation", "trial_type", "reverse"))]
-df_erp_rpd_agg <- merge(df_rpd_agg, df_erp, by = "merger_id")
-
-# pupillary response
-ggplot(
-  df_erp_rpd_agg,
-  aes(x = interaction(
-    manipulation, trial),
-    y = rpd,
-    fill = interaction(manipulation, trial))) +
-    geom_violin() +
-    geom_boxplot(alpha = 0.4) +
-    facet_wrap(~reverse)
-
-ggplot(
-  df_erp_rpd_agg, aes(rpd, fill = trial)) +
-  geom_density(alpha = 0.2,
-  adjust = 2) +
-  facet_wrap(~reverse + manipulation)
-
-# erp
-ggplot(
-  df_erp_rpd_agg[df_erp_rpd_agg$electrode == "L.Peak", ],
-  aes(x = interaction(manipulation, trial),
-  y = erp_amplitude,
-  fill = interaction(manipulation, trial))) +
-  geom_violin() +
-  geom_boxplot(alpha = 0.4) +
-  facet_wrap(~reverse)
-
-# display
-ggplot(
-  df_erp_rpd_agg[df_erp_rpd_agg$electrode == "L.Peak", ],
-  aes(x = rpd,
-  y = erp_amplitude)) +
-  geom_point() +
-  geom_smooth(method = "lm") +
-  facet_wrap(~trial + reverse + manipulation)
-ggplot(
-  df_erp_rpd_agg[df_erp_rpd_agg$electrode == "Pz.Peak", ],
-  aes(x = rpd,
-  y = erp_amplitude)) +
-  geom_point() +
-  geom_smooth(method = "lm") +
-  facet_wrap(~trial + reverse + manipulation)
-ggplot(
-  df_erp_rpd_agg[df_erp_rpd_agg$electrode == "L.Peak" &
-  df_erp_rpd_agg$trial == "standard" &
-  df_erp_rpd_agg$reverse == FALSE, ],
-  aes(x = scale(rpd),
-  y = scale(erp_amplitude))) +
-  geom_point() +
-  geom_smooth(method = "lm",
-  color = "chocolate2",
-  fill = "chocolate1") +
-  xlab("pupillary response (z)") +
-  ylab("P3 amplitude (z)") +
-  theme_bw()
-ggplot(
-  df_erp_rpd_agg[df_erp_rpd_agg$electrode == "L.Peak", ],
-  aes(x = rpd,
-  y = erp_amplitude)) +
-  geom_point() +
-  geom_smooth(method = "lm")
+ df_MMN_500oddball <- list_eeg_data[[1]]
+ df_MMN_750oddball <- list_eeg_data[[2]]
+ df_P3_500oddball <- list_eeg_data[[3]]
+ df_P3_750oddball <- list_eeg_data[[4]]
+ 
+ 
+ df_MMN_500oddball <- reshape2::melt(df_MMN_500oddball, id.vars = "File")
+ df_MMN_750oddball <- reshape2::melt(df_MMN_750oddball, id.vars = "File")
+ df_P3_500oddball <- reshape2::melt(df_P3_500oddball, id.vars = "File")
+ df_P3_750oddball <- reshape2::melt(df_P3_750oddball, id.vars = "File")
+ 
+ df_erp <- rbind(
+   df_MMN_500oddball,
+   df_MMN_750oddball,
+   df_P3_500oddball,
+   df_P3_750oddball)
+ 
+ # define variables
+ df_erp$electrode <- substr(df_erp$variable, 1, 7)
+ df_erp$manipulation <- substr(
+   df_erp$variable,
+   nchar(as.character(df_erp$variable)) - 5,
+   nchar(as.character(df_erp$variable)))
+ 
+ df_erp$pitch <- substr(
+   df_erp$variable, nchar(as.character(df_erp$variable)) - 12,
+   nchar(as.character(df_erp$variable)) - 9)
+ df_erp$reverse <- as.logical(
+   ifelse(
+     nchar(as.character(df_erp$variable)) > 42, "T", "F"))
+ 
+ df_erp$erp <- substr(df_erp$variable, 18, 20)
+ df_erp$erp <- ifelse(df_erp$erp == "_MM", "MMN", df_erp$erp)
+ df_erp$trial <- substr(df_erp$variable, 22, 26)
+ df_erp$trial <- ifelse(grepl("db", df_erp$trial), "oddball", "standard")
+ 
+ # remove characters
+ df_erp$electrode <- gsub("_", "", df_erp$electrode)
+ df_erp$manipulation <- gsub("_", "", df_erp$manipulation)
+ df_erp$pitch <- gsub("_", "", df_erp$pitch)
+ df_erp$erp <- gsub("_", "", df_erp$erp)
+ 
+ # change decimal - ERP amplitude variable
+ df_erp$value <- gsub(",", ".", df_erp$value)
+ df_erp$value <- ifelse(df_erp$value == "???", NA, df_erp$value)
+ df_erp$value <- as.numeric(df_erp$value)
+ df_erp$erp_amplitude <- df_erp$value
+ df_erp <- df_erp[, !(names(df_erp) == "value")]
+ 
+ #extract id
+ df_erp$id <- ifelse(
+   grepl("SEGA_AuditoryOddball", df_erp$File),
+   substr(df_erp$File, 21, 24), substr(df_erp$File, 6, 8))
+ df_erp$id <- as.numeric(gsub("_", "", df_erp$id))
+ 
+ # Which id has EEG and also ET data?
+ names(table(df_erp$id)) %in% names(table(df$id)) # 3 # 4
+ names(table(df$id)) %in% names(table(df_erp$id)) # 32 # 82
+ table(df$id)
+ 
+ # converge EEG with eye tracking oddball data on condition level
+ # prepare ET data - allign variables
+ df_oddball$manipulation <- ifelse(
+   df_oddball$block_counter < 8, "before", "after")
+ df_oddball$pitch <- ifelse(
+   df_oddball$trial == "oddball",
+   df_oddball$oddball_frequency,
+   df_oddball$standard_frequency)
+ df_oddball$reverse <- as.logical(ifelse(
+   df_oddball$block_counter %in% c(5, 12), "T", "F"))
+ 
+ # create aggregated varaibles per condition (id, manipulation, reverse, phase)
+ df_oddball$merger_id <- with(
+   df_oddball, interaction(id, manipulation, reverse, trial_type))
+ oddball_per_condition_high <- with(
+   df_oddball[df_oddball$ts_trial > 0.75 & df_oddball$ts_trial < 1.25, ],
+   by(as.numeric(rpd), merger_id, mean, na.rm = TRUE))
+ oddball_per_condition_low <- with(
+   df_oddball[df_oddball$ts_trial > 0 & df_oddball$ts_trial < 0.25, ], by(
+     as.numeric(rpd), merger_id, mean, na.rm = TRUE))
+ oddball_per_condition <- as.numeric(
+   oddball_per_condition_high - oddball_per_condition_low)
+ 
+ id_per_condition <- as.character(
+   with(df_oddball, by(id, merger_id, head, n = 1)))
+ manipulation_per_condition <- as.character(
+   with(df_oddball, by(manipulation, merger_id, head, n = 1)))
+ reverse_per_condition <- as.logical(
+   with(df_oddball, by(reverse, merger_id, head, n = 1)))
+ trial_type_per_condition <- as.character(
+   with(df_oddball, by(trial_type, merger_id, head, n = 1)))
+ 
+ df_rpd_agg <- data.frame(
+   id_per_condition,
+   manipulation_per_condition,
+   reverse_per_condition,
+   oddball_per_condition,
+   trial_type_per_condition)
+ names(df_rpd_agg) <- c("id", "manipulation", "reverse", "rpd", "trial_type")
+ df_rpd_agg$trial_type <- ifelse(
+   df_rpd_agg$trial_type == "oddball", "oddball", "standard")
+ 
+ # rather plausible
+ # merge
+ df_erp$merger_id <- with(
+   df_erp, interaction(id, manipulation, trial, reverse))
+ df_rpd_agg$merger_id <- with(
+   df_rpd_agg, interaction(id, manipulation, trial_type, reverse))
+ df_rpd_agg <- df_rpd_agg[, !(names(df_rpd_agg) %in% c(
+   "id", "manipulation", "trial_type", "reverse"))]
+ df_erp_rpd_agg <- merge(df_rpd_agg, df_erp, by = "merger_id")
+ 
+ # pupillary response
+ ggplot(
+   df_erp_rpd_agg,
+   aes(x = interaction(
+     manipulation, trial),
+     y = rpd,
+     fill = interaction(manipulation, trial))) +
+     geom_violin() +
+     geom_boxplot(alpha = 0.4) +
+     facet_wrap(~reverse)
+ 
+ ggplot(
+   df_erp_rpd_agg, aes(rpd, fill = trial)) +
+   geom_density(alpha = 0.2,
+   adjust = 2) +
+   facet_wrap(~reverse + manipulation)
+ 
+ # erp
+ ggplot(
+   df_erp_rpd_agg[df_erp_rpd_agg$electrode == "L.Peak", ],
+   aes(x = interaction(manipulation, trial),
+   y = erp_amplitude,
+   fill = interaction(manipulation, trial))) +
+   geom_violin() +
+   geom_boxplot(alpha = 0.4) +
+   facet_wrap(~reverse)
+ 
+ # display
+ ggplot(
+   df_erp_rpd_agg[df_erp_rpd_agg$electrode == "L.Peak", ],
+   aes(x = rpd,
+   y = erp_amplitude)) +
+   geom_point() +
+   geom_smooth(method = "lm") +
+   facet_wrap(~trial + reverse + manipulation)
+ ggplot(
+   df_erp_rpd_agg[df_erp_rpd_agg$electrode == "Pz.Peak", ],
+   aes(x = rpd,
+   y = erp_amplitude)) +
+   geom_point() +
+   geom_smooth(method = "lm") +
+   facet_wrap(~trial + reverse + manipulation)
+ ggplot(
+   df_erp_rpd_agg[df_erp_rpd_agg$electrode == "L.Peak" &
+   df_erp_rpd_agg$trial == "standard" &
+   df_erp_rpd_agg$reverse == FALSE, ],
+   aes(x = scale(rpd),
+   y = scale(erp_amplitude))) +
+   geom_point() +
+   geom_smooth(method = "lm",
+   color = "chocolate2",
+   fill = "chocolate1") +
+   xlab("pupillary response (z)") +
+   ylab("P3 amplitude (z)") +
+   theme_bw()
+ ggplot(
+   df_erp_rpd_agg[df_erp_rpd_agg$electrode == "L.Peak", ],
+   aes(x = rpd,
+   y = erp_amplitude)) +
+   geom_point() +
+   geom_smooth(method = "lm")
 
 # Visualization
-g1 <- ggplot(
-  df_baseline[df_baseline$phase == "baseline_calibration" &
-  df_baseline$ts_trial < 6, ],
-  aes(x = ts_trial,
-  y = pd,
-  group = trial,
-  color = trial)) +
-  geom_smooth() +
-  theme_bw() +
-  xlab("time (s)") +
-  ylab("pupil size (mm)") +
-  labs(title = "change of PD during initial baseline between IDs")
-g2 <- ggplot(
-  df_manip[df_manip$ts_trial < 18 & df_manip$trial != "baseline", ],
-  aes(x = ts_trial,
-  y = rpd,
-  group = trial,
-  color = trial)) +
-  geom_smooth() +
-  theme_bw() +
-  labs(x = "trial duration (s)",
-  y = "standardized pupillary response (z)",
-  title = "pupil response during manipulation")
-g3 <- ggplot(
-  df_manip[df_manip$trial_type != "baseline_start", ],
-  aes(x = trial_type,
-  y = rpd,
-  fill = trial_type)) +
-  geom_boxplot() +
-  theme_bw() +
-  labs(x = "manipulation phase (s)",
-  y = "standardized pupillary response (z)",
-  title = "pupil response in manipulation phases")
-g4 <- ggplot(
-  df_oddball[df_oddball$ts_trial < 1.8 & df_oddball$order == "normal", ],
-  aes(x = ts_trial,
-  y = scale(rpd),
-  group = trial_type,
-  color = trial_type)) +
-  geom_smooth() +
-  theme_bw() +
-  labs(x = "trial duration (s)",
-  y = "standardized pupil response (z)",
-  title = "effect of manipulation on stimulus-evoked pupillary response
-  (before vs. after manipulation)") +
-  facet_wrap(~manipulation) +
-  scale_color_brewer(palette = "Dark2")
-tiff(
-  file = paste0(home_path, project_path,
-  "/output/figure_audio_results_testdata.tiff"),
-  width = 12,
-  height = 16,
-  units = "in",
-  res = 300,
-  compression = "lzw")
-grid.arrange(g1, g2, g3, g4,
-layout_matrix = rbind(c(1, 1), c(2, 3), c(4, 4)))
-dev.off()
+ g1 <- ggplot(
+   df_baseline[df_baseline$phase == "baseline_calibration" &
+   df_baseline$ts_trial < 6, ],
+   aes(x = ts_trial,
+   y = pd,
+   group = trial,
+   color = trial)) +
+   geom_smooth() +
+   theme_bw() +
+   xlab("time (s)") +
+   ylab("pupil size (mm)") +
+   labs(title = "change of PD during initial baseline between IDs")
+ g2 <- ggplot(
+   df_manip[df_manip$ts_trial < 18 & df_manip$trial != "baseline", ],
+   aes(x = ts_trial,
+   y = rpd,
+   group = trial,
+   color = trial)) +
+   geom_smooth() +
+   theme_bw() +
+   labs(x = "trial duration (s)",
+   y = "standardized pupillary response (z)",
+   title = "pupil response during manipulation")
+ g3 <- ggplot(
+   df_manip[df_manip$trial_type != "baseline_start", ],
+   aes(x = trial_type,
+   y = rpd,
+   fill = trial_type)) +
+   geom_boxplot() +
+   theme_bw() +
+   labs(x = "manipulation phase (s)",
+   y = "standardized pupillary response (z)",
+   title = "pupil response in manipulation phases")
+ g4 <- ggplot(
+   df_oddball[df_oddball$ts_trial < 1.8 & df_oddball$order == "normal", ],
+   aes(x = ts_trial,
+   y = scale(rpd),
+   group = trial_type,
+   color = trial_type)) +
+   geom_smooth() +
+   theme_bw() +
+   labs(x = "trial duration (s)",
+   y = "standardized pupil response (z)",
+   title = "effect of manipulation on stimulus-evoked pupillary response
+   (before vs. after manipulation)") +
+   facet_wrap(~manipulation) +
+   scale_color_brewer(palette = "Dark2")
+ tiff(
+   file = paste0(home_path, project_path,
+   "/output/figure_audio_results_testdata.tiff"),
+   width = 12,
+   height = 16,
+   units = "in",
+   res = 300,
+   compression = "lzw")
+ grid.arrange(g1, g2, g3, g4,
+ layout_matrix = rbind(c(1, 1), c(2, 3), c(4, 4)))
+ dev.off()
 
 print("The End")
