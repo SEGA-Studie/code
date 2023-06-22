@@ -378,8 +378,16 @@ list_split_blocks <- lapply(list_split_blocks, function(x) {
   times = table(trial_index_in_block)))
   return(x)})
 
+# For memory reasons: Split list in half (list_split_1, list_split_2),
+# combine sub-lists of both lists to df_1 + df_2 respectively, and then combine list again. 
+list_split_blocks_1 <- list_split_blocks[1:((length(list_split_blocks))/2)]
+list_split_blocks_2 <- list_split_blocks[(((length(list_split_blocks))/2)+1):length(list_split_blocks)]
+df_1 <- data.table::rbindlist(list_split_blocks_1)
+df_2 <- data.table::rbindlist(list_split_blocks_2)
+
 # melt to data.frame
-df <- dplyr::bind_rows(list_split_blocks)
+df <- rbind(df_1, df_2)
+df$id <- as.character(df$id)
 
 # melt to split by trial (for further processing)
 list_split_trial <- split(df, droplevels(interaction(df$id, df$trial_number)))
@@ -388,8 +396,6 @@ list_split_trial <- split(df, droplevels(interaction(df$id, df$trial_number)))
 table(df$phase)
 # Number of et events per trial
 table(df$trial)
-# Frequency of trial duration < 5 seconds
-hist(df$ts_trial[df$ts_trial < 5])
 # Frequency of pupil diameter (mm) in 5 size categories
 hist(df$pd)
 # preprocessed pupil diameter for each participant
@@ -427,8 +433,9 @@ interaction(.thisTrialN, .thisRepN, block_counter))
 df_trial$merger_id <- interaction(df_trial$id, df_trial$trial_index)
 df_trial <- merge(df_trial, df_et_trial, id = "merger_id")
 
-# rpd = trial-baseline corrected pupil diameter
+# rpd = scaled trial-baseline corrected pupil diameter
 df_trial$rpd <- df_trial$rpd_high - df_trial$rpd_low
+
 
 # new variables manipulation indicates whether before or after manipulation
 df_trial$manipulation <- factor(
@@ -514,33 +521,7 @@ df_baseline <- merge(df_baseline, df_meanpd, by = "id")
 df_baseline_calibration <- df_baseline[
   df_baseline$phase == "baseline_calibration", ]
 
-# Plot 1: LAPR_Subplots with pd (without correction)
-ggplot(
-# Baseline trial duration is theoretically 5 seconds.
-df_baseline_calibration[df_baseline_calibration$ts_trial < 5.0, ],
-aes(x = ts_trial,
-y = pd,
-group = group,
-color = group)) +
-geom_smooth() +
-theme_bw() +
-xlab("trial duration [s]") +
-ylab("pupil dilation [mm]") +
-labs(title = "LAPR for group and trial") +
-facet_wrap(~ factor(trial,
-levels = c("baseline", "baseline_whiteslide", "baseline_blackslide" )))
-
-ggsave(
-  "output/Plot_1_lapr_subplots_pd.tiff",
-  device = "tiff",
-  width = 6,
-  height = 4,
-  units = "in",
-  compression = "lzw",
-  dpi = 800
-)
-
-# Plot 2: LAPR_Subplots with trial_baseline corrected pd
+# Plot 1: LAPR_Subplots with trial_baseline corrected pd
 ggplot(
 # Baseline trial duration is theoretically 5 seconds.
 df_baseline_calibration[df_baseline_calibration$ts_trial < 5.0, ],
@@ -565,7 +546,6 @@ ggsave(
   compression = "lzw",
   dpi = 800
 )
-
 
 # DATA ANLAYSIS: Oddball phase
 table(df$phase)
@@ -620,7 +600,7 @@ ggplot(df_oddball,
 aes(rpd, fill = interaction(manipulation))) +
 geom_density(alpha = 0.2) + facet_wrap(~trial)
 
-# VISUALIZATION
+# Visualization 1: Manipulation effect
 tiff(file = paste0(
   home_path,
   project_path,
@@ -630,7 +610,7 @@ tiff(file = paste0(
   units = "in",
   res = 300,
   compression = "lzw")
-# Only forward (normal) oddball blinks, not reverse
+# Only forward (normal) oddball blocks, not reverse
 ggplot(
   df_oddball[df_oddball$ts_trial < 1.8 & df_oddball$order == "normal", ],
   aes(x = ts_trial,
@@ -645,6 +625,69 @@ ggplot(
   facet_wrap(~manipulation)
 
 dev.off()
+
+# Visualization 2: Group effect
+tiff(file = paste0(
+  home_path,
+  project_path,
+  "/output/group_effect.tiff"),
+  width = 8,
+  height = 4,
+  units = "in",
+  res = 300,
+  compression = "lzw")
+# Only forward (normal) oddball blocks, not reverse
+ggplot(
+  df_oddball[df_oddball$ts_trial < 1.8 & df_oddball$order == "normal", ],
+  aes(x = ts_trial,
+      y = scale(rpd),
+      group = interaction(group, trial_type),
+      color = group,
+      linetype = trial_type)) +
+  geom_smooth() +
+  theme_bw() +
+  labs(x = "trial duration (s)",
+       y = "standardized pupil response (z)",
+       title = "effect of manipulation of pupil response")
+
+dev.off()
+
+# Visualization 3: Interaction effect
+tiff(file = paste0(
+  home_path,
+  project_path,
+  "/output/interaction_effect.tiff"),
+  width = 8,
+  height = 4,
+  units = "in",
+  res = 300,
+  compression = "lzw")
+# Only forward (normal) oddball blocks, not reverse
+ggplot(
+  df_oddball[df_oddball$ts_trial < 1.8 & df_oddball$order == "normal", ],
+  aes(x = ts_trial,
+      y = scale(rpd),
+      group = interaction(group, trial_type),
+      color = group,
+      linetype = trial_type)) +
+  geom_smooth() +
+  theme_bw() +
+  labs(x = "trial duration (s)",
+       y = "standardized pupil response (z)",
+       title = "effect of manipulation of pupil response") +
+  facet_wrap(~manipulation)
+dev.off()
+
+# LMM: Interaction effect of manipulation, trial_type and group
+# with random intercept id.
+lmm_interaction <- lmerTest::lmer(
+  rpd ~ trial_type * manipulation * group + (1|id),
+  data = df_oddball)
+anova(lmm_interaction) # p-value
+
+# Get confidence interval
+confint(contrast(emmeans::emmeans(lmm_interaction, ~ group + trial_type + manipulation), method = 'pairwise'))
+confint(contrast(emmeans::emmeans(lmm_interaction, ~ manipulation + trial_type | group), method = 'pairwise'))
 
 # neurophysiological habituation to standard trials within block
 ggplot(
