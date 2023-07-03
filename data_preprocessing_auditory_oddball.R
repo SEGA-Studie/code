@@ -17,6 +17,9 @@ library(emmeans, warn.conflicts = FALSE) # estimated marginal means (EMMs)
 library(ggplot2, warn.conflicts = FALSE) # creating graphs
 library(hexbin, warn.conflicts = FALSE) # binning + plotting functions
 library(gridExtra, warn.conflicts = FALSE) # multiple plots arrangement
+library(cowplot, warn.conflicts = FALSE) # get only legend from plot
+library(ggpubr, warn.conflicts = FALSE) # save legend from plot
+
 
 # PATHS
 if (Sys.info()["sysname"] == "Linux") {
@@ -362,6 +365,9 @@ missing_trial_baselines <- 100 / (length(list_split_trial)) * counter
 print(paste0(round(missing_trial_baselines, digits = 2),
              " % of trials with trial baseline == NA."))
 
+rm(missing_trial_baselines)
+rm(counter)
+
 df <- dplyr::bind_rows(list_split_trial)
 
 # split by block and id
@@ -380,14 +386,25 @@ list_split_blocks <- lapply(list_split_blocks, function(x) {
 
 # For memory reasons: Split list in half (list_split_1, list_split_2),
 # combine sub-lists of both lists to df_1 + df_2 respectively, and then combine list again. 
+# rm(df)
+rm(id_names)
+rm(df_list)
+
 list_split_blocks_1 <- list_split_blocks[1:((length(list_split_blocks))/2)]
 list_split_blocks_2 <- list_split_blocks[(((length(list_split_blocks))/2)+1):length(list_split_blocks)]
+
+rm(list_split_blocks)
+
 df_1 <- data.table::rbindlist(list_split_blocks_1)
+rm(list_split_blocks_1)
 df_2 <- data.table::rbindlist(list_split_blocks_2)
+rm(list_split_blocks_2)
 
 # melt to data.frame
 df <- rbind(df_1, df_2)
 df$id <- as.character(df$id)
+rm(df_1)
+rm(df_2)
 
 # melt to split by trial (for further processing)
 list_split_trial <- split(df, droplevels(interaction(df$id, df$trial_number)))
@@ -396,6 +413,8 @@ list_split_trial <- split(df, droplevels(interaction(df$id, df$trial_number)))
 table(df$phase)
 # Number of et events per trial
 table(df$trial)
+# Frequency of trial duration < 5 seconds
+hist(df$ts_trial[df$ts_trial < 5])
 # Frequency of pupil diameter (mm) in 5 size categories
 hist(df$pd)
 # preprocessed pupil diameter for each participant
@@ -426,6 +445,8 @@ df_et_trial <- data.frame(
   rpd_low,
   trial_number,
   trial_number_in_block)
+
+  rm(list_split_trial)
 
 # name to identify individual trials
 df_trial$trial_index <- with(df_trial,
@@ -538,7 +559,7 @@ facet_wrap(~ factor(trial,
 levels = c("baseline", "baseline_whiteslide", "baseline_blackslide")))
 
 ggsave(
-  "output/Plot_2_lapr_subplots_trial_corrected.tiff",
+  "output/plot_1_lapr_trial_corrected.tiff",
   device = "tiff",
   width = 6,
   height = 4,
@@ -550,8 +571,11 @@ ggsave(
 # DATA ANLAYSIS: Oddball phase
 table(df$phase)
 
-df_oddball <- df[df$phase %in% c("oddball_block", "oddball_block_rev"), ]
+df_oddball <- df[df$phase %in% c("oddball_block"), ]
 table(df_oddball$trial)
+
+# Rename column trial into trial_type for plotting
+# colnames(df_oddball)[colnames(df_oddball) == "trial"] ="trial_type"
 
 # merge with baseline PD
 df_oddball <- merge(df_oddball, df_meanpd, by = "id")
@@ -572,7 +596,7 @@ ifelse(df_oddball$block_counter > 8, "after", "manipulation")),
 levels = c("before", "after"))
 
 df_oddball$order <- ifelse(grepl("rev", df_oddball$trial), "reverse", "normal")
-table(df_oddball$order, df_oddball$block_counter)
+#table(df_oddball$order, df_oddball$block_counter)
 
 # define trials in oddball phase
 df_oddball$trial_index_oddballphase <- with(
@@ -600,94 +624,141 @@ ggplot(df_oddball,
 aes(rpd, fill = interaction(manipulation))) +
 geom_density(alpha = 0.2) + facet_wrap(~trial)
 
-# Visualization 1: Manipulation effect
-tiff(file = paste0(
-  home_path,
-  project_path,
-  "/output/figure_audio_effectofmanipulation_pupilresponse_testdata.tiff"),
-  width = 8,
-  height = 4,
-  units = "in",
-  res = 300,
-  compression = "lzw")
-# Only forward (normal) oddball blocks, not reverse
-ggplot(
+# Plot 2: Manipulation effect (no reversal blocks)
+manipulation_plot <- ggplot(
   df_oddball[df_oddball$ts_trial < 1.8 & df_oddball$order == "normal", ],
   aes(x = ts_trial,
       y = scale(rpd),
-      group = trial_type,
-      color = trial_type)) +
-  geom_smooth() +
+      group = trial,
+      color = trial)) +
+  scale_color_manual(values = c("orange", "blue")) + 
+  geom_smooth(method = "lm", formula = y ~ x + poly(x, 5)) +
   theme_bw() +
-  labs(x = "trial duration (s)",
-       y = "standardized pupil response (z)",
-  title = "effect of manipulation of pupil response") +
+  labs(x = "trial duration [s]",
+       y = "standardized pupil response (z)") +
   facet_wrap(~manipulation)
 
-dev.off()
-
-# Visualization 2: Group effect
-tiff(file = paste0(
-  home_path,
-  project_path,
-  "/output/group_effect.tiff"),
-  width = 8,
+  ggsave(
+  "output/plot_2_manipulation_effect.tiff",
+  device = "tiff",
+  width = 6,
   height = 4,
   units = "in",
-  res = 300,
-  compression = "lzw")
+  compression = "lzw",
+  dpi = 800
+)
+
+# get legend only and save it
+legend_manipulation_plot <- get_legend(manipulation_plot)
+as_ggplot(legend_manipulation_plot)
+ggsave(
+  "output/plot_2_legend.tiff",
+  device = "tiff",
+  width = 3,
+  height = 2,
+  units = "in",
+  compression = "lzw",
+  dpi = 800
+)
+dev.off()
+# Plot 3: Group effect
 # Only forward (normal) oddball blocks, not reverse
-ggplot(
+group_effect_plot <- ggplot(
   df_oddball[df_oddball$ts_trial < 1.8 & df_oddball$order == "normal", ],
   aes(x = ts_trial,
       y = scale(rpd),
-      group = interaction(group, trial_type),
+      group = interaction(group, trial),
       color = group,
-      linetype = trial_type)) +
+      linetype = trial)) +
   geom_smooth() +
   theme_bw() +
-  labs(x = "trial duration (s)",
-       y = "standardized pupil response (z)",
-       title = "effect of manipulation of pupil response")
+  labs(x = "trial duration [s]",
+       y = "standardized pupil response (z)")
 
-dev.off()
-
-# Visualization 3: Interaction effect
-tiff(file = paste0(
-  home_path,
-  project_path,
-  "/output/interaction_effect.tiff"),
-  width = 8,
+ggsave(
+  "output/plot_3_group_effect.tiff",
+  device = "tiff",
+  width = 6,
   height = 4,
   units = "in",
-  res = 300,
-  compression = "lzw")
+  compression = "lzw",
+  dpi = 800)
+
+  # get legend only and save it
+legend_group_effect_plot <- get_legend(group_effect_plot)
+as_ggplot(legend_group_effect_plot)
+ggsave(
+  "output/plot_3_legend.tiff",
+  device = "tiff",
+  width = 3,
+  height = 2,
+  units = "in",
+  compression = "lzw",
+  dpi = 800
+)
+dev.off()
+
+# Plot 4: Interaction effect
 # Only forward (normal) oddball blocks, not reverse
-ggplot(
+interaction_effect_plot <- ggplot(
   df_oddball[df_oddball$ts_trial < 1.8 & df_oddball$order == "normal", ],
   aes(x = ts_trial,
       y = scale(rpd),
-      group = interaction(group, trial_type),
+      group = interaction(group, trial),
       color = group,
-      linetype = trial_type)) +
-  geom_smooth() +
+      linetype = trial)) +
+  geom_smooth(method = 'lm', formula = y ~ x + poly(x, 5)) +
   theme_bw() +
-  labs(x = "trial duration (s)",
-       y = "standardized pupil response (z)",
-       title = "effect of manipulation of pupil response") +
-  facet_wrap(~manipulation)
+  labs(x = "trial duration [s]",
+       y = "standardized pupil response (z)") +
+  facet_wrap(~ manipulation)
+
+ggsave(
+  "output/plot_4_interaction_effect.tiff",
+  device = "tiff",
+  width = 6,
+  height = 4,
+  units = "in",
+  compression = "lzw",
+  dpi = 800)
+
+# get legend only and save it
+legend_interaction_effect_plot <- get_legend(interaction_effect_plot)
+as_ggplot(legend_interaction_effect_plot)
+ggsave(
+  "output/plot_4_legend.tiff",
+  device = "tiff",
+  width = 3,
+  height = 2,
+  units = "in",
+  compression = "lzw",
+  dpi = 800
+)
 dev.off()
 
-# LMM: Interaction effect of manipulation, trial_type and group
-# with random intercept id.
-lmm_interaction <- lmerTest::lmer(
-  rpd ~ trial_type * manipulation * group + (1|id),
+# LMM with sepr with fixed effects "group", "manipulation" + "trial" and
+# random intercept "id". 
+lmm_sepr <- lmerTest::lmer(
+  rpd ~ trial * manipulation * group + (1|id),
   data = df_oddball)
-anova(lmm_interaction) # p-value
+anova(lmm_sepr) # p-values
 
 # Get confidence interval
-confint(contrast(emmeans::emmeans(lmm_interaction, ~ group + trial_type + manipulation), method = 'pairwise'))
-confint(contrast(emmeans::emmeans(lmm_interaction, ~ manipulation + trial_type | group), method = 'pairwise'))
+confint(contrast(emmeans(lmm_sepr, ~ group + trial + manipulation), method = 'pairwise')) # all 3 effects
+confint(contrast(emmeans(lmm_sepr, ~ manipulation), method = 'pairwise')) # manipulation effect
+
+confint(contrast(emmeans(lmm_sepr, ~ manipulation + trial), method = 'pairwise'))
+
+confint(contrast(emmeans(lmm_sepr, ~ group + trial), method = 'pairwise')) # group effect
+
+# LMM_bps: Interaction effect of manipulation, trial_type and group 
+lmm_bps <- lmerTest::lmer(
+  rpd_low ~ trial * manipulation * group + (1|id),
+  data = df_oddball)
+anova(lmm_bps) # p-values
+confint(contrast(emmeans(lmm_bps, ~ group + trial + manipulation), method = 'pairwise')) # all 3 effects
+confint(contrast(emmeans(lmm_bps, ~ group), method = 'pairwise')) # group effect
+confint(contrast(emmeans(lmm_bps, ~ group | trial), method = 'pairwise')) # group effect
 
 # neurophysiological habituation to standard trials within block
 ggplot(
@@ -760,6 +831,7 @@ with(df_manip, table(trial, manipulation_trial_counter))
 
 # merge with baseline PD
 df_manip <- merge(df_manip, df_meanpd, by = "id")
+# rm(mean_pd)
 
 # baselinecorrected pd
 df_manip$rpd <- df_manip$pd - df_manip$mean_pd
