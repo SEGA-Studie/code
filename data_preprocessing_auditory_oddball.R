@@ -4,6 +4,8 @@
 # Copyright (c) Nico Bast, `r paste(format(Sys.Date(), "%Y"))`
 # Email: nico.bast@kgu.de
 
+## SETUP ####
+
 sessionInfo()
 
 # REQUIRED PACKAGES
@@ -43,7 +45,7 @@ if (Sys.info()["sysname"] == "Darwin") {
 datapath <- paste0(home_path, data_path) # .csv + .hdf5 input files
 datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
 
-# DATA IMPORT AND RESHAPING
+# DATA IMPORT AND RESHAPING ####
 # List all .hdf and .csv files
 data_files <- list.files(path = datapath, full.names = TRUE)
 
@@ -59,10 +61,11 @@ for (i in 1:length(data_files_et)) {
 h5closeAll()
 
 # List names for each subject are unique including date and time of recording.
-n_last <- 29
+#NICO: removed magic number here
+
 id_names <- substr(
   data_files_et,
-  nchar(data_files_et) - n_last + 1,
+  nchar(datapath) + 2,
   nchar(data_files_et))
 names(list_et_data) <- id_names
 
@@ -97,6 +100,7 @@ constant_variables <- c(
   "left_eye_cam_y", "right_eye_cam_y",
   "left_eye_cam_z", "right_eye_cam_z"
   )
+
 list_et_data <- lapply(
   list_et_data, function(x) {
     x[!(names(x) %in% constant_variables)]})
@@ -121,6 +125,7 @@ trial_variables <- c(
   "oddball_frequency",
   "standard_frequency"
   )
+
 for (i in 1:length(data_files_trial)) {
   list_trial_data[[i]] <- fread(data_files_trial[i], select = trial_variables)
   print(paste0("read TRIAL data file: ", i))
@@ -128,10 +133,9 @@ for (i in 1:length(data_files_trial)) {
 list_trial_data <- lapply(list_trial_data, data.frame)
 
 # List names for each subject are unique including date and time of recording.
-n <- 29
 id_names <- substr(
   data_files_trial,
-  nchar(data_files_trial) - n_last + 1,
+  nchar(datapath) + 2,
   nchar(data_files_trial))
 names(list_trial_data) <- id_names
 
@@ -146,6 +150,7 @@ fun_merge_all_ids <- function(et_data, trial_data) {
   end_ts <- c(trial_data$timestamp_exp[-1], NA) # trial end
   et_ts <- et_data$logged_time
   split_trial_data <- split(trial_data, seq(nrow(trial_data)))
+  
   fun_merge_data <- function(ts_1, ts_2, trial_data_splitted) {
     matched_time <- which(et_ts >= ts_1 & et_ts < ts_2)
     selected_et_data <- et_data[matched_time, ] # et data for trial duration
@@ -155,6 +160,9 @@ fun_merge_all_ids <- function(et_data, trial_data) {
         rep(x, length(matched_time))}, simplify = FALSE))
         merged_data <- data.frame(repeated_trial_data, selected_et_data)
   }
+  
+  print(paste0("merge: ", unique(trial_data$id))) #debugging print
+  
   df_one_id <- mapply(
     fun_merge_data,
     ts_1 = start_ts,
@@ -191,7 +199,7 @@ list_split_trial <- lapply(list_split_trial, function(x) {
   return(x)
   })
 
-# DATA PREPROCESSING
+# DATA PREPROCESSING ####
 # Blinks are defined as consecutive missing et data for 75–250 ms
 fun_blink_cor <- function(
   signal, lower_threshold = 23, upper_threshold = 75,
@@ -357,6 +365,7 @@ list_split_trial <- lapply(list_split_trial, function(x) {
   x[, "trial_corr_pd"] <- trial_corr_pd
   return(x)
 })
+
 # Percentage of missing trial baseline
 missing_trial_baselines <- 100 / (length(list_split_trial)) * counter
 print(paste0(round(missing_trial_baselines, digits = 2),
@@ -378,35 +387,50 @@ list_split_blocks <- lapply(list_split_blocks, function(x) {
   times = table(trial_index_in_block)))
   return(x)})
 
-# For memory reasons: Split list in half (list_split_1, list_split_2),
-# combine sub-lists of both lists to df_1 + df_2 respectively, and then combine list again. 
-list_split_blocks_1 <- list_split_blocks[1:((length(list_split_blocks))/2)]
-list_split_blocks_2 <- list_split_blocks[(((length(list_split_blocks))/2)+1):length(list_split_blocks)]
-df_1 <- data.table::rbindlist(list_split_blocks_1)
-df_2 <- data.table::rbindlist(list_split_blocks_2)
+# # For memory reasons: Split list in half (list_split_1, list_split_2),
+# # combine sub-lists of both lists to df_1 + df_2 respectively, and then combine list again. 
+# list_split_blocks_1 <- list_split_blocks[1:((length(list_split_blocks))/2)]
+# list_split_blocks_2 <- list_split_blocks[(((length(list_split_blocks))/2)+1):length(list_split_blocks)]
+# df_1 <- data.table::rbindlist(list_split_blocks_1)
+# df_2 <- data.table::rbindlist(list_split_blocks_2)
+# df <- rbind(df_1, df_2)
+
+df <- data.table::rbindlist(list_split_blocks)
 
 # melt to data.frame
-df <- rbind(df_1, df_2)
 df$id <- as.character(df$id)
 
 # melt to split by trial (for further processing)
 list_split_trial <- split(df, droplevels(interaction(df$id, df$trial_number)))
 
-# Number of et event per phase
-table(df$phase)
-# Number of et events per trial
-table(df$trial)
-# Frequency of pupil diameter (mm) in 5 size categories
-hist(df$pd)
-# preprocessed pupil diameter for each participant
-ggplot(
-  df[is.finite(df$pd), ],
-  aes(x = pd)) + geom_histogram(bins = 100) + facet_wrap(~id)
-
+  # Number of et event per phase
+  table(df$phase)
+  # Number of et events per trial
+  table(df$trial)
+  # Frequency of pupil diameter (mm) in 5 size categories
+  hist(df$pd)
+  # preprocessed pupil diameter for each participant
+  ggplot(
+    df[is.finite(df$pd), ],
+    aes(x = pd)) + geom_histogram(bins = 100) + facet_wrap(~id)
+  
+  sampled_rows<-sample(1:nrow(df),nrow(df)/50)
+  ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<2,],aes(x=ts_trial,y=pd,group=trial,color=trial))+geom_smooth()+facet_wrap(~block_counter)+theme_bw()  
+  ggplot(df[sampled_rows & df$phase=='oddball_block_rev' & df$ts_trial<2,],aes(x=ts_trial,y=pd,group=trial,color=trial))+geom_smooth()+facet_wrap(~block_counter)+theme_bw()  
+  ###--> select rpd high based on data inspection
+  
 # reduce ET data to per trial data (and merge with df_trial)
 # pupil diameter late in trial duration
+# rpd_high <- sapply(list_split_trial, function(x) {
+#   mean(x$pd[x$ts_trial > 0.875 & x$ts_trial < 1.125])})
+
+require(DescTools) #AUC function  
+rpd_auc <- sapply(list_split_trial, function(x) {
+  AUC(x$ts_trial,x$pd,na.rm=T)})
+rpd_auc<-ifelse(rpd_auc>15,NA,rpd_auc)
+
 rpd_high <- sapply(list_split_trial, function(x) {
-  mean(x$pd[x$ts_trial > 0.875 & x$ts_trial < 1.125])})
+  mean(x$pd[x$ts_trial > 0.500 & x$ts_trial < 1])})
 
 rpd_low <- sapply(list_split_trial, function(x) {
   mean(x$pd[x$ts_trial < 0.250])})
@@ -420,12 +444,17 @@ trial_number_in_block <- sapply(list_split_trial, function(x) {
 # merge data
 merger_id <- sapply(list_split_trial, function(x) {
   interaction(x$id, x$trial_index)[1]})
+
 df_et_trial <- data.frame(
   merger_id,
+  rpd_auc,
   rpd_high,
   rpd_low,
   trial_number,
   trial_number_in_block)
+
+##save trialwise structure
+df_trial_backup<-df_trial
 
 # name to identify individual trials
 df_trial$trial_index <- with(df_trial,
@@ -435,7 +464,6 @@ df_trial <- merge(df_trial, df_et_trial, id = "merger_id")
 
 # rpd = scaled trial-baseline corrected pupil diameter
 df_trial$rpd <- df_trial$rpd_high - df_trial$rpd_low
-
 
 # new variables manipulation indicates whether before or after manipulation
 df_trial$manipulation <- factor(
@@ -455,12 +483,18 @@ df_trial$oddball <- as.factor(ifelse(grepl(
   df_trial$trial),
   "oddball", "standard"))
 
+##save preprocess df_trial
+saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
+
+### DATA ANALYSIS ####
+
 table(df_trial$block_counter, df_trial$phase)
 table(df_trial$trial)
 # Number of trials for forward and reverse oddball blocks
 table(df_trial$reverse, df_trial$oddball)
 hist(df_trial$rpd, 50)
 with(df_trial, by(rpd, trial, mean, na.rm = TRUE))
+
 lmm <- lmer(
   rpd ~ oddball * manipulation * reverse + trial_number_in_block + (1 | id),
   data = df_trial[
@@ -496,7 +530,50 @@ ggplot(
     cols = vars(manipulation, oddball)) +
     theme_bw()
 
-# DATA ANALYSIS: Baseline phase
+# DATA ANALYSIS: Linear mixed model - trial data ####
+
+df_trial$id<-as.factor(df_trial$id) #change ID to factor
+df_trial$trial<-as.factor(df_trial$trial)
+
+table(df_trial$phase)
+
+#pupillary response
+lmm<-lmer(rpd~oddball*group*manipulation*reverse+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
+anova(lmm)
+
+  contrast(emmeans(lmm,~oddball),'pairwise') ##--> higher response to oddball
+  contrast(emmeans(lmm,~oddball|reverse),'pairwise') ##--> oddball response is specific to forward blocks
+  
+  contrast(emmeans(lmm,~group),'pairwise') ##--> TD with higher response to all trials
+  contrast(emmeans(lmm,~group|manipulation),'pairwise') ##--> higher response in TD before manipulation
+  
+  contrast(emmeans(lmm,~group|oddball+manipulation+reverse),'pairwise')
+  ###--> TD compared to ASD with higher response to standards in foward trials before manipulation
+  ###--> TD comapred to ASD with higehr repsonse to oddballs in reverse trials before manipulation
+  
+#baseline  
+lmm<-lmer(rpd_low~oddball*group*manipulation*reverse+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
+anova(lmm)
+
+    #--> does not differ by stimulus
+    contrast(emmeans(lmm,~manipulation),'pairwise') ##--> higher pupil size after manipulation
+    confint(contrast(emmeans(lmm,~manipulation|group),'pairwise')) ##--> this effect of manipulation is emphasized in ASD
+    
+    contrast(emmeans(lmm,~reverse),'pairwise') ##--> higher pupil size in foward trials
+    confint(contrast(emmeans(lmm,~reverse|group),'pairwise')) ##--> this difference is emphasized in TD
+    confint(contrast(emmeans(lmm,~reverse|manipulation),'pairwise')) ##--> this difference is emphasized before the manipulation
+    
+#area under the curve  
+lmm<-lmer(rpd_auc~oddball*group*manipulation*reverse+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
+anova(lmm)
+
+    contrast(emmeans(lmm,~manipulation),'pairwise') ##--> higher response after manipulation
+    confint(contrast(emmeans(lmm,~manipulation|group),'pairwise')) ##--> higher effect of manipulation in ASD
+    
+    confint(contrast(emmeans(lmm,~reverse|group),'pairwise')) 
+    
+      
+# DATA ANALYSIS: Baseline phase ####
 df_baseline <- df[df$phase %in% c("baseline", "baseline_calibration"), ]
 df_baseline <- df_baseline[is.finite(df_baseline$pd), ]
 
@@ -547,7 +624,7 @@ ggsave(
   dpi = 800
 )
 
-# DATA ANLAYSIS: Oddball phase
+# DATA ANLAYSIS: Oddball phase ####
 table(df$phase)
 
 df_oddball <- df[df$phase %in% c("oddball_block", "oddball_block_rev"), ]
@@ -596,6 +673,7 @@ ggplot(
   df_oddball,
   aes(x = trial_number_oddballphase, y = rpd)) +
   geom_smooth(method = "lm") + facet_wrap(~trial + manipulation)
+
 ggplot(df_oddball,
 aes(rpd, fill = interaction(manipulation))) +
 geom_density(alpha = 0.2) + facet_wrap(~trial)
@@ -611,6 +689,7 @@ tiff(file = paste0(
   res = 300,
   compression = "lzw")
 # Only forward (normal) oddball blocks, not reverse
+
 ggplot(
   df_oddball[df_oddball$ts_trial < 1.8 & df_oddball$order == "normal", ],
   aes(x = ts_trial,
@@ -720,8 +799,7 @@ ggplot(
 
 dev.off()
 
-# gaze data
-# raw pupil data
+# DATA ANALYSIS: gaze data - raw pupil data ####
 hist(df_oddball$left_pupil_measure1)
 hist(df_oddball$right_pupil_measure1)
 # raw gaze data
@@ -751,7 +829,7 @@ ggplot(
   ylim(-200, 200) +
   scale_fill_gradientn(colours = rev(rainbow(3)))
 
-# DATA ANALYSIS: Manipulation phase
+# DATA ANALYSIS: Manipulation phase ####
 df_manip <- df[df$phase %in% c("manipulation_block"), ]
 
 table(df_manip$trial)
@@ -817,7 +895,7 @@ lmm <- lmer(
 anova(lmm)
 plot(contrast(emmeans(lmm, ~ trial_type), "pairwise"))
 
-# Primary eeg analysis
+# DATA ANALYSIS: Primary EEG analysis ####
 # Reag eeg data
  data_files_eeg <- list.files(
    path = datapath_eeg, full.names = TRUE)
