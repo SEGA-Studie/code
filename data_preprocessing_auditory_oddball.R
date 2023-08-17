@@ -353,13 +353,32 @@ func_pd_preprocess <- function(x) {
 list_split_trial <- pblapply(
   list_split_trial, func_pd_preprocess)
 
-# trial-baseline correction
+# Sample size
+n_asd <- 0
+n_td <- 0
+
+for (subject in df_list){
+  if (subject$group[1] == 'TD')
+    n_td <<- n_td + 1
+  if (subject$group[1] == 'ASD')
+    n_asd <<- n_asd + 1
+}
+
+# trial-baseline correction and number of missing trial baselines
 counter <- 0
+counter_td <- 0
+counter_asd <- 0
+
 list_split_trial <- lapply(list_split_trial, function(x) {
   rpd_low <- mean(x$pd[x$ts_trial < 0.250])
   if (is.na(unique(rpd_low))) {
     counter <<- counter + 1
+    if (x$group[1] == 'TD')
+      counter_td <<- counter_td + 1
+    if (x$group[1] == 'ASD')
+      counter_asd <<- counter_asd + 1
   }
+  
   trial_corr_pd <- x$pd - rpd_low
   x[, "rpd_low"] <- rep(rpd_low, times = nrow(x))
   x[, "trial_corr_pd"] <- trial_corr_pd
@@ -367,10 +386,14 @@ list_split_trial <- lapply(list_split_trial, function(x) {
 })
 
 # Percentage of missing trial baseline
-missing_trial_baselines <- 100 / (length(list_split_trial)) * counter
-print(paste0(round(missing_trial_baselines, digits = 2),
-             " % of trials with trial baseline == NA."))
+percentage_trial <- 100 / (length(list_split_trial))
+print(paste0(round(percentage_trial * counter, digits = 2),
+             " % of all trials with trial baseline == NA: ",
+             round(percentage_trial * counter_asd, digits = 2), "% (ASD), ",
+             round(percentage_trial * counter_td, digits = 2), "% (TD)"
+             ))
 
+# Bind trials together to a df
 df <- dplyr::bind_rows(list_split_trial)
 
 # split by block and id
@@ -387,20 +410,12 @@ list_split_blocks <- lapply(list_split_blocks, function(x) {
   times = table(trial_index_in_block)))
   return(x)})
 
-# # For memory reasons: Split list in half (list_split_1, list_split_2),
-# # combine sub-lists of both lists to df_1 + df_2 respectively, and then combine list again. 
-# list_split_blocks_1 <- list_split_blocks[1:((length(list_split_blocks))/2)]
-# list_split_blocks_2 <- list_split_blocks[(((length(list_split_blocks))/2)+1):length(list_split_blocks)]
-# df_1 <- data.table::rbindlist(list_split_blocks_1)
-# df_2 <- data.table::rbindlist(list_split_blocks_2)
-# df <- rbind(df_1, df_2)
-
 df <- data.table::rbindlist(list_split_blocks)
 
 # melt to data.frame
 df$id <- as.character(df$id)
 
-# melt to split by trial (for further processing)
+# split by trial (for further processing)
 list_split_trial <- split(df, droplevels(interaction(df$id, df$trial_number)))
 
   # Number of et event per phase
@@ -485,6 +500,8 @@ df_trial$oddball <- as.factor(ifelse(grepl(
 
 ##save preprocess df_trial
 saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
+# Can be used to skip preprocessing and directly read proprocessed data from .rds file:
+# df_trial <- readRDS("preprocessed_auditory_ETdata.rds")
 
 ### DATA ANALYSIS ####
 
