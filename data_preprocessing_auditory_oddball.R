@@ -26,13 +26,24 @@ if (Sys.info()["sysname"] == "Linux") {
   project_path <- "/PowerFolders/project_sega"
   data_path <- "/PowerFolders/project_sega/data/AuditoryOddball"
   data_path_eeg <- "/PowerFolders/project_sega/data/AuditoryOddball_EEG"
+  datapath <- paste0(home_path, data_path) # .csv + .hdf5 input files
+  datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
+  # List all .hdf and .csv files
+  data_files <- list.files(path = datapath, full.names = TRUE)
 }
 
-if (Sys.info()["sysname"] == "Windows") {
+if (Sys.info()["user"] == "nico") {
   home_path <- "C:/Users/Nico"
   project_path <- "/PowerFolders/project_sega"
-  data_path <- "/PowerFolders/project_sega/data/AuditoryOddball"
-  data_path_eeg <- "/PowerFolders/project_sega/data/AuditoryOddball_EEG"
+  data_path <- "/PowerFolders/project_sega/data/et auditory oddball"
+  data_path_task<-"/PowerFolders/project_sega/data/task auditory oddball"
+  data_path_eeg <- "/PowerFolders/project_sega/data/tests/eeg preprocessed auditory oddball"
+  datapath <- paste0(home_path, data_path) # hdf5 input files
+  datapath_task <- paste0(home_path, data_path_task) # hdf5 input files
+  datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
+  # List all .hdf and .csv files
+  data_files <- c(list.files(path = datapath, full.names = TRUE),
+                  list.files(path = datapath_task, full.names = TRUE))
 }
 
 if (Sys.info()["sysname"] == "Darwin") {
@@ -40,14 +51,13 @@ if (Sys.info()["sysname"] == "Darwin") {
   project_path <- "/code"
   data_path <- "/code/input/AuditoryOddball"
   data_path_eeg <- "/code/input/AuditoryOddball_EEG"
+  datapath <- paste0(home_path, data_path) # .csv + .hdf5 input files
+  datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
+  # List all .hdf and .csv files
+  data_files <- list.files(path = datapath, full.names = TRUE)
 }
 
-datapath <- paste0(home_path, data_path) # .csv + .hdf5 input files
-datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
-
 # DATA IMPORT AND RESHAPING ####
-# List all .hdf and .csv files
-data_files <- list.files(path = datapath, full.names = TRUE)
 
 # Get eye tracking data and store them in a list of df (one per subject)
 data_files_et <- data_files[grepl(".hdf5", data_files)]
@@ -105,6 +115,7 @@ list_et_data <- lapply(
   list_et_data, function(x) {
     x[!(names(x) %in% constant_variables)]})
 
+
 # Get trial data and store them in a list of df (one per subject)
 data_files_trial <- data_files[grepl(".csv", data_files)]
 list_trial_data <- list(0)
@@ -135,15 +146,28 @@ list_trial_data <- lapply(list_trial_data, data.frame)
 # List names for each subject are unique including date and time of recording.
 id_names <- substr(
   data_files_trial,
-  nchar(datapath) + 2,
+  nchar(datapath) + 4,
   nchar(data_files_trial))
 names(list_trial_data) <- id_names
 
+  #check: which ET data and task data per participant do not match
+  task_data<-substr(data_files_trial,nchar(datapath_task)+2,nchar(data_files_trial)-4)
+  et_data<-substr(data_files_et,nchar(datapath)+2,nchar(data_files_et)-5)
+  unmatched_et<-et_data[!(et_data %in% task_data)]
+  unmatched_task<-task_data[!(task_data %in% et_data)]
+  #reduce data files for participant with ET and task data
+  list_et_data<-list_et_data[!(names(list_et_data) %in% paste0(unmatched_et,'.hdf5'))]
+  list_trial_data<-list_trial_data[!(names(list_trial_data) %in% paste0(unmatched_task,'.csv'))]
+  
+  #TODO: function below fails with this ID
+  list_et_data<-list_et_data[names(list_et_data)!="auditory_77_2023-04-17-1831.hdf5"]
+  list_trial_data<-list_trial_data[names(list_trial_data)!="auditory_77_2023-04-17-1831.csv"]
+  
 # subject data frames are row-wise combined
 df_trial <- plyr::rbind.fill(list_trial_data)
 
 # Eye tracking data (logged_time) are assigned to trials (timestamp_exp).
-# Only returns eye tracking data that can be matched to trial data
+# Before it needs to be checked that trial data matches to ET data
 fun_merge_all_ids <- function(et_data, trial_data) {
 # Time variables: eye tracking (logged_time) + trial data (timestamp_exp)
   start_ts <- trial_data$timestamp_exp # trial start
@@ -178,7 +202,11 @@ df_list <- pbmapply(
   et_data = list_et_data,
   trial_data = list_trial_data, SIMPLIFY = FALSE)
 
-df_list <- lapply(df_list, function(x) {
+#drop empty list elements (unmatched)
+df_list<-df_list[sapply(df_list,function(x){length(x)!=0})]
+
+#create trial_index and trial_number variables
+df_list <- pblapply(df_list, function(x) {
   # New variable trial_index
   x$trial_index <- with(x, droplevels(interaction(
     .thisTrialN, .thisRepN, block_counter)))
@@ -189,7 +217,7 @@ df_list <- lapply(df_list, function(x) {
 
 # Split trial data per trial -> list of all trials of all subjects.
 # Each list element contains a df of trial data
-list_split_trial <- lapply(df_list, function(x) {
+list_split_trial <- pblapply(df_list, function(x) {
   split(x, x$trial_number)})
 list_split_trial <- unlist(list_split_trial, recursive = FALSE)
 
@@ -429,7 +457,7 @@ list_split_trial <- split(df, droplevels(interaction(df$id, df$trial_number)))
     df[is.finite(df$pd), ],
     aes(x = pd)) + geom_histogram(bins = 100) + facet_wrap(~id)
   
-  sampled_rows<-sample(1:nrow(df),nrow(df)/50)
+  sampled_rows<-sample(1:nrow(df),nrow(df)/100)
   ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<2,],aes(x=ts_trial,y=pd,group=trial,color=trial))+geom_smooth()+facet_wrap(~block_counter)+theme_bw()  
   ggplot(df[sampled_rows & df$phase=='oddball_block_rev' & df$ts_trial<2,],aes(x=ts_trial,y=pd,group=trial,color=trial))+geom_smooth()+facet_wrap(~block_counter)+theme_bw()  
   ###--> select rpd high based on data inspection
@@ -499,7 +527,7 @@ df_trial$oddball <- as.factor(ifelse(grepl(
   "oddball", "standard"))
 
 ##save preprocess df_trial
-saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
+saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata_12092023.rds'))
 # Can be used to skip preprocessing and directly read proprocessed data from .rds file:
 # df_trial <- readRDS("preprocessed_auditory_ETdata.rds")
 
