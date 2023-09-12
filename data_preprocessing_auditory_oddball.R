@@ -532,27 +532,30 @@ ggplot(
 
 # DATA ANALYSIS: Linear mixed model - trial data ####
 
+#changed random intercept to a factor
 df_trial$id<-as.factor(df_trial$id) #change ID to factor
-df_trial$trial<-as.factor(df_trial$trial)
+#df_trial$trial<-as.factor(df_trial$trial)
 
 table(df_trial$phase)
 
-#pupillary response
-lmm<-lmer(rpd~oddball*group*manipulation*reverse+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
+#pupillary response - SEPR
+lmm<-lmer(scale(rpd)~oddball*group*manipulation*reverse+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
 anova(lmm)
 
   contrast(emmeans(lmm,~oddball),'pairwise') ##--> higher response to oddball
   contrast(emmeans(lmm,~oddball|reverse),'pairwise') ##--> oddball response is specific to forward blocks
+  contrast(emmeans(lmm,~reverse|oddball),'pairwise') ###--> oddball larger in forward 
   
   contrast(emmeans(lmm,~group),'pairwise') ##--> TD with higher response to all trials
   contrast(emmeans(lmm,~group|manipulation),'pairwise') ##--> higher response in TD before manipulation
+  contrast(emmeans(lmm,~manipulation|group),'pairwise') ##--> manipulation has an  effect in ASD
   
   contrast(emmeans(lmm,~group|oddball+manipulation+reverse),'pairwise')
   ###--> TD compared to ASD with higher response to standards in foward trials before manipulation
   ###--> TD comapred to ASD with higehr repsonse to oddballs in reverse trials before manipulation
   
-#baseline  
-lmm<-lmer(rpd_low~oddball*group*manipulation*reverse+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
+#baseline  - BPS
+lmm<-lmer(scale(rpd_low)~oddball*group*manipulation*reverse+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
 anova(lmm)
 
     #--> does not differ by stimulus
