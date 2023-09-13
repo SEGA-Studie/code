@@ -4,6 +4,13 @@
 # Copyright (c) Nico Bast, `r paste(format(Sys.Date(), "%Y"))`
 # Email: nico.bast@kgu.de
 
+###notes on
+
+# - 027 without task data
+# - 037 task aborted
+# - 056 program failed
+# - 016 --> et daten fehlten bisher
+
 ## SETUP ####
 
 sessionInfo()
@@ -457,10 +464,6 @@ list_split_trial <- split(df, droplevels(interaction(df$id, df$trial_number)))
     df[is.finite(df$pd), ],
     aes(x = pd)) + geom_histogram(bins = 100) + facet_wrap(~id)
   
-  sampled_rows<-sample(1:nrow(df),nrow(df)/100)
-  ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<2,],aes(x=ts_trial,y=pd,group=trial,color=trial))+geom_smooth()+facet_wrap(~block_counter)+theme_bw()  
-  ggplot(df[sampled_rows & df$phase=='oddball_block_rev' & df$ts_trial<2,],aes(x=ts_trial,y=pd,group=trial,color=trial))+geom_smooth()+facet_wrap(~block_counter)+theme_bw()  
-  ###--> select rpd high based on data inspection
   
 # reduce ET data to per trial data (and merge with df_trial)
 # pupil diameter late in trial duration
@@ -526,12 +529,21 @@ df_trial$oddball <- as.factor(ifelse(grepl(
   df_trial$trial),
   "oddball", "standard"))
 
-##save preprocess df_trial
+
+### VISUALIZATION ####
+
+##manipulation check
+sampled_rows<-sample(1:nrow(df),nrow(df)/100) #randomly select rows
+ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<2,],aes(x=ts_trial,y=pd,group=trial,color=trial))+geom_smooth()+facet_wrap(~block_counter)+theme_bw()  
+ggplot(df[sampled_rows & df$phase=='oddball_block_rev' & df$ts_trial<2,],aes(x=ts_trial,y=pd,group=trial,color=trial))+geom_smooth()+facet_wrap(~block_counter)+theme_bw()  
+###--> select rpd high based on data inspection
+
+##--> save preprocess df_trial ####
 saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata_12092023.rds'))
 # Can be used to skip preprocessing and directly read proprocessed data from .rds file:
 # df_trial <- readRDS("preprocessed_auditory_ETdata.rds")
 
-### DATA ANALYSIS ####
+### Data plausibility ####
 
 table(df_trial$block_counter, df_trial$phase)
 table(df_trial$trial)
@@ -539,6 +551,8 @@ table(df_trial$trial)
 table(df_trial$reverse, df_trial$oddball)
 hist(df_trial$rpd, 50)
 with(df_trial, by(rpd, trial, mean, na.rm = TRUE))
+
+### DATA ANALYSIS  ####
 
 lmm <- lmer(
   rpd ~ oddball * manipulation * reverse + trial_number_in_block + (1 | id),
@@ -588,16 +602,17 @@ lmm<-lmer(scale(rpd)~oddball*group*manipulation*reverse+(1|id),data=df_trial[df_
 anova(lmm)
 
   contrast(emmeans(lmm,~oddball),'pairwise') ##--> higher response to oddball
+  contrast(emmeans(lmm,~reverse),'pairwise') ##--> higher response in forward trials
   contrast(emmeans(lmm,~oddball|reverse),'pairwise') ##--> oddball response is specific to forward blocks
   contrast(emmeans(lmm,~reverse|oddball),'pairwise') ###--> oddball larger in forward 
   
-  contrast(emmeans(lmm,~group),'pairwise') ##--> TD with higher response to all trials
-  contrast(emmeans(lmm,~group|manipulation),'pairwise') ##--> higher response in TD before manipulation
-  contrast(emmeans(lmm,~manipulation|group),'pairwise') ##--> manipulation has an  effect in ASD
-  
-  contrast(emmeans(lmm,~group|oddball+manipulation+reverse),'pairwise')
-  ###--> TD compared to ASD with higher response to standards in foward trials before manipulation
-  ###--> TD comapred to ASD with higehr repsonse to oddballs in reverse trials before manipulation
+  # #these effects are not significant - as of Sept 2023
+  # contrast(emmeans(lmm,~group),'pairwise') ##--> TD with higher response to all trials
+  # contrast(emmeans(lmm,~group|manipulation),'pairwise') ##--> higher response in TD before manipulation
+  # contrast(emmeans(lmm,~manipulation|group),'pairwise') ##--> manipulation has an  effect in ASD
+  # contrast(emmeans(lmm,~group|oddball+manipulation+reverse),'pairwise')
+  # ###--> TD compared to ASD with higher response to standards in foward trials before manipulation
+  # ###--> TD comapred to ASD with higehr repsonse to oddballs in reverse trials before manipulation
   
 #baseline  - BPS
 lmm<-lmer(scale(rpd_low)~oddball*group*manipulation*reverse+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
@@ -620,7 +635,6 @@ anova(lmm)
     
     confint(contrast(emmeans(lmm,~reverse|group),'pairwise')) 
     
-      
 # DATA ANALYSIS: Baseline phase ####
 df_baseline <- df[df$phase %in% c("baseline", "baseline_calibration"), ]
 df_baseline <- df_baseline[is.finite(df_baseline$pd), ]
@@ -671,6 +685,23 @@ ggsave(
   compression = "lzw",
   dpi = 800
 )
+
+### plot with pd --> trial corrected effects are reversed
+ggplot(
+  # Baseline trial duration is theoretically 5 seconds.
+  df_baseline_calibration[df_baseline_calibration$ts_trial < 5.0, ],
+  aes(x = ts_trial,
+      y = pd,
+      group = group,
+      color = group)) +
+  geom_smooth() +
+  theme_bw() +
+  xlab("trial duration [s]") +
+  ylab("trial-corr. pupil dilation [mm]") +
+  labs(title = "LAPR for group and trial") +
+  facet_wrap(~ factor(trial,
+                      levels = c("baseline", "baseline_whiteslide", "baseline_blackslide")))
+
 
 # DATA ANLAYSIS: Oddball phase ####
 table(df$phase)
@@ -825,6 +856,7 @@ ggplot(
   group = interaction(manipulation, order),
   color = interaction(manipulation, order))) +
   geom_smooth() + theme_bw()
+
 tiff(file = paste0(home_path,
 project_path,
 "/output/figure_audio_neurophysiological_habituation_standards_Jan2023.tiff"),
@@ -877,7 +909,7 @@ ggplot(
   ylim(-200, 200) +
   scale_fill_gradientn(colours = rev(rainbow(3)))
 
-# DATA ANALYSIS: Manipulation phase ####
+# DATA ANALYSIS: manipulation phase ####
 df_manip <- df[df$phase %in% c("manipulation_block"), ]
 
 table(df_manip$trial)
@@ -943,7 +975,7 @@ lmm <- lmer(
 anova(lmm)
 plot(contrast(emmeans(lmm, ~ trial_type), "pairwise"))
 
-# DATA ANALYSIS: Primary EEG analysis ####
+# DATA ANALYSIS: PRELIMINARY EEG analysis ####
 # Reag eeg data
  data_files_eeg <- list.files(
    path = datapath_eeg, full.names = TRUE)
@@ -1189,3 +1221,283 @@ plot(contrast(emmeans(lmm, ~ trial_type), "pairwise"))
  dev.off()
 
 print("The End")
+
+# DATA ANALYSIS: PRELIMINARY CORTISOL analysis ####
+
+### - load hair and saliva cortisol data from xlsx ####
+
+require(readxl)
+#hair cortisol
+df_hair<-read_xlsx(path="C:/Users/nico/PowerFolders/project_sega/data/hair_cortisol_1439_23082023.xlsx",
+                   skip=11) #starting reading in line 12
+
+  #change variable to appropriate length
+  df_hair$`externe ID`<-substr(df_hair$`externe ID`,nchar(df_hair$`externe ID`)-7,nchar(df_hair$`externe ID`))
+  
+  #change names
+  names(df_hair)<-c('id','hair_mass','hair_comments','hair_cortisol','hair_cortisone')
+  
+#saliva cortisol
+df_saliva<-read_xlsx(path="C:/Users/nico/PowerFolders/project_sega/data/saliva_cortisol_20230912_Results_SEGA_Salimetrics.xlsx",
+                     skip=9) #starting reading in line 10
+
+  names(df_saliva)<-c('saliva_sample_id','id','saliva_date','saliva_time',
+                      'saliva_cortisol_1','saliva_cortisol_2','saliva_cortisol_avg','saliva_cv','saliva_comments')
+
+  #categorize sample
+  df_saliva$saliva_when<-rep(c('before','after'),nrow(df_saliva)/2)
+  
+  #get time as numeric variable
+  df_saliva$saliva_time_num<-as.numeric(format(df_saliva$saliva_time, "%H"))
+  
+  
+### - create SEGA id variable to match df_hair and df_saliva ####
+sega_id<-ifelse(nchar(levels(df_trial$id))==2,
+                paste0('0',levels(df_trial$id)),
+                ifelse(nchar(levels(df_trial$id))==1,
+                       paste0('00',levels(df_trial$id)),levels(df_trial$id)))
+
+sega_id<-paste0('SEGA_',sega_id)
+
+levels(df_trial$id)<-sega_id
+
+
+### - adapt SEGA id variable to mean pd data
+
+df_meanpd$sega_id<-ifelse(nchar(df_meanpd$id)==2,
+             paste0('0',df_meanpd$id),
+             ifelse(nchar(df_meanpd$id)==1,
+                    paste0('00',df_meanpd$id),df_meanpd$id))
+
+df_meanpd$sega_id<-paste0('SEGA_',df_meanpd$sega_id)
+
+
+### - estimate pupillometry measures from trial data #####
+df_agg<-aggregate(df_trial[,names(df_trial) %in% c('rpd_auc','rpd_high','rpd_low','rpd')],
+                by=with(df_trial,list(id,oddball,manipulation,reverse)),
+                mean,na.rm=T)
+
+names(df_agg)<-c('id','oddball','manipulation','reverse','rpd_auc','rpd_high','rpd_low','rpd')
+
+
+### - saliva change ####
+
+saliva_cortisol_change<-with(df_saliva,saliva_cortisol_avg[saliva_when=='after']-
+                               saliva_cortisol_avg[saliva_when=='before'])
+  
+id<-unique(df_saliva$id)
+
+df_saliva_change<-data.frame(id,saliva_cortisol_change)
+
+
+### - merge data ####
+df_agg_hair<-merge(df_agg,df_hair,by='id')
+df_agg_hair<-merge(df_agg_hair,df_meanpd,by.x='id',by.y='sega_id')
+df_agg_hair<-merge(df_agg_hair,df_saliva_change,by='id',all.x=T)
+
+
+df_agg_saliva<-merge(df_agg,df_saliva,by='id')
+df_agg<-merge(df_agg_saliva,df_hair,by='id')
+df_agg<-merge(df_agg,df_meanpd,by.x='id',by.y='sega_id')
+df_agg<-merge(df_agg,df_saliva_change,by='id')
+
+
+### - check data distribution ####
+
+hist(df_hair$hair_cortisol)
+hist(df_hair$hair_cortisol[df_hair$hair_cortisol<5])
+
+hist(df_saliva$saliva_cortisol_avg)
+hist(df_saliva$saliva_cortisol_avg[df_saliva$saliva_when=='before'])
+hist(df_saliva$saliva_cortisol_avg[df_saliva$saliva_when=='after'])
+
+hist(df_saliva$saliva_cv)
+
+### - data analysis ####
+
+length(unique(df_agg$id))
+names(df_agg)
+require(performance)
+
+#association of hair variables
+summary(lm(scale(hair_cortisol)~scale(hair_mass)+scale(hair_cortisone),df_agg[!duplicated(df_agg$id),]))
+###--> hair cortisone and cortisol highly correlated (0.98)
+
+#association of saliva variables
+lmm<-lmer(scale(saliva_cortisol_avg)~saliva_when*saliva_time_num+(1|id),df_agg)
+summary(lmm)
+r2_nakagawa(lmm)
+
+
+confint(contrast(emmeans(lmm,~saliva_when),'pairwise'))
+###--> saliva cortisol reduction after experiment
+contrast(emtrends(lmm,~saliva_when,var = 'saliva_time_num'),'pairwise')
+###--> time of day is more strongly associated with cortisol after experiment
+
+##effect of experiment
+ggplot(df_agg,aes(saliva_when,saliva_cortisol_avg,fill=saliva_when))+
+  geom_violin(adjust=2,alpha=0.5)+geom_boxplot(notch=T,width=0.4)+
+  labs(x='saliva sample',y='cortisol (nmol/l)')+
+  theme_bw()
+
+###asocaition of hair and saliva
+lmm<-lmer(scale(saliva_cortisol_avg)~saliva_when*saliva_time_num*scale(hair_cortisol)+(1|id),df_agg)
+summary(lmm)
+r2_nakagawa(lmm)
+
+emtrends(lmm,~saliva_time_num|saliva_when,var = 'hair_cortisol',at=list(saliva_time_num=c(10,14,18)))
+#before the experiment: 
+# - higher hair cortisol is associated with higher saliva cortisol in morning measurements
+# - higher hair cortisol is associated with lower saliva cortisol in evening measurements
+
+    hist(df_agg$saliva_time_num)
+    ggplot(df_agg[df_agg$saliva_time_num<12,],aes(hair_cortisol,saliva_cortisol_avg))+geom_point()+geom_smooth(method='lm')
+    ggplot(df_agg[df_agg$saliva_time_num>16,],aes(hair_cortisol,saliva_cortisol_avg))+geom_point()+geom_smooth(method='lm')
+    ###--> to few data points to draw strong conclusion
+
+###asocaition of pupillometric and saliva and hair
+lm<-lm(scale(mean_pd)~scale(hair_cortisol),
+          df_agg_hair[!(duplicated(df_agg_hair$id)),])
+summary(lm)
+
+lm<-lm(scale(mean_pd)~scale(saliva_cortisol_avg)*saliva_when,
+       df_agg[!(duplicated(interaction(df_agg$id,df_agg$saliva_when))),])
+summary(lm)
+###--> pd_baseline not associated with saliva and hair cortisol
+
+### - SEPR and hair and saliva cortisol ####
+
+df_agg$hair_cortisol_z<-scale(df_agg$hair_cortisol) #z standardize before to use emtrends later
+lmm<-lmer(scale(rpd)~(oddball*manipulation*reverse)*hair_cortisol_z+(1|id),df_agg)
+anova(lmm)
+r2_nakagawa(lmm)
+
+contrast(emmeans(lmm,~oddball),'pairwise')
+###--> substantial oddball effect
+emtrends(lmm,~manipulation,var = 'hair_cortisol_z')
+confint(contrast(emtrends(lmm,~manipulation,var = 'hair_cortisol_z'),'pairwise'))
+###--> higher hair cortisol is associated with higher rpd responses to all trials before manipulation
+
+ggplot(df_agg[df_agg$manipulation=='before' &
+                df_agg$hair_cortisol<15,],aes(hair_cortisol,rpd))+geom_point()+geom_smooth(method='lm')+
+  labs(x='hair corisol (pg/mg)',y='pupillary response (z)')+
+  theme_bw()
+###--> rather driven by outliers
+
+df_agg$saliva_cortisol_z<-scale(df_agg$saliva_cortisol_avg) #z standardize before to use emtrends later
+lmm<-lmer(scale(rpd)~(oddball*manipulation*reverse)*saliva_cortisol_z+saliva_cv+(1|id),
+          df_agg)
+anova(lmm)
+r2_nakagawa(lmm)
+
+plot(emtrends(lmm,~oddball|manipulation+reverse,var='saliva_cortisol_z'))
+##--> higher saliva cortisol is associated with higher oddball response before manipulation
+##--> higher saliva cortisol is associated with lower oddball response after manipulation
+
+  ggplot(df_agg[df_agg$manipulation=='before' & df_agg$reverse=='forward' &
+                  df_agg$saliva_cortisol_avg<10,],
+         aes(x=saliva_cortisol_avg,y=rpd,color=oddball))+geom_point()+geom_smooth(method='lm')+
+    labs(x='salivary cortisol (nmol/l)',y='pupillary repsonse (mm)')+
+    theme_bw()
+  #--> higher saliva cortisol differentiates pupillary responses
+
+  ggplot(df_agg[df_agg$manipulation=='after' & df_agg$reverse=='forward' &
+                  df_agg$saliva_cortisol_avg<10,],
+         aes(x=saliva_cortisol_avg,y=rpd,color=oddball))+geom_point()+geom_smooth(method='lm')+
+    labs(x='saliva cortisol (nmol/l)',y='pupillary repsonse (mm)')+
+    theme_bw()
+  ###--> higher saliva cortisol might attenuate the effect of the manipulation
+
+  
+### - BPS and hair and saliva cortisol ####  
+  
+lmm<-lmer(scale(rpd_low)~(oddball*manipulation*reverse)*hair_cortisol_z+(1|id),df_agg)
+anova(lmm)
+r2_nakagawa(lmm)
+
+contrast(emmeans(lmm,~reverse),'pairwise')
+emtrends(lmm,~reverse,var='hair_cortisol_z')
+confint(contrast(emtrends(lmm,~reverse,var='hair_cortisol_z'),'pairwise'))
+###--> higher hair cortisol leads to higher BPS in reverse condition
+
+
+lmm<-lmer(scale(rpd_low)~(oddball*manipulation*reverse)*saliva_cortisol_z+(1|id),
+          df_agg[df_agg$saliva_when=='before',])
+anova(lmm)
+r2_nakagawa(lmm)
+
+cbind(round(fixef(lmm)['saliva_cortisol_z'],2),
+      round(confint(lmm,parm = 'saliva_cortisol_z'),2))
+#--> higher saliva cortisol before is associated with lower BPS
+
+lmm<-lmer(scale(rpd_low)~(oddball*manipulation*reverse)*saliva_cortisol_z+(1|id),
+          df_agg[df_agg$saliva_when=='after',])
+anova(lmm)
+r2_nakagawa(lmm)
+
+contrast(emtrends(lmm,~manipulation,var='saliva_cortisol_z'),'pairwise')
+#--> the effect of saliva cortisol after is attenuated with the manipulation
+
+### cortisol change ####
+
+lm<-lm(scale(saliva_cortisol_change)~scale(rpd_low),df_agg[!duplicated(df_agg$id),])
+summary(lm)
+
+
+summary(lm(scale(saliva_cortisol_change)~scale(rpd_low)+scale(hair_cortisol),
+           df_agg[df_agg$manipulation=='before' & df_agg$reverse=='forward',]))
+summary(lm(scale(saliva_cortisol_change)~scale(rpd_low)+scale(hair_cortisol),
+           df_agg[df_agg$manipulation=='after' & df_agg$reverse=='forward',]))
+summary(lm(scale(saliva_cortisol_change)~scale(rpd_low)+scale(hair_cortisol),
+           df_agg[df_agg$manipulation=='after' & df_agg$reverse=='reverse',]))
+##--> higher BPS associated with attenuated cortisol decrease
+
+summary(lmer(scale(hair_cortisol)~scale(rpd)*oddball*manipulation*reverse+(1|id),df_agg))
+
+
+###--> analysis in ERC GRant 2024 ####
+
+##assocaition of hair cortisol and pupillary response
+df_agg$hair_cortisol_z<-scale(df_agg$hair_cortisol) #z standardize before to use emtrends later
+lmm<-lmer(scale(rpd)~(oddball*manipulation*reverse)*hair_cortisol_z+(1|id),df_agg)
+anova(lmm)
+r2_nakagawa(lmm)
+
+contrast(emmeans(lmm,~oddball),'pairwise')
+###--> substantial oddball effect
+emtrends(lmm,~manipulation,var = 'hair_cortisol_z')
+confint(contrast(emtrends(lmm,~manipulation,var = 'hair_cortisol_z'),'pairwise'))
+###--> higher hair cortisol is associated with higher rpd responses to all trials before manipulation
+
+#association of baseline pupil size and saliva cortisol change 
+lm<-lm(scale(saliva_cortisol_change)~scale(rpd_low),df_agg[!duplicated(df_agg$id),])
+summary(lm)
+
+#association of saliva cortisol before the task and baseline pupil size
+lmm<-lmer(scale(rpd_low)~(oddball*manipulation*reverse)*saliva_cortisol_z+(1|id),
+          df_agg[df_agg$saliva_when=='before',])
+anova(lmm)
+r2_nakagawa(lmm)
+
+cbind(round(fixef(lmm)['saliva_cortisol_z'],2),
+      round(confint(lmm,parm = 'saliva_cortisol_z'),2))
+#--> higher saliva cortisol before is associated with lower BPS
+
+#association of saliva cortisol and pupillary response
+df_agg$saliva_cortisol_z<-scale(df_agg$saliva_cortisol_avg) #z standardize before to use emtrends later
+lmm<-lmer(scale(rpd)~(oddball*manipulation*reverse)*saliva_cortisol_z+saliva_cv+(1|id),
+          df_agg)
+anova(lmm)
+r2_nakagawa(lmm)
+
+plot(emtrends(lmm,~oddball|manipulation+reverse,var='saliva_cortisol_z'))
+##--> higher saliva cortisol is associated with higher oddball response before manipulation
+##--> higher saliva cortisol is associated with lower oddball response after manipulation
+
+ggplot(df_agg[df_agg$manipulation=='before' & df_agg$reverse=='forward' &
+                df_agg$saliva_cortisol_avg<10,],
+       aes(x=saliva_cortisol_avg,y=rpd,color=oddball))+geom_point()+geom_smooth(method='lm')+
+  labs(x='salivary cortisol (nmol/l)',y='pupillary repsonse (mm)')+
+  theme_bw()
+#--> higher saliva cortisol differentiates pupillary responses
+
