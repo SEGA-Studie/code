@@ -1,0 +1,108 @@
+---
+title: "data_preprocessing_database"
+author: "Nico Bast"
+date: "2023-09-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+require(dplyr) #select
+require(readxl)
+require(readODS)
+
+#set theme
+theme_set(theme_bw())
+
+#location of data folder
+datapath<-'C:/Users/nico/PowerFolders/project_sega/data/DB_exports/14092023/'
+#savepath<-'C:/Users/nico/PowerFolders/data_AFFIP/'
+list.files(datapath)
+
+```
+
+# Load checklist as master merge file (Sept 2023)
+
+```{r prepare database output}
+
+##LOAD checklist####
+checklist<-read_xlsx(paste0(datapath,'Checkliste.xlsx'))
+checklist <- checklist[order(checklist$ID_Studie),]
+#checklist <- select(checklist, ID_Bado, ID_Studie, Geschlecht_Index)
+names(checklist)[names(checklist) == "ID_Studie"] <- "id" #rename id (in order to merge later with eye-tracking data)
+
+##correct wrong data base entries --> after megre
+checklist$id[checklist$id=='SEGA-064']<-'SEGA_064'
+checklist$id[checklist$id=='SEGA_2016']<-'SEGA_016'
+
+```
+
+# load CBCL data
+
+```{r load_cbcl}
+
+cbcl <- read_xlsx(paste0(datapath,'CBCL_4_18.xlsx'))
+cbcl <- select(cbcl, ID_Bado, CBCL_T_INT, CBCL_T_EXT, CBCL_T_GES)
+
+```
+
+# load and adapt SDQ data
+
+higher order Internalizing and Externalizing scores in SDQ, see: 
+https://doi.org/10.1007/s10802-010-9434-x
+
+```{r load_sdq}
+
+sdq <- read_xlsx(paste0(datapath,'SDQ.xlsx'))
+
+sdq$SDQ_int<-with(sdq,SDQ_emot+SDQ_Verh_Gleich)
+sdq$SDQ_ext<-with(sdq,SDQ_Hyp+SDQ_Verh)
+
+sdq <- select(sdq, ID_Bado, Beurteiler, SDQ_int, SDQ_ext, SDQ_emot, SDQ_Verh_Gleich, SDQ_Hyp, SDQ_Verh, SDQ_Pro)
+
+```
+
+#load and adapt Add_on Data
+
+```{r load_addon}
+
+addon <- read_xlsx(paste0(datapath,'Addon_daten.xlsx'))
+
+names(addon)[names(addon)=='Gruppe']<-'group_addon'
+
+```
+
+#merge data
+
+```{r merge data}
+
+df_dem<-merge(checklist,cbcl,by="ID_Bado",all.x=T)
+df_dem<-merge(df_dem,addon,by="ID_Bado",all.x=T)
+
+##long format of SDQ as parent and self ratings
+sdq_parent<-sdq[sdq$Beurteiler=='Eltern',]
+sdq_self<-sdq[sdq$Beurteiler=='selbst',]
+
+names(sdq_parent)<-c('ID_Bado','Beurteiler','SDQ_int_p','SDQ_ext_p','SDQ_emot_p','SDQ_verh_Gleich_p','SDQ_Hyp_p','SDQ_Verh_p','SDQ_Pro_p')
+names(sdq_self)<-c('ID_Bado','Beurteiler','SDQ_int_s','SDQ_ext_s','SDQ_emot_s','SDQ_verh_Gleich_s','SDQ_Hyp_s','SDQ_Verh_s','SDQ_Pro_s')
+
+sdq_parent<-sdq_parent[,!(names(sdq_parent)=='Beurteiler')]
+sdq_self<-sdq_self[,!(names(sdq_self)=='Beurteiler')]
+sdq<-merge(sdq_parent,sdq_self,by='ID_Bado',all.x=T)
+
+df_dem<-merge(df_dem,sdq,by='ID_Bado',all.x=T)
+
+```
+
+save dataframe for matching
+
+```{r save data}
+
+saveRDS(df_dem, file = "C:/Users/nico/PowerFolders/project_sega/data/demographics_14092023.rds")
+
+```
+
+
+

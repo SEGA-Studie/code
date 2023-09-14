@@ -1485,7 +1485,7 @@ cbind(round(fixef(lmm)['saliva_cortisol_z'],2),
 
 #association of saliva cortisol and pupillary response
 df_agg$saliva_cortisol_z<-scale(df_agg$saliva_cortisol_avg) #z standardize before to use emtrends later
-lmm<-lmer(scale(rpd)~(oddball*manipulation*reverse)*saliva_cortisol_z+saliva_cv+(1|id),
+lmm<-lmer(scale(rpd)~(oddball*manipulation*reverse)*saliva_cortisol_z+(1|id),
           df_agg)
 anova(lmm)
 r2_nakagawa(lmm)
@@ -1500,4 +1500,61 @@ ggplot(df_agg[df_agg$manipulation=='before' & df_agg$reverse=='forward' &
   labs(x='salivary cortisol (nmol/l)',y='pupillary repsonse (mm)')+
   theme_bw()
 #--> higher saliva cortisol differentiates pupillary responses
+
+### add demographic data ####
+
+#data is generated with: data_preprocessing_database.Rmd
+df_dem<-read.ods("C:/Users/nico/PowerFolders/project_sega/data/demographics_14092023.rds")
+
+df_agg<-merge(df_agg,df_dem,by='id',all.x=T)
+
+### - association of cortisol with BMI ####
+df_agg$BMI<-with(df_agg,Gewicht/((Groeße/100)*(Groeße/100)))
+hist(df_agg$BMI)
+
+
+lm<-lm(scale(saliva_cortisol_avg)~scale(BMI),
+        df_agg[df_agg$saliva_when=='before' & df_agg$manipulation=='before' & df_agg$oddball=='oddball' & df_agg$reverse=='forward',])
+summary(lm)
+###--> higher BMI is associated with higher cortisol before assessments
+
+lm<-lm(scale(saliva_cortisol_change)~scale(BMI),
+        df_agg[!duplicated(df_agg$id),])
+summary(lm)
+###--> higher BMI also associated with stronger cortisol dropoff
+
+lm<-lm(scale(hair_cortisol)~scale(BMI),
+       df_agg[!duplicated(df_agg$id),])
+summary(lm)
+###--> but not associated with hair cortisol
+
+lm<-lm(scale(mean_pd)~scale(BMI),
+       df_agg[!duplicated(df_agg$id),])
+summary(lm)
+###--> but not associated with baseline pupil size
+
+
+### - analysis Internalizing and Externalizing with measures ####
+
+hist(df_agg$SDQ_int_p)
+hist(df_agg$SDQ_ext_p)
+hist(df_agg$SDQ_int_s)
+hist(df_agg$SDQ_ext_s)
+
+hist(df_agg$CBCL_T_GES)
+hist(df_agg$CBCL_T_INT)
+hist(df_agg$CBCL_T_EXT)
+
+df_agg$SDQ_int_s_z<-scale(df_agg$SDQ_int_s)
+lmm<-lmer(scale(rpd_low)~oddball*manipulation*reverse+SDQ_int_s+SDQ_ext_s+(1|id),
+       df_agg)
+anova(lmm)
+
+emtrends(lmm,~manipulation,var="SDQ_int_s_z")
+
+lm<-lm(scale(CBCL_T_EXT)~scale(mean_pd),
+          df_agg[!(duplicated(df_agg$id)),])
+summary(lm)
+
+###--> currently not enough data to draw strong conclusions
 
