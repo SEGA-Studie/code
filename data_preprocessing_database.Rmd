@@ -44,7 +44,7 @@ checklist$id[checklist$id=='SEGA_2016']<-'SEGA_016'
 ```{r load_cbcl}
 
 cbcl <- read_xlsx(paste0(datapath,'CBCL_4_18.xlsx'))
-cbcl <- select(cbcl, ID_Bado, CBCL_T_INT, CBCL_T_EXT, CBCL_T_GES)
+cbcl <- select(cbcl, ID_Bado, CBCL_EXT, CBCL_INT, CBCL_GES, CBCL_T_INT, CBCL_T_EXT, CBCL_T_GES)
 
 ```
 
@@ -74,6 +74,17 @@ names(addon)[names(addon)=='Gruppe']<-'group_addon'
 
 ```
 
+# load and adapt YSR data
+
+```{r load YSR}
+
+ysr <- read_xlsx(paste0(datapath,'YSR_JM_11_18.xlsx'))
+ysr<- select(ysr, ID_Bado, YSR_INT, YSR_EXT, YSR_GES, YSR_T_INT, YSR_T_EXT, YSR_T_GES)
+
+```
+
+
+
 #merge data
 
 ```{r merge data}
@@ -93,6 +104,8 @@ sdq_self<-sdq_self[,!(names(sdq_self)=='Beurteiler')]
 sdq<-merge(sdq_parent,sdq_self,by='ID_Bado',all.x=T)
 
 df_dem<-merge(df_dem,sdq,by='ID_Bado',all.x=T)
+
+df_dem<-merge(df_dem,ysr,by='ID_Bado',all.x=T)
 
 ```
 

@@ -541,7 +541,7 @@ ggplot(df[sampled_rows & df$phase=='oddball_block_rev' & df$ts_trial<2,],aes(x=t
 ##--> save preprocess df_trial ####
 saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata_12092023.rds'))
 # Can be used to skip preprocessing and directly read proprocessed data from .rds file:
-# df_trial <- readRDS("preprocessed_auditory_ETdata.rds")
+#ädf_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata_12092023.rds'))
 
 ### Data plausibility ####
 
@@ -1460,6 +1460,7 @@ summary(lmer(scale(hair_cortisol)~scale(rpd)*oddball*manipulation*reverse+(1|id)
 ##assocaition of hair cortisol and pupillary response
 df_agg$hair_cortisol_z<-scale(df_agg$hair_cortisol) #z standardize before to use emtrends later
 lmm<-lmer(scale(rpd)~(oddball*manipulation*reverse)*hair_cortisol_z+(1|id),df_agg)
+
 anova(lmm)
 r2_nakagawa(lmm)
 
@@ -1501,12 +1502,14 @@ ggplot(df_agg[df_agg$manipulation=='before' & df_agg$reverse=='forward' &
   theme_bw()
 #--> higher saliva cortisol differentiates pupillary responses
 
-### add demographic data ####
+### ADD demographic data (database export) ####
 
 #data is generated with: data_preprocessing_database.Rmd
 df_dem<-read.ods("C:/Users/nico/PowerFolders/project_sega/data/demographics_14092023.rds")
 
-df_agg<-merge(df_agg,df_dem,by='id',all.x=T)
+df_agg<-merge(df_agg,df_dem,by='id',all.x=T) # only data with saliva and hair data
+df_trial<-merge(df_trial,df_dem,by='id',all.x=T) #all data 
+df_trial<-merge(df_trial,df_meanpd,by.x='id',by.y='sega_id',all.x=T) #ad mean PD data
 
 ### - association of cortisol with BMI ####
 df_agg$BMI<-with(df_agg,Gewicht/((Groeße/100)*(Groeße/100)))
@@ -1534,27 +1537,124 @@ summary(lm)
 ###--> but not associated with baseline pupil size
 
 
-### - analysis Internalizing and Externalizing with measures ####
+### - analysis Internalizing and Externalizing with core measures ####
 
-hist(df_agg$SDQ_int_p)
-hist(df_agg$SDQ_ext_p)
-hist(df_agg$SDQ_int_s)
-hist(df_agg$SDQ_ext_s)
+### explore in df_trial
+lmm<-lmer(scale(rpd)~oddball*(SDQ_int_s+SDQ_ext_s)+(1|id),
+          df_trial[df_trial$manipulation=='before' & df_trial$reverse=='forward',])
+summary(lmm)
+anova(lmm)
+r2_nakagawa(lmm)
 
-hist(df_agg$CBCL_T_GES)
-hist(df_agg$CBCL_T_INT)
-hist(df_agg$CBCL_T_EXT)
+fixef(lmm)
+emtrends(lmm,~oddball,var="SDQ_ext_s")
+###--> contrary to hypothesis - SDQ ext self reports are associated with higher pupillary responses to oddballs
 
-df_agg$SDQ_int_s_z<-scale(df_agg$SDQ_int_s)
-lmm<-lmer(scale(rpd_low)~oddball*manipulation*reverse+SDQ_int_s+SDQ_ext_s+(1|id),
-       df_agg)
+lmm<-lmer(scale(rpd_low)~oddball*(SDQ_int_s+SDQ_ext_s)+(1|id),
+          df_trial[df_trial$manipulation=='before' & df_trial$reverse=='forward',])
+anova(lmm)
+###--> no association
+
+lmm<-lmer(scale(rpd)~oddball*(CBCL_T_INT+CBCL_T_EXT+CBCL_T_GES)+(1|id),
+          df_trial[df_trial$manipulation=='before' & df_trial$reverse=='forward',])
+summary(lmm)
+anova(lmm)
+###--> no association
+
+lmm<-lmer(scale(rpd_low)~oddball*(CBCL_T_INT+CBCL_T_EXT+CBCL_T_GES)+(1|id),
+          df_trial[df_trial$manipulation=='before' & df_trial$reverse=='forward',])
+summary(lmm)
+anova(lmm)
+###--> no association
+
+df_trial$YSR_T_INT_z<-scale(df_trial$YSR_T_INT)
+df_trial$YSR_T_EXT_z<-scale(df_trial$YSR_T_EXT)
+df_trial$YSR_T_GES_z<-scale(df_trial$YSR_T_GES)
+lmm<-lmer(scale(rpd)~oddball*(YSR_T_INT_z+YSR_T_EXT_z+YSR_T_GES_z)+(1|id),
+          df_trial[df_trial$manipulation=='before' & df_trial$reverse=='forward',])
+summary(lmm)
+anova(lmm)
+r2_nakagawa(lmm)
+
+emtrends(lmm,~oddball,var="YSR_T_INT_z")
+emtrends(lmm,~oddball,var="YSR_T_GES_z")
+## higher self-rated Internalizing is associated with lower pupillary response to oddballs
+## higher self-rated p-factor assocaited with higher pupilalry response to oddballs
+        
+    ###--> explore for an per-participant aggregated measure
+    df_agg_firstblock<-aggregate(df_trial[df_trial$manipulation=='before' & df_trial$reverse=='forward',
+                            names(df_trial) %in% c('rpd_auc','rpd_high','rpd_low','rpd')],
+                  by=with(df_trial[df_trial$manipulation=='before' & df_trial$reverse=='forward',],
+                          list(id,oddball)),
+                  mean,na.rm=T)
+    names(df_agg_firstblock)<-c('id','oddball','rpd_auc','rpd_high','rpd_low','rpd')
+    
+
+    df_agg_firstblock<-merge(df_agg_firstblock,df_dem,by='id')
+    
+    df_agg_firstblock$YSR_T_INT_z<-scale(df_agg_firstblock$YSR_T_INT)
+    df_agg_firstblock$YSR_T_EXT_z<-scale(df_agg_firstblock$YSR_T_EXT)
+    df_agg_firstblock$YSR_T_GES_z<-scale(df_agg_firstblock$YSR_T_GES)
+    df_agg_firstblock$YSR_T_split<-ifelse(df_agg_firstblock$YSR_T_GES>69,'above clinical cutoff','below clinical cutoff')
+    df_agg_firstblock<-df_agg_firstblock[!is.na(df_agg_firstblock$YSR_T_INT),]
+        
+    lmm<-lmer(scale(rpd)~oddball*(YSR_T_INT_z+YSR_T_EXT_z+YSR_T_GES_z)+(1|id),
+              df_agg_firstblock)
+    summary(lmm)
+    anova(lmm)
+    r2_nakagawa(lmm)
+    
+    emtrends(lmm,~oddball,var='YSR_T_INT_z')    
+    emtrends(lmm,~oddball,var='YSR_T_GES_z')    
+    
+    lmm<-lmer(rpd~oddball*(YSR_T_INT+YSR_T_EXT+YSR_T_GES)+(1|id),
+              df_agg_firstblock)
+    df_agg_firstblock$predicted_rpd<-predict(lmm)
+    ggplot(df_agg_firstblock,aes(YSR_T_GES,predicted_rpd,color=oddball))+
+      geom_point()+
+      labs(x='p-factor (YSR total t-score)',y='pupillary response (mm)')+
+      geom_smooth(method='lm')
+    
+    ggplot(df_agg_firstblock,aes(YSR_T_GES,predicted_rpd,group=interaction(YSR_T_split,oddball),color=oddball))+
+      geom_point()+
+      geom_vline(xintercept=65,linetype=2)+
+      labs(x='p-factor (YSR total t-score)',y='pupillary response (mm)')+
+      geom_smooth(method='lm')
+    
+    
+    df_agg_firstblock$custom_group<-with(df_agg_firstblock,
+                                               ifelse(YSR_T_GES<65 & YSR_T_INT<65,'non-clinical',
+                                                      ifelse(YSR_T_GES>YSR_T_INT,'high p-factor',
+                                                             ifelse(YSR_T_GES<=YSR_T_INT,'high int','else'))))
+    
+    
+    require(wesanderson) #custom color palettes
+    custom_condition_colors <- wes_palette('Cavalcanti1',3,type='discrete') #reverse custom colors to match color coding in other figures
+    
+    ggplot(df_agg_firstblock[df_agg_firstblock$oddball=='oddball',],
+           aes(YSR_T_INT,YSR_T_GES,color=custom_group,
+               size=predicted_rpd,alpha=predicted_rpd))+
+      geom_point()+
+      scale_color_manual(values = custom_condition_colors)+
+      labs(x='internalizing (t-score)',y='p-factor (t-score)',
+           color = "cluster group",size= 'pupillary resp. (mm)',alpha= 'pupillary resp. (mm)')
+      
+    
+    
+    
+    ggplot(df_agg_firstblock,aes(YSR_T_INT_z,predicted_rpd,color=oddball))+
+      geom_point()+
+      geom_smooth(method='lm')
+    
+
+lmm<-lmer(scale(rpd_low)~oddball*(YSR_T_INT+YSR_T_EXT+YSR_T_GES)+(1|id),
+          df_trial[df_trial$manipulation=='before' & df_trial$reverse=='forward',])
+summary(lmm)
 anova(lmm)
 
-emtrends(lmm,~manipulation,var="SDQ_int_s_z")
 
-lm<-lm(scale(CBCL_T_EXT)~scale(mean_pd),
-          df_agg[!(duplicated(df_agg$id)),])
+lm<-lm(scale(mean_pd)~YSR_T_INT+YSR_T_EXT+YSR_T_GES,
+          df_trial[!(duplicated(df_trial$id)),])
 summary(lm)
-
-###--> currently not enough data to draw strong conclusions
+##--> no associations
 
