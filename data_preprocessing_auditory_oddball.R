@@ -1495,9 +1495,14 @@ plot(emtrends(lmm,~oddball|manipulation+reverse,var='saliva_cortisol_z'))
 ##--> higher saliva cortisol is associated with higher oddball response before manipulation
 ##--> higher saliva cortisol is associated with lower oddball response after manipulation
 
+require(wesanderson) #custom color palettes
+custom_condition_colors <- wes_palette('Darjeeling1',2,type='discrete') #reverse custom colors to match color coding in other figures
+
+  
 ggplot(df_agg[df_agg$manipulation=='before' & df_agg$reverse=='forward' &
                 df_agg$saliva_cortisol_avg<10,],
        aes(x=saliva_cortisol_avg,y=rpd,color=oddball))+geom_point()+geom_smooth(method='lm')+
+  scale_color_manual(values = custom_condition_colors)+
   labs(x='salivary cortisol (nmol/l)',y='pupillary repsonse (mm)')+
   theme_bw()
 #--> higher saliva cortisol differentiates pupillary responses
