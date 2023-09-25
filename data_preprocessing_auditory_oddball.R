@@ -39,7 +39,7 @@ if (Sys.info()["sysname"] == "Linux") {
   data_files <- list.files(path = datapath, full.names = TRUE)
 }
 
-if (Sys.info()["user"] == "nico") {
+if (Sys.info()["sysname"] == "Windows") {
   home_path <- "C:/Users/Nico"
   project_path <- "/PowerFolders/project_sega"
   data_path <- "/PowerFolders/project_sega/data/et auditory oddball"
@@ -538,10 +538,41 @@ ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<2,],aes(x=ts_tr
 ggplot(df[sampled_rows & df$phase=='oddball_block_rev' & df$ts_trial<2,],aes(x=ts_trial,y=pd,group=trial,color=trial))+geom_smooth()+facet_wrap(~block_counter)+theme_bw()  
 ###--> select rpd high based on data inspection
 
+
+###--> show auditory oddball response in first block before manipulation
+df$rpd<-with(df,pd-rpd_low)
+  ###--> also shows a pupillary response in reverse trials
+
+ggplot(df[sampled_rows & df$ts_trial<1 & df$phase=='oddball_block',],aes(x=ts_trial,y=rpd,group=trial,color=trial))+geom_smooth()+
+  facet_wrap(~block_counter)+
+  theme_bw()  
+
+ggplot(df[sampled_rows & df$ts_trial<1 & df$phase=='oddball_block_rev',],aes(x=ts_trial,y=rpd,group=trial,color=trial))+geom_smooth()+
+  facet_wrap(~block_counter)+
+  theme_bw()  
+
+
+require(wesanderson) #custom color palettes
+custom_condition_colors <- wes_palette('Darjeeling1',2,type='discrete') #reverse custom colors to match color coding in other figures
+
+ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<0.7 & df$block_counter<8,],
+       aes(x=ts_trial,y=rpd,group=trial,color=trial))+geom_smooth()+
+       labs(x='trial duration (s)',y='pupillary response (mm)')+
+       scale_color_manual(values = custom_condition_colors)+
+       theme_bw()  
+
+length(unique(df$id))
+
 ##--> save preprocess df_trial ####
 saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata_12092023.rds'))
 # Can be used to skip preprocessing and directly read proprocessed data from .rds file:
-#ädf_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata_12092023.rds'))
+df_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata_12092023.rds'))
+
+#changed random intercept to a factor
+df_trial$id<-as.factor(df_trial$id) #change ID to factor
+#df_trial$trial<-as.factor(df_trial$trial)
+
+require(performance)
 
 ### Data plausibility ####
 
@@ -591,9 +622,6 @@ ggplot(
 
 # DATA ANALYSIS: Linear mixed model - trial data ####
 
-#changed random intercept to a factor
-df_trial$id<-as.factor(df_trial$id) #change ID to factor
-#df_trial$trial<-as.factor(df_trial$trial)
 
 table(df_trial$phase)
 
@@ -1252,6 +1280,7 @@ df_saliva<-read_xlsx(path="C:/Users/nico/PowerFolders/project_sega/data/saliva_c
   
   
 ### - create SEGA id variable to match df_hair and df_saliva ####
+  
 sega_id<-ifelse(nchar(levels(df_trial$id))==2,
                 paste0('0',levels(df_trial$id)),
                 ifelse(nchar(levels(df_trial$id))==1,
@@ -1305,13 +1334,29 @@ df_agg<-merge(df_agg,df_saliva_change,by='id')
 ### - check data distribution ####
 
 hist(df_hair$hair_cortisol)
+
+ggplot(df_hair,aes(hair_cortisone,hair_cortisol,color=hair_mass))+geom_point()+
+  labs(x='hair cortisone (pg/mg, log-scaled)', y='hair cortisol (pg/mg, log-scaled)', color='sample mass (mg)')+
+  geom_smooth(color='grey',method='lm')+
+  scale_x_continuous(trans='log10') +
+  scale_y_continuous(trans='log10') +
+  theme_bw()
+
 hist(df_hair$hair_cortisol[df_hair$hair_cortisol<5])
 
 hist(df_saliva$saliva_cortisol_avg)
 hist(df_saliva$saliva_cortisol_avg[df_saliva$saliva_when=='before'])
 hist(df_saliva$saliva_cortisol_avg[df_saliva$saliva_when=='after'])
-
 hist(df_saliva$saliva_cv)
+
+ggplot(df_saliva,aes(saliva_cortisol_1,saliva_cortisol_2,color=scale(saliva_cv)))+geom_point()+
+  labs(x='saliva sample A (nmol/l, log-scaled)', y='saliva sample B (nmol/l, log-scaled)', color='variation index (z)')+
+  geom_smooth(color='grey',method='lm')+
+  scale_x_continuous(trans='log10') +
+  scale_y_continuous(trans='log10') +
+  theme_bw()
+
+
 
 ### - data analysis ####
 
@@ -1335,10 +1380,16 @@ contrast(emtrends(lmm,~saliva_when,var = 'saliva_time_num'),'pairwise')
 ###--> time of day is more strongly associated with cortisol after experiment
 
 ##effect of experiment
-ggplot(df_agg,aes(saliva_when,saliva_cortisol_avg,fill=saliva_when))+
+ggplot(df_agg,aes(x=factor(saliva_when,level=c('before','after')),log(saliva_cortisol_avg),fill=saliva_when))+
   geom_violin(adjust=2,alpha=0.5)+geom_boxplot(notch=T,width=0.4)+
-  labs(x='saliva sample',y='cortisol (nmol/l)')+
+  labs(x='saliva sample',y='cortisol (nmol/l, log-scaled)')+
   theme_bw()
+
+ggplot(df_agg,aes(x=factor(saliva_when,level=c('before','after')),log(saliva_cortisol_avg),group=id))+
+  geom_point()+geom_line()+
+  labs(x='saliva sample',y='cortisol (nmol/l), log-scaled')+
+  theme_bw()
+
 
 ###asocaition of hair and saliva
 lmm<-lmer(scale(saliva_cortisol_avg)~saliva_when*saliva_time_num*scale(hair_cortisol)+(1|id),df_agg)
@@ -1475,6 +1526,7 @@ lm<-lm(scale(saliva_cortisol_change)~scale(rpd_low),df_agg[!duplicated(df_agg$id
 summary(lm)
 
 #association of saliva cortisol before the task and baseline pupil size
+df_agg$saliva_cortisol_z<-scale(df_agg$saliva_cortisol_avg) #z standardize before to use emtrends later
 lmm<-lmer(scale(rpd_low)~(oddball*manipulation*reverse)*saliva_cortisol_z+(1|id),
           df_agg[df_agg$saliva_when=='before',])
 anova(lmm)
@@ -1510,7 +1562,7 @@ ggplot(df_agg[df_agg$manipulation=='before' & df_agg$reverse=='forward' &
 ### ADD demographic data (database export) ####
 
 #data is generated with: data_preprocessing_database.Rmd
-df_dem<-read.ods("C:/Users/nico/PowerFolders/project_sega/data/demographics_14092023.rds")
+df_dem<-readRDS("C:/Users/nico/PowerFolders/project_sega/data/demographics_14092023.rds")
 
 df_agg<-merge(df_agg,df_dem,by='id',all.x=T) # only data with saliva and hair data
 df_trial<-merge(df_trial,df_dem,by='id',all.x=T) #all data 
@@ -1624,16 +1676,16 @@ emtrends(lmm,~oddball,var="YSR_T_GES_z")
       geom_point()+
       geom_vline(xintercept=65,linetype=2)+
       labs(x='p-factor (YSR total t-score)',y='pupillary response (mm)')+
-      geom_smooth(method='lm')
+      geom_smooth(method='lm')+theme_bw()
     
     
+    require(wesanderson) #custom color palettes
     df_agg_firstblock$custom_group<-with(df_agg_firstblock,
                                                ifelse(YSR_T_GES<65 & YSR_T_INT<65,'non-clinical',
                                                       ifelse(YSR_T_GES>YSR_T_INT,'high p-factor',
                                                              ifelse(YSR_T_GES<=YSR_T_INT,'high int','else'))))
     
     
-    require(wesanderson) #custom color palettes
     custom_condition_colors <- wes_palette('Cavalcanti1',3,type='discrete') #reverse custom colors to match color coding in other figures
     
     ggplot(df_agg_firstblock[df_agg_firstblock$oddball=='oddball',],
@@ -1642,7 +1694,7 @@ emtrends(lmm,~oddball,var="YSR_T_GES_z")
       geom_point()+
       scale_color_manual(values = custom_condition_colors)+
       labs(x='internalizing (t-score)',y='p-factor (t-score)',
-           color = "cluster group",size= 'pupillary resp. (mm)',alpha= 'pupillary resp. (mm)')
+           color = "cluster group",size= 'pupillary resp. (mm)',alpha= 'pupillary resp. (mm)')+ theme_bw()
       
     
     
@@ -1650,6 +1702,8 @@ emtrends(lmm,~oddball,var="YSR_T_GES_z")
     ggplot(df_agg_firstblock,aes(YSR_T_INT_z,predicted_rpd,color=oddball))+
       geom_point()+
       geom_smooth(method='lm')
+    
+    
     
 
 lmm<-lmer(scale(rpd_low)~oddball*(YSR_T_INT+YSR_T_EXT+YSR_T_GES)+(1|id),
