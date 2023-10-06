@@ -56,12 +56,16 @@ if (Sys.info()["sysname"] == "Windows") {
 if (Sys.info()["sysname"] == "Darwin") {
   home_path <- "~"
   project_path <- "/code"
-  data_path <- "/code/input/AuditoryOddball"
-  data_path_eeg <- "/code/input/AuditoryOddball_EEG"
-  datapath <- paste0(home_path, data_path) # .csv + .hdf5 input files
+  data_path <- "/code/input/AuditoryOddball/eyetracking"
+  data_path_task <- "/code/input/AuditoryOddball/taskdata"
+  data_path_eeg <- "/code/input/AuditoryOddball/eeg"
+  datapath <- paste0(home_path, data_path) # .hdf5 input files
+  datapath_task <- paste0(home_path, data_path_task) # .csv input files
   datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
   # List all .hdf and .csv files
-  data_files <- list.files(path = datapath, full.names = TRUE)
+  data_files <- c(
+    list.files(path = datapath, full.names = TRUE),
+    list.files(path = datapath_task, full.names = TRUE))
 }
 
 # DATA IMPORT AND RESHAPING ####
@@ -157,14 +161,25 @@ id_names <- substr(
   nchar(data_files_trial))
 names(list_trial_data) <- id_names
 
-  #check: which ET data and task data per participant do not match
-  task_data<-substr(data_files_trial,nchar(datapath_task)+2,nchar(data_files_trial)-4)
-  et_data<-substr(data_files_et,nchar(datapath)+2,nchar(data_files_et)-5)
-  unmatched_et<-et_data[!(et_data %in% task_data)]
-  unmatched_task<-task_data[!(task_data %in% et_data)]
-  #reduce data files for participant with ET and task data
-  list_et_data<-list_et_data[!(names(list_et_data) %in% paste0(unmatched_et,'.hdf5'))]
-  list_trial_data<-list_trial_data[!(names(list_trial_data) %in% paste0(unmatched_task,'.csv'))]
+#check: which ET data and task data per participant do not match
+#task_data<-substr(data_files_trial,nchar(datapath_task)+2,nchar(data_files_trial)-4)
+#et_data<-substr(data_files_et,nchar(datapath)+2,nchar(data_files_et)-5)
+#unmatched_et<-et_data[!(et_data %in% task_data)]
+#unmatched_task<-task_data[!(task_data %in% et_data)]
+
+# Check for .csv- + .hdf5- file matching (path-independent):
+unmatched_et <- tools::file_path_sans_ext(basename(data_files_et))[
+  !(tools::file_path_sans_ext(basename(data_files_et)) %in% tools::file_path_sans_ext(basename(data_files_trial)))]
+unmatched_task <- tools::file_path_sans_ext(basename(data_files_trial))[
+  !(tools::file_path_sans_ext(basename(data_files_trial)) %in% tools::file_path_sans_ext(basename(data_files_et)))]
+
+# print unmatching files in console
+cat(unmatched_task, "do not have a matching et file", sep = "\n") 
+cat(unmatched_et, "do not have a matching trial file", sep = "\n")
+
+#reduce data files for participant with ET and task data
+list_et_data<-list_et_data[!(names(list_et_data) %in% paste0(unmatched_et,'.hdf5'))]
+list_trial_data<-list_trial_data[!(names(list_trial_data) %in% paste0(unmatched_task,'.csv'))]
   
   #TODO: function below fails with this ID
   list_et_data<-list_et_data[names(list_et_data)!="auditory_77_2023-04-17-1831.hdf5"]
