@@ -237,6 +237,13 @@ df_list <- pblapply(df_list, function(x) {
     times = table(trial_index)))
     return(x)})
 
+# Delete 3 preceding standard trials at the beginning of each of the 4 blocks
+standards_index <- c("-1.0.3", "-1.0.5", "-1.0.10", "-1.0.12")
+df_list <- lapply(df_list, function(x) {
+  x <- subset(x, ! trial_index %in% standards_index)
+  return(x)
+})
+
 # Split trial data per trial -> list of all trials of all subjects.
 # Each list element contains a df of trial data
 list_split_trial <- pblapply(df_list, function(x) {
