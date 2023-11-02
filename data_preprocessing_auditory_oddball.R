@@ -26,6 +26,7 @@ library(emmeans, warn.conflicts = FALSE) # estimated marginal means (EMMs)
 library(ggplot2, warn.conflicts = FALSE) # creating graphs
 library(hexbin, warn.conflicts = FALSE) # binning + plotting functions
 library(gridExtra, warn.conflicts = FALSE) # multiple plots arrangement
+library(dplyr, warn.conflicts = FALSE) # for %>% operator
 
 # PATHS
 if (Sys.info()["sysname"] == "Linux") {
@@ -199,6 +200,9 @@ fun_merge_all_ids <- function(et_data, trial_data) {
   
   fun_merge_data <- function(ts_1, ts_2, trial_data_splitted) {
     matched_time <- which(et_ts >= ts_1 & et_ts < ts_2)
+    if (trial_data_splitted$baseline_trial_counter == "6" & !is.na(trial_data_splitted$baseline_trial_counter)) {
+      matched_time <- which(et_ts >= ts_1)
+    } 
     selected_et_data <- et_data[matched_time, ] # et data for trial duration
     # trial data: 1 row == 1 trial -> is repeated for each eye tracking event
     repeated_trial_data <- data.frame(
@@ -536,8 +540,9 @@ df_trial$rpd <- df_trial$rpd_high - df_trial$rpd_low
 # new variables manipulation indicates whether before or after manipulation
 df_trial$manipulation <- factor(
   ifelse(df_trial$block_counter < 8, "before",
-  ifelse(df_trial$block_counter > 8, "after", "manipulation")),
-  levels = c("before", "after"))
+  ifelse(df_trial$block_counter > 8, "after",
+  ifelse(df_trial$block_counter == 8, "during", "manipulation"))),
+  levels = c("before", "after", "during"))
 
 # distinguish pitch: oddball or standard frequency
 df_trial$pitch <- ifelse(df_trial$trial == "oddball",
@@ -586,9 +591,9 @@ ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<0.7 & df$block_
 length(unique(df$id))
 
 ##--> save preprocess df_trial ####
-saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata_12092023.rds'))
+saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
 # Can be used to skip preprocessing and directly read proprocessed data from .rds file:
-df_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata_12092023.rds'))
+df_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
 
 #changed random intercept to a factor
 df_trial$id<-as.factor(df_trial$id) #change ID to factor
@@ -663,7 +668,44 @@ anova(lmm)
   # contrast(emmeans(lmm,~group|oddball+manipulation+reverse),'pairwise')
   # ###--> TD compared to ASD with higher response to standards in foward trials before manipulation
   # ###--> TD comapred to ASD with higehr repsonse to oddballs in reverse trials before manipulation
-  
+
+# rpd in block progression
+lmm1 <- lmer(
+  scale(rpd) ~ oddball * reverse * trial_number_in_block + (1|id),
+  data = df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
+anova(lmm1)
+# -> no main effect of trial_number_in_block (p = 0.13)
+
+emtrends(lmm1,~oddball,var = 'trial_number_in_block')
+# -> standard + oddball responses decrease with trial_number_in_block
+
+emtrends(lmm1,~reverse,var = 'trial_number_in_block')
+# -> pupil responses towards all stimuli in forward + reverse blocks decrease with trial_number_in_block
+
+emtrends(lmm1,~oddball|reverse,var='trial_number_in_block')
+# -> In forward blocks, slight trend towards decreasing response to oddballs
+# and increasing to standards, which is the other way round in reverse blocks.
+
+hist(df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_reverse"), ]$trial_number_in_block)
+table(df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_reverse"), ]$trial_number_in_block)
+# -> Each block contains 100 x trial_number_in_block, thus 100 oddball trials per block.
+
+bin_size <- 20
+df_trial <- df_trial %>%
+  mutate(trial_number_in_block_binned = factor(trial_number_in_block%/%bin_size*20))
+
+ggplot(
+  df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev"), ],
+  aes(x = trial_number_in_block_binned,
+      y = scale(rpd))) + 
+    geom_boxplot() + 
+    facet_grid(
+      rows = vars(reverse),
+      cols = vars(manipulation)) +
+    theme_bw() +
+  ggtitle("rpd during blocks, split by forward + reverse \nbefore + after manipulation") 
+
+
 #baseline  - BPS
 lmm<-lmer(scale(rpd_low)~oddball*group*manipulation*reverse+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
 anova(lmm)

@@ -32,6 +32,9 @@ https://www.psychopy.org/api/iohub/device/eyetracker_interface/Tobii_Implementat
 trialdata is stored in a .csv format.  
 *timestamp_exp* (trial data) + *logged_time* (ET data) represent time since start of experiment, used for matching with logged_time variabale from eye tracker.
 
+## EEG data
+Preprocessed EEG data is imported as .txt files.
+
 # Code structure
 ## Required libraries
 - rhdf5
@@ -44,11 +47,11 @@ trialdata is stored in a .csv format.
 - emmeans
 - hexbin
 - gridExtra
+- dplyr
 
 ## Paths
 Code is independent of OS although paths have to be adjusted.
 ## Data import and reshaping
-...
 ## Data preprocessing
 1. invalid pupil sizes (< 2 mm or > 8 mm)
 2. dilation speed outliers (median dilation speed = 3 * MAD)
