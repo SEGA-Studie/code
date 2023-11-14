@@ -27,6 +27,8 @@ library(ggplot2, warn.conflicts = FALSE) # creating graphs
 library(hexbin, warn.conflicts = FALSE) # binning + plotting functions
 library(gridExtra, warn.conflicts = FALSE) # multiple plots arrangement
 library(dplyr, warn.conflicts = FALSE) # for %>% operator
+library(cowplot, warn.conflicts = FALSE) # get only legend from plot
+library(ggpubr, warn.conflicts = FALSE) # save legend from plot
 
 # PATHS
 if (Sys.info()["sysname"] == "Linux") {
@@ -660,7 +662,46 @@ anova(lmm)
   contrast(emmeans(lmm,~reverse),'pairwise') ##--> higher response in forward trials
   contrast(emmeans(lmm,~oddball|reverse),'pairwise') ##--> oddball response is specific to forward blocks
   contrast(emmeans(lmm,~reverse|oddball),'pairwise') ###--> oddball larger in forward 
+
   
+# WTAS 2024 (analysis + data: 14.11.2023)
+# LMM: SEPR
+lmm_sepr_wtas <- lmer(scale(rpd)~oddball*group*manipulation + (1|id),
+                 data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
+anova(lmm_sepr_wtas) # -> 2 sig. main effects (group + oddball)
+
+# contrast oddball
+contrast(emmeans(lmm_sepr_wtas, ~ oddball), "pairwise")
+# -> stronger SEPR to oddballs vs. standards across groups
+
+# contrast group
+contrast(emmeans(lmm_sepr_wtas, ~ group), "pairwise")
+# -> stronger SEPR in TD than in ASD group
+
+# LMM: BPS
+lmm_bps_wtas <- lmer(scale(rpd_low)~oddball*group*manipulation + (1|id),
+            data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
+anova(lmm_bps_wtas) # -> interaction effect of group x manipulation
+
+# contrast manipulation x group interaction
+contrast(emmeans(lmm_bps_wtas, ~ manipulation|group), "pairwise")
+emmip(lmm_bps_wtas, ~ manipulation|group) # plot: manipulation effect on BPS for both groups
+# -> after manipulation higher BPS in both groups
+
+# LMM (SEPR) with only forward blocks
+lmm_sepr_forward <- lmer(scale(rpd)~oddball*group*manipulation + (1|id),
+                         data=df_trial[df_trial$phase %in% c('oddball_block'),])
+anova(lmm_sepr_forward) # -> sig. main effects of group + oddball and trend of manipulation
+contrast(emmeans(lmm_sepr_forward, ~ manipulation), "pairwise")
+emmip(lmm_sepr_forward, ~ manipulation|group)
+
+# LMM (BPS) with only forward blocks
+lmm_bps_forward <- lmer(scale(rpd_low)~oddball*group*manipulation + (1|id),
+                         data=df_trial[df_trial$phase %in% c('oddball_block'),])
+anova(lmm_bps_forward) # -> sig. main effects of group + oddball and trend of manipulation
+contrast(emmeans(lmm_bps_forward, ~ manipulation|group), "pairwise")
+emmip(lmm_bps_forward, ~ manipulation|group)
+
   # #these effects are not significant - as of Sept 2023
   # contrast(emmeans(lmm,~group),'pairwise') ##--> TD with higher response to all trials
   # contrast(emmeans(lmm,~group|manipulation),'pairwise') ##--> higher response in TD before manipulation
