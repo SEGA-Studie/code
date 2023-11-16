@@ -140,6 +140,7 @@ trial_variables <- c(
   "block_counter",
   "stimulus_duration",
   "baseline_trial_counter",
+  "grip_strength",
   "trial",
   "timestamp_exp",
   "oddball_trial_counter",
