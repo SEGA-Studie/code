@@ -188,6 +188,14 @@ list_trial_data<-list_trial_data[!(names(list_trial_data) %in% paste0(unmatched_
   #TODO: function below fails with this ID
   list_et_data<-list_et_data[names(list_et_data)!="auditory_77_2023-04-17-1831.hdf5"]
   list_trial_data<-list_trial_data[names(list_trial_data)!="auditory_77_2023-04-17-1831.csv"]
+
+# Grip strength variable
+list_trial_data <- lapply(list_trial_data, function(x) {
+  mean_grip_strength <- mean(x$grip_strength, na.rm = TRUE)
+  print(mean_grip_strength)
+  x$mean_grip_strength <- mean_grip_strength
+  return(x)
+  })
   
 # subject data frames are row-wise combined
 df_trial <- plyr::rbind.fill(list_trial_data)
