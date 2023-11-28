@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 require(dplyr) #select
 require(readxl)
 require(readODS)
+require(ggplot2)
 
 #set theme
 theme_set(theme_bw())
@@ -80,6 +81,14 @@ names(addon)[names(addon)=='Gruppe']<-'group_addon'
 
 ysr <- read_xlsx(paste0(datapath,'YSR_JM_11_18.xlsx'))
 ysr<- select(ysr, ID_Bado, YSR_INT, YSR_EXT, YSR_GES, YSR_T_INT, YSR_T_EXT, YSR_T_GES)
+
+```
+# load WAIS - IQ
+
+```{r load IQ data}
+
+wais <- read_xlsx(paste0(datapath,'WAIS_IV.xlsx'))
+
 
 ```
 
