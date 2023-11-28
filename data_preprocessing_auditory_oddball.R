@@ -466,7 +466,7 @@ print(paste0(round(percentage_trial * counter, digits = 2),
              ))
 
 # Bind trials together to a df
-df <- dplyr::bind_rows(list_split_trial)
+# df <- dplyr::bind_rows(list_split_trial)
 
 # split by block and id
 list_split_blocks <- split(df,
@@ -497,9 +497,9 @@ list_split_trial <- split(df, droplevels(interaction(df$id, df$trial_number)))
   # Frequency of pupil diameter (mm) in 5 size categories
   hist(df$pd)
   # preprocessed pupil diameter for each participant
-  ggplot(
-    df[is.finite(df$pd), ],
-    aes(x = pd)) + geom_histogram(bins = 100) + facet_wrap(~id)
+  # ggplot(
+  #   df[is.finite(df$pd), ],
+  #   aes(x = pd)) + geom_histogram(bins = 100) + facet_wrap(~id)
   
   
 # reduce ET data to per trial data (and merge with df_trial)
@@ -624,10 +624,10 @@ with(df_trial, by(rpd, trial, mean, na.rm = TRUE))
 ### DATA ANALYSIS  ####
 
 lmm <- lmer(
-  rpd ~ oddball * manipulation * reverse + trial_number_in_block + (1 | id),
+  scale(rpd) ~ oddball * manipulation * reverse + trial_number_in_block + (1 | id),
   data = df_trial[
     df_trial$phase %in% c("oddball_block", "oddball_block_rev"), ])
-summary(lmm)
+anova(lmm)
 contrast(emmeans(lmm, ~ oddball), "pairwise")
 
 ggplot(
@@ -660,7 +660,6 @@ ggplot(
 
 # DATA ANALYSIS: Linear mixed model - trial data ####
 
-
 table(df_trial$phase)
 
 #pupillary response - SEPR
@@ -671,7 +670,6 @@ anova(lmm)
   contrast(emmeans(lmm,~reverse),'pairwise') ##--> higher response in forward trials
   contrast(emmeans(lmm,~oddball|reverse),'pairwise') ##--> oddball response is specific to forward blocks
   contrast(emmeans(lmm,~reverse|oddball),'pairwise') ###--> oddball larger in forward 
-
   
 # WTAS 2024 (analysis + data: 14.11.2023)
 # LMM: SEPR
@@ -1117,6 +1115,24 @@ lmm <- lmer(
 anova(lmm)
 plot(contrast(emmeans(lmm, ~ trial_type), "pairwise"))
 
+# DATA ANALYSIS: grip strength ####
+
+hist(df_trial$mean_grip_strength)
+
+df_trial$mean_grip_strength_z<-scale(df_trial$mean_grip_strength)
+#pupillary response - SEPR 
+lmm<-lmer(scale(rpd)~mean_grip_strength_z*manipulation*oddball*group*reverse+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
+anova(lmm) #--> no effect of hand grip strength
+
+#pupillary response - BPS
+lmm<-lmer(scale(rpd_low)~mean_grip_strength_z*manipulation*oddball*group*reverse+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
+anova(lmm)
+  
+  fixef(lmm) #higher hand grip is assoicated with lower bps
+  emtrends(lmm,~manipulation|group+reverse,var = 'mean_grip_strength_z') ##--> higher pupil size after manipulation
+  #the hand grip strength has an effect on rpd only in the TD group
+
+  
 # DATA ANALYSIS: PRELIMINARY EEG analysis ####
 # Reag eeg data
  data_files_eeg <- list.files(
