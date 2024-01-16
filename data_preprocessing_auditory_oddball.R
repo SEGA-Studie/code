@@ -466,7 +466,7 @@ print(paste0(round(percentage_trial * counter, digits = 2),
              ))
 
 # Bind trials together to a df
-# df <- dplyr::bind_rows(list_split_trial)
+df <- dplyr::bind_rows(list_split_trial)
 
 # split by block and id
 list_split_blocks <- split(df,
@@ -1132,7 +1132,7 @@ anova(lmm)
   emtrends(lmm,~manipulation|group+reverse,var = 'mean_grip_strength_z') ##--> higher pupil size after manipulation
   #the hand grip strength has an effect on rpd only in the TD group
 
-  
+
 # DATA ANALYSIS: PRELIMINARY EEG analysis ####
 # Reag eeg data
  data_files_eeg <- list.files(
@@ -1143,12 +1143,12 @@ anova(lmm)
    header = TRUE,
    fill = TRUE,
    skip = 2)
-
+ 
  df_MMN_500oddball <- list_eeg_data[[1]]
  df_MMN_750oddball <- list_eeg_data[[2]]
  df_P3_500oddball <- list_eeg_data[[3]]
  df_P3_750oddball <- list_eeg_data[[4]]
- 
+
  
  df_MMN_500oddball <- reshape2::melt(df_MMN_500oddball, id.vars = "File")
  df_MMN_750oddball <- reshape2::melt(df_MMN_750oddball, id.vars = "File")
