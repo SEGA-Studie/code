@@ -1149,6 +1149,90 @@ anova(lmm)
  df_P3_500oddball <- list_eeg_data[[3]]
  df_P3_750oddball <- list_eeg_data[[4]]
 
+ # ANNA BEGIN
+ # Change column names for 500Hz-MMN data frame
+ names(df_MMN_500oddball) <- c(
+   "id",
+   "L-Peak_MMN_Oddball_500_Hz_before",
+   "L-Peak_MMN_Standard_750_Hz_before",
+   "L-Peak_MMN_Oddball_rev_750_Hz_before",
+   "L-Peak_MMN_Standard_rev_500_Hz_before ",
+   "L-Peak_MMN_Oddball_500_Hz_after",
+   "L-Peak_MMN_Standard_750_Hz_after",
+   "L-Peak_MMN_Oddball_rev_750_Hz_after",
+   "L-Peak_MMN_Standard_rev_500_Hz_after",
+   "Peak_MMN_Oddball_500_Hz_before",
+   "Peak_MMN_Standard_750_Hz_before",
+   "Peak_MMN_Oddball_rev_750_Hz_before",
+   "Peak_MMN_Standard_rev_500_Hz_before",
+   "Peak_MMN_Oddball_500_Hz_after",
+   "Peak_MMN_Standard_750_Hz_after",
+   "Peak_MMN_Oddball_rev_750_Hz_after",
+   "Peak_MMN_Standard_rev_500_Hz_after"
+ )
+ 
+ # Change column names for 750Hz-MMN data frame
+ names(df_MMN_750oddball) <- c(
+   "id",
+   "L-Peak_MMN_Oddball_750_Hz_before",
+   "L-Peak_MMN_Standard_500_Hz_before",
+   "L-Peak_MMN_Oddball_rev_500_Hz_before",
+   "L-Peak_MMN_Standard_rev_750_Hz_before",
+   "L-Peak_MMN_Oddball_750_Hz_after",
+   "L-Peak_MMN_Standard_500_Hz_after",
+   "L-Peak_MMN_Oddball_rev_500_Hz_after",
+   "L-Peak_MMN_Standard_rev_750_Hz_after",
+   "Peak_MMN_Oddball_750_Hz_before",
+   "Peak_MMN_Standard_500_Hz_before",
+   "Peak_MMN_Oddball_rev_500_Hz_before",
+   "Peak_MMN_Standard_rev_750_Hz_before",
+   "Peak_MMN_Oddball_750_Hz_after",
+   "Peak_MMN_Standard_500_Hz_after",
+   "Peak_MMN_Oddball_rev_500_Hz_after",
+   "Peak_MMN_Standard_rev_750_Hz_after"
+ )
+ 
+ # Remove empty columns + rows
+ df_MMN_500oddball <- Filter(function(x)!all(is.na(x)), df_MMN_500oddball)
+ df_MMN_500oddball <- df_MMN_500oddball[!(df_MMN_500oddball$`L-Peak_MMN_Oddball_500_Hz_before` == "???"), ]
+ df_MMN_750oddball <- Filter(function(x)!all(is.na(x)), df_MMN_750oddball)
+ df_MMN_750oddball <- df_MMN_750oddball[!(df_MMN_750oddball$`L-Peak_MMN_Oddball_750_Hz_before` == "???"), ]
+ 
+ # Reshape data: wide to long format
+ reshaped_df_MMN_500oddball <- reshape2::melt(df_MMN_500oddball, id = "id")
+ reshaped_df_MMN_750oddball <- reshape2::melt(df_MMN_750oddball, id = "id")
+ 
+ # Select MMN amplitudes before
+ MMN_amplitude_500oddball <- reshaped_df_MMN_500oddball[reshaped_df_MMN_500oddball$variable %in% c(
+   "Peak_MMN_Oddball_500_Hz_before",
+   "Peak_MMN_Standard_750_Hz_before",
+   "Peak_MMN_Oddball_rev_750_Hz_before",
+   "Peak_MMN_Standard_rev_500_Hz_before"
+ ), ]
+ MMN_amplitude_500oddball$variable <- droplevels(MMN_amplitude_500oddball$variable)
+ 
+ MMN_amplitude_750oddball <- reshaped_df_MMN_750oddball[reshaped_df_MMN_750oddball$variable %in% c(
+   "Peak_MMN_Oddball_750_Hz_before",
+   "Peak_MMN_Standard_500_Hz_before",
+   "Peak_MMN_Oddball_rev_500_Hz_before",
+   "Peak_MMN_Standard_rev_750_Hz_before"
+ ), ]
+ MMN_amplitude_750oddball$variable <- droplevels(MMN_amplitude_750oddball$variable)
+ 
+ # Combine MMN amplitudes before for 750 Hz + 500 Hz (before)
+ MMN_amplitude <- rbind(MMN_amplitude_500oddball, MMN_amplitude_750oddball)
+ MMN_amplitude$value <- as.numeric(gsub(",", ".", MMN_amplitude$value))
+ 
+ # Change column names
+ colnames(MMN_amplitude)[colnames(MMN_amplitude) %in% c(
+   "variable", "value")] <- c(
+     "condition", "amplitude")
+ 
+ # LMM
+ lmm <- lmer(amplitude~condition + (1|id), data = MMN_amplitude)
+ anova(lmm)
+ emmeans(lmm, ~condition)
+ 
  
  df_MMN_500oddball <- reshape2::melt(df_MMN_500oddball, id.vars = "File")
  df_MMN_750oddball <- reshape2::melt(df_MMN_750oddball, id.vars = "File")
