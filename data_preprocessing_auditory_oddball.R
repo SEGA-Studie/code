@@ -1134,112 +1134,223 @@ anova(lmm)
 
 
 # DATA ANALYSIS: PRELIMINARY EEG analysis ####
-# Reag eeg data
- data_files_eeg <- list.files(
-   path = datapath_eeg, full.names = TRUE)
- list_eeg_data <- lapply(
-   data_files_eeg,
-   read.table,
-   header = TRUE,
-   fill = TRUE,
-   skip = 2)
- 
- df_MMN_500oddball <- list_eeg_data[[1]]
- df_MMN_750oddball <- list_eeg_data[[2]]
- df_P3_500oddball <- list_eeg_data[[3]]
- df_P3_750oddball <- list_eeg_data[[4]]
+# List and read MMN data
+data_files_eeg <- list.files(
+  path = datapath_eeg, full.names = TRUE)
+  
+list_eeg_data <- lapply(
+  data_files_eeg,
+  read.table,
+  header = TRUE,
+  fill = TRUE,
+  skip = 2)
+  
+df_MMN_500oddball <- list_eeg_data[[1]]
+df_MMN_750oddball <- list_eeg_data[[2]] 
+df_P3a_500oddball <- list_eeg_data[[3]]
+df_P3a_750oddball <- list_eeg_data[[4]]
+  
+# Change column names for 500Hz-MMN data frame
+names(df_MMN_500oddball) <- c(
+  "id",
+  "L-Peak_MMN_Oddball_500_Hz_before",
+  "L-Peak_MMN_Standard_750_Hz_before",
+  "L-Peak_MMN_Oddball_rev_750_Hz_before",
+  "L-Peak_MMN_Standard_rev_500_Hz_before",
+  "L-Peak_MMN_Oddball_500_Hz_after",
+  "L-Peak_MMN_Standard_750_Hz_after",
+  "L-Peak_MMN_Oddball_rev_750_Hz_after",
+  "L-Peak_MMN_Standard_rev_500_Hz_after",
+  "Peak_MMN_Oddball_500_Hz_before",
+  "Peak_MMN_Standard_750_Hz_before",
+  "Peak_MMN_Oddball_rev_750_Hz_before",
+  "Peak_MMN_Standard_rev_500_Hz_before",
+  "Peak_MMN_Oddball_500_Hz_after",
+  "Peak_MMN_Standard_750_Hz_after",
+  "Peak_MMN_Oddball_rev_750_Hz_after",
+  "Peak_MMN_Standard_rev_500_Hz_after"
+)
+  
+# Change column names for 750Hz-MMN data frame
+names(df_MMN_750oddball) <- c(
+  "id",
+  "L-Peak_MMN_Oddball_750_Hz_before",
+  "L-Peak_MMN_Standard_500_Hz_before",
+  "L-Peak_MMN_Oddball_rev_500_Hz_before",
+  "L-Peak_MMN_Standard_rev_750_Hz_before",
+  "L-Peak_MMN_Oddball_750_Hz_after",
+  "L-Peak_MMN_Standard_500_Hz_after",
+  "L-Peak_MMN_Oddball_rev_500_Hz_after",
+  "L-Peak_MMN_Standard_rev_750_Hz_after",
+  "Peak_MMN_Oddball_750_Hz_before",
+  "Peak_MMN_Standard_500_Hz_before",
+  "Peak_MMN_Oddball_rev_500_Hz_before",
+  "Peak_MMN_Standard_rev_750_Hz_before",
+  "Peak_MMN_Oddball_750_Hz_after",
+  "Peak_MMN_Standard_500_Hz_after", 
+  "Peak_MMN_Oddball_rev_500_Hz_after",
+  "Peak_MMN_Standard_rev_750_Hz_after"
+)
+  
+# Change column names for 500Hz-P3a data frame
+names(df_P3a_500oddball) <- c(
+  "id",
+  "L-Peak_P3a_Oddbal_500_Hz_before",
+  "L-Peak_P3a_Standard_750_Hz_before",
+  "L-Peak_P3a_Oddball_rev_750_Hz_before",
+  "L-Peak_P3a_P3a_Standard_rev_500_Hz_before",
+  "L-Peak_P3a_Oddball_500_Hz_after",
+  "L-Peak_P3a_Standard_750_Hz_after",
+  "L-Peak_P3a_Oddball_rev_750_after",
+  "L-Peak_P3a_Standard_rev_500_Hz_after",
+  "Peak_P3a_Oddbal_500_Hz_before",
+  "Peak_P3a_Standard_750_Hz_before",
+  "Peak_P3a_Oddball_rev_750_Hz_before",
+  "Peak_P3a_Standard_rev_500_Hz_before",
+  "Peak_P3a_Oddball_500_Hz_after",
+  "Peak_P3a_Standard_750_Hz_after",
+  "Peak_P3a_Oddball_rev_750_after",
+  "Peak_P3a_Standard_rev_500_Hz_after"
+)
+  
+# Correct column names for 750Hz-P3a data frame
+names(df_P3a_750oddball) <- c(
+  "id",
+  "L-Peak_P3a_Oddball_750_Hz_before",
+  "L-Peak_P3a_Standard_500_Hz_before",
+  "L-Peak_P3a_Oddball_rev_500_Hz_before",
+  "L-Peak_P3a_Standard_rev_750_Hz_before",
+  "L-Peak_P3a_Oddball_750_Hz_after",
+  "L-Peak_P3a_Standard_500_Hz_after",
+  "L-Peak_P3a_Oddball_rev_500_Hz_after",
+  "L-Peak_P3a_Standard_rev_750_Hz_after",
+  "Peak_P3a_Oddball_750_Hz_before",
+  "Peak_P3a_Standard_500_Hz_before",
+  "Peak_P3a_Oddball_rev_500_Hz_before",
+  "Peak_P3a_Standard_rev_750_Hz_before",
+  "Peak_P3a_Oddball_750_Hz_after",
+  "Peak_P3a_Standard_500_Hz_after",
+  "Peak_P3a_Oddball_rev_500_Hz_after",
+  "Peak_P3a_Standard_rev_750_Hz_after"
+)
+  
+# Remove empty columns + rows
+df_MMN_500oddball <- Filter(function(x)!all(is.na(x)), df_MMN_500oddball)
+df_MMN_500oddball <- df_MMN_500oddball[!(df_MMN_500oddball$`L-Peak_MMN_Oddball_500_Hz_before` == "???"), ]
+df_MMN_750oddball <- Filter(function(x)!all(is.na(x)), df_MMN_750oddball)
+df_MMN_750oddball <- df_MMN_750oddball[!(df_MMN_750oddball$`L-Peak_MMN_Oddball_750_Hz_before` == "???"), ]
 
- # ANNA BEGIN
- # Change column names for 500Hz-MMN data frame
- names(df_MMN_500oddball) <- c(
-   "id",
-   "L-Peak_MMN_Oddball_500_Hz_before",
-   "L-Peak_MMN_Standard_750_Hz_before",
-   "L-Peak_MMN_Oddball_rev_750_Hz_before",
-   "L-Peak_MMN_Standard_rev_500_Hz_before ",
-   "L-Peak_MMN_Oddball_500_Hz_after",
-   "L-Peak_MMN_Standard_750_Hz_after",
-   "L-Peak_MMN_Oddball_rev_750_Hz_after",
-   "L-Peak_MMN_Standard_rev_500_Hz_after",
-   "Peak_MMN_Oddball_500_Hz_before",
-   "Peak_MMN_Standard_750_Hz_before",
-   "Peak_MMN_Oddball_rev_750_Hz_before",
-   "Peak_MMN_Standard_rev_500_Hz_before",
-   "Peak_MMN_Oddball_500_Hz_after",
-   "Peak_MMN_Standard_750_Hz_after",
-   "Peak_MMN_Oddball_rev_750_Hz_after",
-   "Peak_MMN_Standard_rev_500_Hz_after"
- )
- 
- # Change column names for 750Hz-MMN data frame
- names(df_MMN_750oddball) <- c(
-   "id",
-   "L-Peak_MMN_Oddball_750_Hz_before",
-   "L-Peak_MMN_Standard_500_Hz_before",
-   "L-Peak_MMN_Oddball_rev_500_Hz_before",
-   "L-Peak_MMN_Standard_rev_750_Hz_before",
-   "L-Peak_MMN_Oddball_750_Hz_after",
-   "L-Peak_MMN_Standard_500_Hz_after",
-   "L-Peak_MMN_Oddball_rev_500_Hz_after",
-   "L-Peak_MMN_Standard_rev_750_Hz_after",
-   "Peak_MMN_Oddball_750_Hz_before",
-   "Peak_MMN_Standard_500_Hz_before",
-   "Peak_MMN_Oddball_rev_500_Hz_before",
-   "Peak_MMN_Standard_rev_750_Hz_before",
-   "Peak_MMN_Oddball_750_Hz_after",
-   "Peak_MMN_Standard_500_Hz_after",
-   "Peak_MMN_Oddball_rev_500_Hz_after",
-   "Peak_MMN_Standard_rev_750_Hz_after"
- )
- 
- # Remove empty columns + rows
- df_MMN_500oddball <- Filter(function(x)!all(is.na(x)), df_MMN_500oddball)
- df_MMN_500oddball <- df_MMN_500oddball[!(df_MMN_500oddball$`L-Peak_MMN_Oddball_500_Hz_before` == "???"), ]
- df_MMN_750oddball <- Filter(function(x)!all(is.na(x)), df_MMN_750oddball)
- df_MMN_750oddball <- df_MMN_750oddball[!(df_MMN_750oddball$`L-Peak_MMN_Oddball_750_Hz_before` == "???"), ]
- 
- # Reshape data: wide to long format
- reshaped_df_MMN_500oddball <- reshape2::melt(df_MMN_500oddball, id = "id")
- reshaped_df_MMN_750oddball <- reshape2::melt(df_MMN_750oddball, id = "id")
- 
- # Select MMN amplitudes before
- MMN_amplitude_500oddball <- reshaped_df_MMN_500oddball[reshaped_df_MMN_500oddball$variable %in% c(
-   "Peak_MMN_Oddball_500_Hz_before",
-   "Peak_MMN_Standard_750_Hz_before",
-   "Peak_MMN_Oddball_rev_750_Hz_before",
-   "Peak_MMN_Standard_rev_500_Hz_before"
- ), ]
- MMN_amplitude_500oddball$variable <- droplevels(MMN_amplitude_500oddball$variable)
- 
- MMN_amplitude_750oddball <- reshaped_df_MMN_750oddball[reshaped_df_MMN_750oddball$variable %in% c(
-   "Peak_MMN_Oddball_750_Hz_before",
-   "Peak_MMN_Standard_500_Hz_before",
-   "Peak_MMN_Oddball_rev_500_Hz_before",
-   "Peak_MMN_Standard_rev_750_Hz_before"
- ), ]
- MMN_amplitude_750oddball$variable <- droplevels(MMN_amplitude_750oddball$variable)
- 
- # Combine MMN amplitudes before for 750 Hz + 500 Hz (before)
- MMN_amplitude <- rbind(MMN_amplitude_500oddball, MMN_amplitude_750oddball)
- MMN_amplitude$value <- as.numeric(gsub(",", ".", MMN_amplitude$value))
- 
- # Change column names
- colnames(MMN_amplitude)[colnames(MMN_amplitude) %in% c(
-   "variable", "value")] <- c(
-     "condition", "amplitude")
- 
- # LMM
- lmm <- lmer(amplitude~condition + (1|id), data = MMN_amplitude)
- anova(lmm)
- emmeans(lmm, ~condition)
- 
- 
- df_MMN_500oddball <- reshape2::melt(df_MMN_500oddball, id.vars = "File")
- df_MMN_750oddball <- reshape2::melt(df_MMN_750oddball, id.vars = "File")
- df_P3_500oddball <- reshape2::melt(df_P3_500oddball, id.vars = "File")
- df_P3_750oddball <- reshape2::melt(df_P3_750oddball, id.vars = "File")
- 
- df_erp <- rbind(
+df_P3a_500oddball <- Filter(function(x)!all(is.na(x)), df_P3a_500oddball)
+df_P3a_500oddball <- df_P3a_500oddball[!(df_P3a_500oddball$`L-Peak_P3a_Oddbal_500_Hz_before` == "???"), ]
+df_P3a_750oddball <- Filter(function(x)!all(is.na(x)), df_P3a_750oddball)
+df_P3a_750oddball <- df_P3a_750oddball[!(df_P3a_750oddball$`L-Peak_P3a_Oddball_750_Hz_before` == "???"), ]
+  
+# Replace commas with point decimals
+for (i in 2:ncol(df_MMN_500oddball)) {
+  df_MMN_500oddball[, i] <- as.numeric(gsub(",", ".", df_MMN_500oddball[, i]))
+}
+for (i in 2:ncol(df_MMN_750oddball)) {
+  df_MMN_750oddball[, i] <- as.numeric(gsub(",", ".", df_MMN_750oddball[, i]))
+}
+for (i in 2:ncol(df_P3a_500oddball)) {
+  df_P3a_500oddball[, i] <- as.numeric(gsub(",", ".", df_P3a_500oddball[, i]))
+}
+for (i in 2:ncol(df_P3a_750oddball)) {
+  df_P3a_750oddball[, i] <- as.numeric(gsub(",", ".", df_P3a_750oddball[, i]))
+}
+  
+# Diff columns contain MMN-amplitude differences between oddball + standards
+df_MMN_500oddball$diff_O500_S750_for_before <- (
+  df_MMN_500oddball$Peak_MMN_Oddball_500_Hz_before)-(df_MMN_500oddball$Peak_MMN_Standard_750_Hz_before) # 1st block (for) before
+df_MMN_500oddball$diff_O750_S500_rev_before <- (
+  df_MMN_500oddball$Peak_MMN_Oddball_rev_750_Hz_before)-(df_MMN_500oddball$Peak_MMN_Standard_rev_500_Hz_before) # 2nd block (rev) before
+df_MMN_500oddball$diff_O500_S750_for_after <- (
+  df_MMN_500oddball$Peak_MMN_Oddball_500_Hz_after)-(df_MMN_500oddball$Peak_MMN_Standard_750_Hz_after) # 3rd block (for) after
+df_MMN_500oddball$diff_O750_S500_rev_after <- (
+  df_MMN_500oddball$Peak_MMN_Oddball_rev_750_Hz_after)-(df_MMN_500oddball$Peak_MMN_Standard_rev_500_Hz_after) # 4th block (rev) after
+
+df_MMN_750oddball$diff_O750_S500_for_before <- (
+  df_MMN_750oddball$Peak_MMN_Oddball_750_Hz_before)-(df_MMN_750oddball$Peak_MMN_Standard_500_Hz_before) # 1st block (for) before
+df_MMN_750oddball$diff_O500_S750_rev_before <- (
+  df_MMN_750oddball$Peak_MMN_Oddball_rev_500_Hz_before)-(df_MMN_750oddball$Peak_MMN_Standard_rev_750_Hz_before) # 2nd block (rev) before
+df_MMN_750oddball$diff_O750_S500_for_after <- (
+  df_MMN_750oddball$Peak_MMN_Oddball_750_Hz_after)-(df_MMN_750oddball$Peak_MMN_Standard_500_Hz_after) # 3rd block (for), after
+df_MMN_750oddball$diff_O500_S750_rev_after <- (
+  df_MMN_750oddball$Peak_MMN_Oddball_rev_500_Hz_after)-(df_MMN_750oddball$Peak_MMN_Standard_rev_750_Hz_after) # 4th block (rev) after
+
+# Diff columns contain P3a-amplitude differences between oddball + standards
+df_P3a_500oddball$diff_O500_S750_for_before <- (
+  df_P3a_500oddball$Peak_P3a_Oddbal_500_Hz_before)-(df_P3a_500oddball$Peak_P3a_Standard_750_Hz_before) # 1st block (for) before
+df_P3a_500oddball$diff_O750_S500_rev_before <- (
+  df_P3a_500oddball$Peak_P3a_Oddball_rev_750_Hz_before)-(df_P3a_500oddball$Peak_P3a_Standard_rev_500_Hz_before) #2nd block (rev) before
+df_P3a_500oddball$diff_O500_S750_for_after <- (
+  df_P3a_500oddball$Peak_P3a_Oddball_500_Hz_after)-(df_P3a_500oddball$Peak_P3a_Standard_750_Hz_after) # 3rd block (for) after
+df_P3a_500oddball$diff_O750_s500_rev_after <- (
+  df_P3a_500oddball$Peak_P3a_Oddball_rev_750_after)-(df_P3a_500oddball$Peak_P3a_Standard_rev_500_Hz_after) # 4th block (rev) after
+
+df_P3a_750oddball$diff_O750_S500_for_before <- c(
+  df_P3a_750oddball$Peak_P3a_Oddball_750_Hz_before)-(df_P3a_750oddball$Peak_P3a_Standard_500_Hz_before) # 1st block (for) before
+df_P3a_750oddball$diff_O500_S750_rev_before <- c(
+  df_P3a_750oddball$Peak_P3a_Oddball_rev_500_Hz_before)-(df_P3a_750oddball$Peak_P3a_Standard_rev_750_Hz_before) # 2nd block (rev) before
+df_P3a_750oddball$diff_O750_S500_for_after <- (
+  df_P3a_750oddball$Peak_P3a_Oddball_750_Hz_after)-(df_P3a_750oddball$Peak_P3a_Standard_500_Hz_after) # 3rd block (for) after
+df_P3a_750oddball$diff_O500_S750_rev_after <- (
+  df_P3a_750oddball$Peak_P3a_Oddball_rev_500_Hz_after)-(df_P3a_750oddball$Peak_P3a_Standard_rev_750_Hz_after) # 4th block (rev) after
+
+# Diff_df is a subset of df_MMN_500oddball/df_MMN_750oddball
+diff_500_MMN <- df_MMN_500oddball[c("id", "diff_O500_S750_for_before", "diff_O750_S500_rev_before", "diff_O500_S750_for_after", "diff_O750_S500_rev_after")]
+diff_500_MMN <- reshape2::melt(diff_500_MMN, id = "id")
+diff_750_MMN <- df_MMN_750oddball[c("id", "diff_O750_S500_for_before", "diff_O500_S750_rev_before", "diff_O750_S500_for_after", "diff_O500_S750_rev_after")]
+diff_750_MMN <- reshape2::melt(diff_750_MMN, id = "id")
+
+diff_500_750_MMN <- rbind(diff_500_MMN, diff_750_MMN)
+diff_500_750_MMN$value <- scale(as.numeric(diff_500_750_MMN$value))
+  
+# Diff_df is a subset of df_P3a_500oddball/df_P3a_750oddball
+diff_500_P3a <- df_P3a_500oddball[c("id", "diff_O500_S750_for_before", "diff_O750_S500_rev_before", "diff_O500_S750_for_after", "diff_O750_s500_rev_after")]
+diff_500_P3a <- reshape::melt(diff_500_P3a, id = "id")
+diff_750_P3a <- df_P3a_750oddball[c("id", "diff_O750_S500_for_before", "diff_O500_S750_rev_before", "diff_O750_S500_for_after", "diff_O500_S750_rev_after")]
+diff_750_P3a <- reshape::melt(diff_750_P3a, id = "id")
+  
+diff_500_750_P3a <- rbind(diff_500_P3a, diff_750_P3a)
+diff_500_750_P3a$value <- scale(as.numeric(diff_500_750_P3a$value))
+  
+# additional columns for block, pitch + manipulation
+diff_500_750_MMN$pitch <- as.factor(substr(diff_500_750_MMN$variable, 7, 9)) # MMN 
+diff_500_750_MMN$block <- as.factor(substr(diff_500_750_MMN$variable, 16, 18))
+diff_500_750_MMN$manipulation <- as.factor(substr(diff_500_750_MMN$variable, 20, 25))
+  
+diff_500_750_P3a$pitch <- as.factor(substr(diff_500_750_P3a$variable, 7,9)) # P3a 
+diff_500_750_P3a$block <- as.factor(substr(diff_500_750_P3a$variable, 16, 18))
+diff_500_750_P3a$manipulation <- as.factor(substr(diff_500_750_P3a$variable, 20, 25))
+  
+# LMM: MMN
+lmm <- lmer(value ~ pitch * block * manipulation + (1|id), data = diff_500_750_MMN)
+anova(lmm)
+em <- emmeans(lmm, list(pairwise ~ pitch|manipulation), adjust = "tukey")
+plot(em)
+
+bxp_750_500 <- boxplot(
+  value ~ variable,
+  data = diff_500_750_MMN,
+  ylab = "amplitude_diff",
+  xlab = "task block",
+  cex.axis = 0.5)
+
+# LMM: P3a
+lmm <- lmer(value ~ pitch * block * manipulation + (1|id), data = diff_500_750_P3a)
+anova(lmm)
+  
+bxp_750_500 <- boxplot(
+  value ~ variable,
+  data = diff_500_750_P3a,
+  ylab = "amplitude_diff",
+  xlab = "task block",
+  cex.axis = 0.5)
+  
+# the end_____ 
+
+df_erp <- rbind(
    df_MMN_500oddball,
    df_MMN_750oddball,
    df_P3_500oddball,
