@@ -1,8 +1,18 @@
 ---
 title: "data_preprocessing_database"
 author: "Nico Bast"
-date: "2023-09-14"
-output: html_document
+date: "`r Sys.Date()`"
+output:
+  word_document:
+    toc: yes
+  html_document:
+    toc: yes
+    toc_float: yes
+    number_sections: yes
+    theme: cerulean
+    code_folding: hide
+editor_options:
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -18,13 +28,14 @@ require(ggplot2)
 theme_set(theme_bw())
 
 #location of data folder
-datapath<-'C:/Users/nico/PowerFolders/project_sega/data/DB_exports/14092023/'
+#datapath<-'C:/Users/nico/PowerFolders/project_sega/data/DB_exports/14092023/'
+datapath<-'C:/Users/nico/PowerFolders/project_sega/data/DB_exports/28052024/'
 #savepath<-'C:/Users/nico/PowerFolders/data_AFFIP/'
 list.files(datapath)
 
 ```
 
-# Load checklist as master merge file (Sept 2023)
+# Load checklist as master merge file
 
 ```{r prepare database output}
 
@@ -34,9 +45,11 @@ checklist <- checklist[order(checklist$ID_Studie),]
 #checklist <- select(checklist, ID_Bado, ID_Studie, Geschlecht_Index)
 names(checklist)[names(checklist) == "ID_Studie"] <- "id" #rename id (in order to merge later with eye-tracking data)
 
-##correct wrong data base entries --> after megre
-checklist$id[checklist$id=='SEGA-064']<-'SEGA_064'
-checklist$id[checklist$id=='SEGA_2016']<-'SEGA_016'
+##correct wrong data base entries --> after megre - have not been corrected
+# checklist$id[checklist$id=='SEGA-064']<-'SEGA_064'
+# checklist$id[checklist$id=='SEGA_2016']<-'SEGA_016'
+
+nrow(checklist)
 
 ```
 
@@ -88,11 +101,9 @@ ysr<- select(ysr, ID_Bado, YSR_INT, YSR_EXT, YSR_GES, YSR_T_INT, YSR_T_EXT, YSR_
 ```{r load IQ data}
 
 wais <- read_xlsx(paste0(datapath,'WAIS_IV.xlsx'))
-
+wisc <- read_xlsx(paste0(datapath,'HAWIK-V.xlsx'))
 
 ```
-
-
 
 #merge data
 
@@ -113,7 +124,6 @@ sdq_self<-sdq_self[,!(names(sdq_self)=='Beurteiler')]
 sdq<-merge(sdq_parent,sdq_self,by='ID_Bado',all.x=T)
 
 df_dem<-merge(df_dem,sdq,by='ID_Bado',all.x=T)
-
 df_dem<-merge(df_dem,ysr,by='ID_Bado',all.x=T)
 
 ```
@@ -122,7 +132,8 @@ save dataframe for matching
 
 ```{r save data}
 
-saveRDS(df_dem, file = "C:/Users/nico/PowerFolders/project_sega/data/demographics_14092023.rds")
+saveRDS(df_dem, file = "C:/Users/nico/PowerFolders/project_sega/data/demographics_28052024.rds")
+#saveRDS(df_dem, file = "C:/Users/nico/PowerFolders/project_sega/data/demographics_14092023.rds")
 
 ```
 
