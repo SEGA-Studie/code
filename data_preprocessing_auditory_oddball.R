@@ -436,37 +436,51 @@ for (subject in df_list){
     n_asd <<- n_asd + 1
 }
 
-# trial-baseline correction and number of missing trial baselines
-counter <- 0
-counter_td <- 0
-counter_asd <- 0
-
-list_split_trial <- lapply(list_split_trial, function(x) {
-  rpd_low <- mean(x$pd[x$ts_trial < 0.250])
-  if (is.na(unique(rpd_low))) {
-    counter <<- counter + 1
-    if (x$group[1] == 'TD')
-      counter_td <<- counter_td + 1
-    if (x$group[1] == 'ASD')
-      counter_asd <<- counter_asd + 1
-  }
-  
-  trial_corr_pd <- x$pd - rpd_low
-  x[, "rpd_low"] <- rep(rpd_low, times = nrow(x))
-  x[, "trial_corr_pd"] <- trial_corr_pd
-  return(x)
-})
-
-# Percentage of missing trial baseline
-percentage_trial <- 100 / (length(list_split_trial))
-print(paste0(round(percentage_trial * counter, digits = 2),
-             " % of all trials with trial baseline == NA: ",
-             round(percentage_trial * counter_asd, digits = 2), "% (ASD), ",
-             round(percentage_trial * counter_td, digits = 2), "% (TD)"
-             ))
-
 # Bind trials together to a df
 df <- dplyr::bind_rows(list_split_trial)
+
+# Create df with 6 baseline means
+baseline_means <- data.frame()
+subjects <- unique(df$id)
+baseline_means_subj <- NULL
+
+for (subject in subjects){
+  subject_df <- df[df$id == subject, ]
+  baseline_trial_counter <- c(1, 2, 3, 4, 5, 6)
+  for (i in baseline_trial_counter){
+    baseline_df <- subject_df[subject_df$trial == "baseline" & subject_df$baseline_trial_counter == i, ]
+    # block_baseline_mean is the new variable
+    block_baseline_mean <- mean(baseline_df$pd, na.rm = TRUE)
+    # id for merging with df_trial
+    id <- subject
+    # baseline_trial_counter for plot
+    baseline_trial_counter <- i
+    # block_counter of following oddball-Block for merging
+    if (i == 1){
+      block_counter <- 3}
+    if (i == 2){
+      block_counter <- 5}    
+    if (i == 3){
+      block_counter <- NA}
+    if (i == 4){
+      block_counter <- 10}
+    if (i == 5){
+      block_counter <- 12}
+    if (i == 6){
+      block_counter <- NA}
+    baseline_means_subj <- cbind(id, block_counter, block_baseline_mean, baseline_trial_counter)
+    baseline_means <- rbind(baseline_means, baseline_means_subj)
+  }}
+
+# baseline_trial_counter as factor for boxplot
+baseline_means$baseline_trial_counter <- as.factor(baseline_means$baseline_trial_counter)
+
+# Pupil size for baselines
+ggplot(
+  baseline_means,
+  aes(x = baseline_trial_counter,
+      y = block_baseline_mean)) + 
+  geom_boxplot(fill = "steelblue")
 
 # split by block and id
 list_split_blocks <- split(df,
@@ -513,7 +527,7 @@ rpd_auc <- sapply(list_split_trial, function(x) {
 rpd_auc<-ifelse(rpd_auc>15,NA,rpd_auc)
 
 rpd_high <- sapply(list_split_trial, function(x) {
-  mean(x$pd[x$ts_trial > 0.500 & x$ts_trial < 1])})
+  mean(x$pd[x$ts_trial > 0.500 & x$ts_trial < 1.5])})
 
 rpd_low <- sapply(list_split_trial, function(x) {
   mean(x$pd[x$ts_trial < 0.250])})
@@ -547,6 +561,15 @@ df_trial <- merge(df_trial, df_et_trial, id = "merger_id")
 
 # rpd = scaled trial-baseline corrected pupil diameter
 df_trial$rpd <- df_trial$rpd_high - df_trial$rpd_low
+
+# Add baseline means to df_trial
+# Before, get rid of column "baseline_trial_counter" from df baseline_means. Was necessary for the plot but
+# now prevent to have this column twice due to merging.
+baseline_means <- subset(baseline_means, select = -c(baseline_trial_counter))
+df_trial <- merge(x = baseline_means, y = df_trial, by = c("id", "block_counter"), all.y = TRUE)
+
+# new variable rpd_block is block baseline corrected rpd_high
+df_trial$rpd_block <- df_trial$rpd_high - df_trial$block_baseline_mean
 
 # new variables manipulation indicates whether before or after manipulation
 df_trial$manipulation <- factor(
@@ -598,6 +621,12 @@ ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<0.7 & df$block_
        labs(x='trial duration (s)',y='pupillary response (mm)')+
        scale_color_manual(values = custom_condition_colors)+
        theme_bw()  
+
+# Association between pupil variables
+hist(df_trial$rpd_block)
+hist(df_trial$rpd)
+crl <- cor(df_trial[, c("rpd_low", "rpd_high", "rpd", "rpd_block")], use = "complete.obs")
+corrplot::corrplot(crl, method = "circle")
 
 length(unique(df$id))
 
