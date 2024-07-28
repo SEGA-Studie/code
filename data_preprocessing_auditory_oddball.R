@@ -8,8 +8,13 @@
 
 # - 027 without task data
 # - 037 task aborted
+# - 073 without ET data
 # - 056 program failed
-# - 016 --> et daten fehlten bisher
+# - 070 no data due to subject-related issues
+# - 077 complete data but script fails
+# - 139 no data due to subject-related issues
+# - 122 no eeg data due to eeg pc problem
+# - 114 no eeg data due to eeg pc problem
 
 ## SETUP ####
 
@@ -623,12 +628,22 @@ ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<0.7 & df$block_
        theme_bw()  
 
 # Association between pupil variables
-hist(df_trial$rpd_block)
-hist(df_trial$rpd)
+hist(df_trial$rpd_block, xlim = c(-2, 2))
+hist(df_trial$rpd, xlim = c(-1, 1))
 crl <- cor(df_trial[, c("rpd_low", "rpd_high", "rpd", "rpd_block")], use = "complete.obs")
 corrplot::corrplot(crl, method = "circle")
 
 length(unique(df$id))
+
+# Read experimental group data from .csv file
+exp_groups <- read.csv("exp_groups.csv", header = TRUE)
+exp_groups$SEGA_ID <- as.character(exp_groups$SEGA_ID)
+# Include experimental group (ASD, CON, PSY) from .csv file in df_trial
+for (row in 1:length(df_trial$id)) {
+  SEGA_ID_df <- df_trial[row, "id"]
+  row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
+  group <- exp_groups[row_number, "group"]
+  df_trial[row, "group"] <- group}
 
 ##--> save preprocess df_trial ####
 saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
