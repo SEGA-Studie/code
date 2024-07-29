@@ -34,6 +34,8 @@ library(gridExtra, warn.conflicts = FALSE) # multiple plots arrangement
 library(dplyr, warn.conflicts = FALSE) # for %>% operator
 library(cowplot, warn.conflicts = FALSE) # get only legend from plot
 library(ggpubr, warn.conflicts = FALSE) # save legend from plot
+library(stringr)
+library(tidyverse)
 
 # PATHS
 if (Sys.info()["sysname"] == "Linux") {
@@ -70,6 +72,8 @@ if (Sys.info()["sysname"] == "Darwin") {
   datapath <- paste0(home_path, data_path) # .hdf5 input files
   datapath_task <- paste0(home_path, data_path_task) # .csv input files
   datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
+  data_path_single_trial_eeg <- "/code/input/AuditoryOddball/eeg_single_trial"
+  datapath_single_eeg <- paste0(home_path, data_path_single_trial_eeg)
   # List all .hdf and .csv files
   data_files <- c(
     list.files(path = datapath, full.names = TRUE),
@@ -587,10 +591,10 @@ df_trial$manipulation <- factor(
 df_trial$pitch <- ifelse(df_trial$trial == "oddball",
 df_trial$oddball_frequency, df_trial$standard_frequency)
 # distinguish between (forward) oddball blocks and reverse oddball blocks
-df_trial$reverse <- ifelse(
+df_trial$block <- ifelse(
   df_trial$phase == "oddball_block_rev", "reverse", "forward")
 # distinguish between oddball and standards trials
-df_trial$oddball <- as.factor(ifelse(grepl(
+df_trial$trial <- as.factor(ifelse(grepl(
   "oddball",
   df_trial$trial),
   "oddball", "standard"))
@@ -662,7 +666,132 @@ saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory
 table(df_trial$block_counter, df_trial$phase)
 table(df_trial$trial)
 # Number of trials for forward and reverse oddball blocks
-table(df_trial$reverse, df_trial$oddball)
+table(df_trial$block, df_trial$trial)
 hist(df_trial$rpd, 50)
 with(df_trial, by(rpd, trial, mean, na.rm = TRUE))
+
+# Read EEG single trial data
+# Single trial EEG data is stored in 2 files (before + after manipulation) per subject
+# List all files separately for before + after
+files_single_eeg_before <- list.files(
+  path = datapath_single_eeg, full.names = TRUE, pattern = "before")
+files_single_eeg_after <- list.files(
+  path = datapath_single_eeg, full.names = TRUE, pattern = "after")
+
+# For removing 3 preceeding standards
+standards <- c(1, 2, 3, 104, 105, 106, 207, 208, 209, 310, 311, 312)
+
+# Read files before manipulation
+MMN_df_trial_before <- data.frame()
+P3a_df_trial_before <- data.frame()
+
+for (file in files_single_eeg_before) {
+  if (grepl("MMN", file)) {
+    eeg_data_before <- read.table(file, header = TRUE, fill = TRUE)
+    colnames(eeg_data_before)[colnames(eeg_data_before) == "Filename"] <- "SEGA_ID"
+    eeg_data_before$SEGA_ID <- as.factor(substr(eeg_data_before$SEGA_ID, 6, 8))
+    eeg_data_before$SEGA_ID <- sub("^0+", "", eeg_data_before$SEGA_ID)
+    colnames(eeg_data_before)[colnames(eeg_data_before) == "MinMMN.L"] <- "MMN_latency"
+    colnames(eeg_data_before)[colnames(eeg_data_before) == "MinMMN.V"] <- "MMN_amplitude"
+    colnames(eeg_data_before)[colnames(eeg_data_before) == "Segment"] <- "oddball_trial_counter"
+    eeg_data_before <- subset(eeg_data_before, !(oddball_trial_counter %in% standards))
+    MMN_df_trial_before <- rbind(MMN_df_trial_before, eeg_data_before)
+  }
+  if (grepl("P3a", file)) {
+    eeg_data_before <- read.table(file, header = TRUE, fill = TRUE)
+    colnames(eeg_data_before)[colnames(eeg_data_before) == "Filename"] <- "SEGA_ID"
+    eeg_data_before$SEGA_ID <- as.factor(substr(eeg_data_before$SEGA_ID, 6, 8))
+    eeg_data_before$SEGA_ID <- sub("^0+", "", eeg_data_before$SEGA_ID)
+    colnames(eeg_data_before)[colnames(eeg_data_before) == "MaxP3a.L"] <- "P3a_latency"
+    colnames(eeg_data_before)[colnames(eeg_data_before) == "MaxP3a.V"] <- "P3a_amplitude"
+    colnames(eeg_data_before)[colnames(eeg_data_before) == "Segment"] <- "oddball_trial_counter"
+    eeg_data_before <- subset(eeg_data_before, !(oddball_trial_counter %in% standards))
+    P3a_df_trial_before <- rbind(P3a_df_trial_before, eeg_data_before)}
+}
+# P3a + MMN before manipulation in one df
+single_trial_eeg_before <- merge(MMN_df_trial_before, P3a_df_trial_before, by = c("SEGA_ID", "oddball_trial_counter"))
+
+# Read files after manipulation
+MMN_df_trial_after <- data.frame()
+P3a_df_trial_after <- data.frame()
+
+for (file in files_single_eeg_after) {
+  if (grepl("MMN", file)){
+    eeg_data_after <- read.table(file, header = TRUE, fill = TRUE)
+    colnames(eeg_data_after)[colnames(eeg_data_after) == "Filename"] <- "SEGA_ID"
+    eeg_data_after$SEGA_ID <- as.factor(substr(eeg_data_after$SEGA_ID, 6, 8))
+    eeg_data_after$SEGA_ID <- sub("^0+", "", eeg_data_after$SEGA_ID)
+    colnames(eeg_data_after)[colnames(eeg_data_after) == "MinMMN.L"] <- "MMN_latency"
+    colnames(eeg_data_after)[colnames(eeg_data_after) == "MinMMN.V"] <- "MMN_amplitude"
+    colnames(eeg_data_after)[colnames(eeg_data_after) == "Segment"] <- "oddball_trial_counter"
+    eeg_data_after$oddball_trial_counter <- seq(from = 207, length.out = 206) # trials are continuously numbered throughout the experiment
+    eeg_data_after <- subset(eeg_data_after, !(oddball_trial_counter %in% standards)) # after renumbering!
+    MMN_df_trial_after <- rbind(MMN_df_trial_after, eeg_data_after)
+  }
+  if (grepl("P3a", file)){
+    eeg_data_after <- read.table(file, header = TRUE, fill = TRUE)
+    colnames(eeg_data_after)[colnames(eeg_data_after) == "Filename"] <- "SEGA_ID"
+    eeg_data_after$SEGA_ID <- as.factor(substr(eeg_data_after$SEGA_ID, 6, 8))
+    eeg_data_after$SEGA_ID <- sub("^0+", "", eeg_data_after$SEGA_ID)
+    colnames(eeg_data_after)[colnames(eeg_data_after) == "MaxP3a.L"] <- "P3a_latency"
+    colnames(eeg_data_after)[colnames(eeg_data_after) == "MaxP3a.V"] <- "P3a_amplitude"
+    colnames(eeg_data_after)[colnames(eeg_data_after) == "Segment"] <- "oddball_trial_counter"
+    eeg_data_after$oddball_trial_counter <- seq(from = 207, length.out = 206) # trials are continuously numbered throughout the experiment
+    eeg_data_after <- subset(eeg_data_after, !(oddball_trial_counter %in% standards)) # after renumbering!
+    P3a_df_trial_after <- rbind(P3a_df_trial_after, eeg_data_after)}
+}
+# P3a + MMN after manipulation in one df
+single_trial_eeg_after <- merge(MMN_df_trial_after, P3a_df_trial_after, by = c("SEGA_ID", "oddball_trial_counter"))
+
+# Bind ERP data before + after manipulation together
+# EEG_df_trial contains EEG data on trial level for oddball_blocks + reverse_blocks
+EEG_df_trial <- rbind(single_trial_eeg_before, single_trial_eeg_after)
+
+# Merge ET and ERP data on trial level
+# ET_df_trial = subset of df_trial with ET data only from oddball_block(rev)
+ET_df_trial <- df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev"), ]
+colnames(ET_df_trial)[colnames(ET_df_trial) == "id"] <- "SEGA_ID" #colname SEGA_ID for further matching
+# left join because experimental infos (pitch, phase, ect.) come with ET data.
+ET_ERP_trial <- merge(ET_df_trial, EEG_df_trial, by = c("SEGA_ID", "oddball_trial_counter"), all.x = T)
+
+# Correct data types in ET_ERP_trial data frame
+ET_ERP_trial$phase <- as.factor(ET_ERP_trial$phase)
+ET_ERP_trial$trial <- as.factor(ET_ERP_trial$trial)
+ET_ERP_trial$pitch <- as.factor(ET_ERP_trial$pitch)
+ET_ERP_trial$block <- as.factor(ET_ERP_trial$block)
+ET_ERP_trial$MMN_latency <- as.numeric(ET_ERP_trial$MMN_latency)
+ET_ERP_trial$MMN_amplitude <- as.numeric(ET_ERP_trial$MMN_amplitude)
+ET_ERP_trial$P3a_amplitude <- as.numeric(ET_ERP_trial$P3a_amplitude)
+ET_ERP_trial$P3a_latency <- as.numeric(ET_ERP_trial$P3a_latency)
+ET_ERP_trial$group <- as.factor(ET_ERP_trial$group)
+ET_ERP_trial$SEGA_ID <- as.numeric(ET_ERP_trial$SEGA_ID)
+str(ET_ERP_trial)
+
+## Read Checkliste.csv contains age, gender + date of data collection
+demographics_import <- read.csv("Checkliste.csv", header = T, sep = ";", dec = ",", fill = T)
+demographics <- demographics_import[c("ID_Studie", "Geschlecht_Index", "Geburt_Index")]
+colnames(demographics)[colnames(demographics) == "ID_Studie"] <- "SEGA_ID" # same column name as in exp_groups for matching
+
+demographics$SEGA_ID <- sub(".*SEGA_", "", demographics$SEGA_ID)
+demographics$SEGA_ID <- str_replace(demographics$SEGA_ID, "^0+", "")
+
+## New df sample_characteristics contains gender, birthday, group, date of data collection, 
+list_sample <- list(demographics, exp_groups)
+sample_characteristics <- list_sample %>% reduce(full_join, by = "SEGA_ID")
+
+## Calculated age in separate column
+sample_characteristics$age <- as.numeric(
+  difftime(sample_characteristics$date_data_collection, sample_characteristics$Geburt_Index,
+           units = "weeks"))/52.25
+
+# Add covariates age + gender to ET_ERP_trial
+for (row in 1:length(ET_ERP_trial$SEGA_ID)) {
+  SEGA_ID_df <- ET_ERP_trial[row, "SEGA_ID"]
+  row_number <- which(sample_characteristics$SEGA_ID == SEGA_ID_df)
+  gender <- sample_characteristics[row_number, "Geschlecht_Index"]
+  age <- sample_characteristics[row_number, "age"]
+  ET_ERP_trial[row, "gender"] <- gender
+  ET_ERP_trial[row, "age"] <- age
+}
+
 
