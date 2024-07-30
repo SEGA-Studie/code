@@ -15,6 +15,7 @@
 # - 139 no data due to subject-related issues
 # - 122 no eeg data due to eeg pc problem
 # - 114 no eeg data due to eeg pc problem
+# - 103 only .psydat, no csv file
 
 ## SETUP ####
 
@@ -201,7 +202,6 @@ list_trial_data<-list_trial_data[!(names(list_trial_data) %in% paste0(unmatched_
 # Grip strength variable
 list_trial_data <- lapply(list_trial_data, function(x) {
   mean_grip_strength <- mean(x$grip_strength, na.rm = TRUE)
-  print(mean_grip_strength)
   x$mean_grip_strength <- mean_grip_strength
   return(x)
   })
@@ -434,17 +434,6 @@ func_pd_preprocess <- function(x) {
 list_split_trial <- pblapply(
   list_split_trial, func_pd_preprocess)
 
-# Sample size
-n_asd <- 0
-n_td <- 0
-
-for (subject in df_list){
-  if (subject$group[1] == 'TD')
-    n_td <<- n_td + 1
-  if (subject$group[1] == 'ASD')
-    n_asd <<- n_asd + 1
-}
-
 # Bind trials together to a df
 df <- dplyr::bind_rows(list_split_trial)
 
@@ -650,7 +639,7 @@ for (row in 1:length(df_trial$id)) {
   df_trial[row, "group"] <- group}
 
 ##--> save preprocess df_trial ####
-saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
+#saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
 
 # # Can be used to skip preprocessing and directly read proprocessed data from .rds file:
 # df_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
@@ -794,4 +783,6 @@ for (row in 1:length(ET_ERP_trial$SEGA_ID)) {
   ET_ERP_trial[row, "age"] <- age
 }
 
+# Save .Rds on trial level file for analysis
+saveRDS(ET_ERP_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_trial.rds'))
 
