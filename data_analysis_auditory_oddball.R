@@ -1,43 +1,291 @@
-### --- LOADS preprocessed auditory oddball data and analysis pupillometry variables
+### --- LOADS preprocessed auditory oddball data and analysis ERPs and pupillometry variables
 
 # SETUP ####
+# REQUIRED PACKAGES
+require(performance) # marginal + conditional R2
+require(lme4) # linear-mixed-effects models
+require(lmerTest, warn.conflicts = FALSE) # linear-mixed-effects models
+require(emmeans, warn.conflicts = FALSE) # estimated marginal means (EMMs)
+require(ggplot2, warn.conflicts = FALSE) # creating graphs
+require(dplyr, warn.conflicts = FALSE) # for %>% operator
+library(ggpubr, warn.conflicts = FALSE) # ggscatter()-function
+
+# PATHS
+if (Sys.info()["sysname"] == "Linux") {
+  home_path <- "~"
+  project_path <- "/PowerFolders/project_sega"
+  data_path <- "/PowerFolders/project_sega/data/AuditoryOddball"
+  data_path_eeg <- "/PowerFolders/project_sega/data/AuditoryOddball_EEG"
+  datapath <- paste0(home_path, data_path) # .csv + .hdf5 input files
+  datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
+  # List all .hdf and .csv files
+  data_files <- list.files(path = datapath, full.names = TRUE)
+}
+
+if (Sys.info()["sysname"] == "Windows") {
+  home_path <- "C:/Users/Nico"
+  project_path <- "/PowerFolders/project_sega"
+  data_path <- "/PowerFolders/project_sega/data/et auditory oddball"
+  data_path_task<-"/PowerFolders/project_sega/data/task auditory oddball"
+  data_path_eeg <- "/PowerFolders/project_sega/data/tests/eeg preprocessed auditory oddball"
+  datapath <- paste0(home_path, data_path) # hdf5 input files
+  datapath_task <- paste0(home_path, data_path_task) # hdf5 input files
+  datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
+  # List all .hdf and .csv files
+  data_files <- c(list.files(path = datapath, full.names = TRUE),
+                  list.files(path = datapath_task, full.names = TRUE))
+}
+
+if (Sys.info()["sysname"] == "Darwin") {
+  home_path <- "~"
+  project_path <- "/code"
+  data_path <- "/code/input/AuditoryOddball/eyetracking"
+  data_path_task <- "/code/input/AuditoryOddball/taskdata"
+  data_path_eeg <- "/code/input/AuditoryOddball/eeg"
+  datapath <- paste0(home_path, data_path) # .hdf5 input files
+  datapath_task <- paste0(home_path, data_path_task) # .csv input files
+  datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
+  data_path_single_trial_eeg <- "/code/input/AuditoryOddball/eeg_single_trial"
+  datapath_single_eeg <- paste0(home_path, data_path_single_trial_eeg)
+  # List all .hdf and .csv files
+  data_files <- c(
+    list.files(path = datapath, full.names = TRUE),
+    list.files(path = datapath_task, full.names = TRUE))
+}
 
 # Can be used to skip preprocessing and directly read proprocessed data from .rds file:
-df_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
+df_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds')) # trial pupil data including ALL trials
+df <- readRDS(paste0(home_path, project_path,'/data/preprocessed_auditory_df.rds')) # pupil data (all data points for visualizing)
+et_erp_subject <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_subject_.rds')) # eeg + pupil (subject level, only oddball(rev) blocks)
+et_erp_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_trial.rds')) # eeg + pupil(single-trial, only oddball(rev) blocks)
 
-#changed random intercept to a factor
-df_trial$id<-as.factor(df_trial$id) #change ID to factor
-#df_trial$trial<-as.factor(df_trial$trial)
+# changes random intercept to a factor
+et_erp_subject$SEGA_ID <- as.factor(et_erp_subject$SEGA_ID)
+df_trial$id<-as.factor(df_trial$id) 
+et_erp_trial$SEGA_ID <- as.factor(et_erp_trial$SEGA_ID)
 
-require(performance)
+# changes covariates to a factor
+et_erp_subject$gender <- as.factor(et_erp_subject$gender)
+et_erp_trial$gender <- as.factor(et_erp_trial$gender)
+df_trial$group <- as.factor(df_trial$group)
+df_trial$pitch <- as.factor(df_trial$pitch)
+df_trial$block <- as.factor(df_trial$block)
+
+# DATA ANALYSIS ON SUBJECT LEVEL ####
+# Distributions of dependent variables
+hist(et_erp_subject$rpd,
+     main = "Distribution of rpd (500-1500 ms)",
+     xlab = "rpd",
+     xlim = c(-0.1, 0.2),
+     breaks = 200)
+
+hist(et_erp_subject$rpd_low,
+     main = "Distribution of rpd_low (0-250 ms)",
+     xlab = "rpd_low",
+     xlim = c(2, 5.5),
+     breaks = 200)
+
+hist(et_erp_subject$rpd_block,
+     main = "Distribution of rpd_block",
+     xlab = "rpd_block",
+     breaks = 200)
+
+hist(et_erp_subject$MMN_amplitude,
+     main = "Distribution of MMN amplitude (100-150 ms)",
+     xlab = "MMN amplitude (FC1, FC2, FCz, Fz)",
+     ylim = c(0, 30),
+     xlim = c(-15, 4.5),
+     breaks = 200)
+
+hist(et_erp_subject$P3a_amplitude,
+     main = "Distribution of P3a amplitude (150-250 ms)",
+     xlab = "P3a amplitude (Cz, FCz)",
+     ylim = c(0, 30),
+     xlim = c(-5, 15),
+     breaks = 200)
+
+# RESULT 1: MMN AMPLITUDE ON SUBJECT LEVEL
+lmm <- lmer(
+  scale(MMN_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+
+emmeans(
+  lmm, list(pairwise ~ trial), adjust = "tukey")
+
+emmeans(
+  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ block|manipulation), adjust = "tukey")
+plot(emmeans(
+  lmm, list(pairwise ~ manipulation|block), adjust = "tukey"))
 
 
-### DATA ANALYSIS  ####
+# RESULT 2: MMN LATENCY ON SUBJECT LEVEL
+lmm <- lmer(
+  scale(MMN_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+
+contrast(emmeans(lmm, ~ trial * manipulation|group), "pairwise")
+emmip(lmm, ~ manipulation |group * trial)
+
+
+# RESULT 3: P3A AMPLITUDE ON SUBJECT LEVEL
+lmm <- lmer(
+  scale(P3a_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+emmeans(
+  lmm, list(pairwise ~ trial ), adjust = "tukey")
+
+contrast(emmeans(lmm, ~ trial|group), "pairwise")
+contrast(emmeans(lmm, ~ group|trial), "pairwise")
+emmip(lmm, ~ trial|group)
+
+# RESULT 4: P3A LATENCY ON SUBJECT LEVEL
+lmm <- lmer(
+  scale(P3a_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+emmeans(
+  lmm, list(pairwise ~ trial), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
+
+# RESULT 5: SEPR ON SUBJECT LEVEL
+lmm <- lmer(
+  scale(rpd) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+emmeans(
+  lmm, list(pairwise ~ trial), adjust = "tukey")
+
+# RESULT 6: BPS ON SUBJECT LEVEL
+lmm <- lmer(
+  scale(rpd_low) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = et_erp_subject)
+anova(lmm) 
+r2_nakagawa(lmm) 
+
+emmeans(
+  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
+
+# RESULT 7: DOES PUPUIL DATA PREDICT ERPs?
+lmm <- lmer(
+  scale(MMN_amplitude) ~ rpd * rpd_low * trial *  manipulation * group + (1|SEGA_ID),
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
 
 lmm <- lmer(
-  scale(rpd) ~ oddball * manipulation * reverse + trial_number_in_block + (1 | id),
-  data = df_trial[
-    df_trial$phase %in% c("oddball_block", "oddball_block_rev"), ])
+  scale(P3a_amplitude) ~ rpd * rpd_low * trial *  manipulation * group + (1|SEGA_ID),
+  data = et_erp_subject)
 anova(lmm)
-contrast(emmeans(lmm, ~ oddball), "pairwise")
+r2_nakagawa(lmm)
+
+# DATA ANALYSIS ON TRIAL LEVEL ####
+# RESULT 8: MMN AMPLITUDE ON TRIAL LEVEL
+lmm <- lmer(
+  scale(MMN_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+emmeans(
+  lmm, list(pairwise ~ trial), adjust = "tukey")
+
+# RESULT 9: MMN LATENCY ON TRIAL LEVEL
+lmm <- lmer(
+  scale(MMN_latency) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+contrast(emmeans(lmm, ~ trial), "pairwise")
+emmip(lmm, ~ trial)
+
+emmeans(
+  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
+emmip(lmm, ~ manipulation|block)
+
+# RESULT 10: P3A AMPLITUDE ON TRIAL LEVEL
+lmm <- lmer(
+  scale(P3a_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
+plot(emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey"))
+
+contrast(emmeans(lmm, ~ trial | group), "pairwise")
+contrast(emmeans(lmm, ~ group | trial), "pairwise")
+plot(emmeans(lmm, ~ trial|group))
+
+# RESULT 11: P3A LATENCY ON TRIAL LEVEL
+lmm <- lmer(
+  scale(P3a_latency) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+
+emmeans(
+  lmm, list(pairwise ~ trial), adjust = "tukey")
+emmip(lmm, ~ trial)
+
+emmip(lmm, ~ trial * block|group * manipulation)
+
+# RESULT 12: SEPR ON TRIAL LEVEL
+lmm <- lmer(
+  scale(rpd) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+emmeans(
+  lmm, list(pairwise ~ trial), adjust = "tukey")
+
+emmeans(
+  lmm, list(pairwise ~ group |trial * block), adjust = "tukey")
+
+lmm <- lmer(
+  scale(rpd) ~ trial * manipulation * group * block * oddball_trial_counter + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+
+emtrends(lmm,~ manipulation, var = 'oddball_trial_counter')
 
 ggplot(
-  df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev") &
-             is.finite(df_trial$rpd), ], aes(
-               x = trial_number,
-               y = rpd,
-               group = oddball,
-               color = oddball)) +
+  et_erp_trial,
+  aes(
+    x = trial_number_in_block,
+    y = scale(rpd),
+    group = trial,
+    color = trial)) +
   geom_smooth() +
-  facet_grid(rows = vars(reverse), cols = vars(manipulation))
+  theme_bw() + 
+  ggtitle("SEPR (rpd) over block: A group comparison.") +
+  facet_grid(cols = vars(group))
 
 ggplot(
   df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev") &
              df_trial$trial_number_in_block >= 10 & is.finite(
                df_trial$rpd), ],
-  aes(x = trial_number_in_block, y = rpd, group = oddball, color = oddball)) +
+  aes(x = trial_number_in_block, y = rpd, group = trial, color = trial)) +
   geom_smooth() +
-  facet_grid(rows = vars(reverse), cols = vars(manipulation)) + theme_bw()
+  facet_grid(rows = vars(block), cols = vars(manipulation)) + theme_bw()
 
 ggplot(
   df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev") &
@@ -45,128 +293,155 @@ ggplot(
   aes(x = as.factor(trial_number_in_block), y = rpd)) +
   geom_boxplot() +
   facet_grid(
-    rows = vars(reverse),
-    cols = vars(manipulation, oddball)) +
+    rows = vars(block),
+    cols = vars(manipulation, trial)) +
   theme_bw()
-
-# DATA ANALYSIS: Linear mixed model - trial data ####
-
-table(df_trial$phase)
-
-#pupillary response - SEPR
-lmm<-lmer(scale(rpd)~oddball*group*manipulation*reverse+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
-anova(lmm)
-
-contrast(emmeans(lmm,~oddball),'pairwise') ##--> higher response to oddball
-contrast(emmeans(lmm,~reverse),'pairwise') ##--> higher response in forward trials
-contrast(emmeans(lmm,~oddball|reverse),'pairwise') ##--> oddball response is specific to forward blocks
-contrast(emmeans(lmm,~reverse|oddball),'pairwise') ###--> oddball larger in forward 
-
-# WTAS 2024 (analysis + data: 14.11.2023)
-# LMM: SEPR
-lmm_sepr_wtas <- lmer(scale(rpd)~oddball*group*manipulation + (1|id),
-                      data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
-anova(lmm_sepr_wtas) # -> 2 sig. main effects (group + oddball)
-
-# contrast oddball
-contrast(emmeans(lmm_sepr_wtas, ~ oddball), "pairwise")
-# -> stronger SEPR to oddballs vs. standards across groups
-
-# contrast group
-contrast(emmeans(lmm_sepr_wtas, ~ group), "pairwise")
-# -> stronger SEPR in TD than in ASD group
-
-# LMM: BPS
-lmm_bps_wtas <- lmer(scale(rpd_low)~oddball*group*manipulation + (1|id),
-                     data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
-anova(lmm_bps_wtas) # -> interaction effect of group x manipulation
-
-# contrast manipulation x group interaction
-contrast(emmeans(lmm_bps_wtas, ~ manipulation|group), "pairwise")
-emmip(lmm_bps_wtas, ~ manipulation|group) # plot: manipulation effect on BPS for both groups
-# -> after manipulation higher BPS in both groups
-
-# LMM (SEPR) with only forward blocks
-lmm_sepr_forward <- lmer(scale(rpd)~oddball*group*manipulation + (1|id),
-                         data=df_trial[df_trial$phase %in% c('oddball_block'),])
-anova(lmm_sepr_forward) # -> sig. main effects of group + oddball and trend of manipulation
-contrast(emmeans(lmm_sepr_forward, ~ manipulation), "pairwise")
-emmip(lmm_sepr_forward, ~ manipulation|group)
-
-# LMM (BPS) with only forward blocks
-lmm_bps_forward <- lmer(scale(rpd_low)~oddball*group*manipulation + (1|id),
-                        data=df_trial[df_trial$phase %in% c('oddball_block'),])
-anova(lmm_bps_forward) # -> sig. main effects of group + oddball and trend of manipulation
-contrast(emmeans(lmm_bps_forward, ~ manipulation|group), "pairwise")
-emmip(lmm_bps_forward, ~ manipulation|group)
-
-# #these effects are not significant - as of Sept 2023
-# contrast(emmeans(lmm,~group),'pairwise') ##--> TD with higher response to all trials
-# contrast(emmeans(lmm,~group|manipulation),'pairwise') ##--> higher response in TD before manipulation
-# contrast(emmeans(lmm,~manipulation|group),'pairwise') ##--> manipulation has an  effect in ASD
-# contrast(emmeans(lmm,~group|oddball+manipulation+reverse),'pairwise')
-# ###--> TD compared to ASD with higher response to standards in foward trials before manipulation
-# ###--> TD comapred to ASD with higehr repsonse to oddballs in reverse trials before manipulation
-
-# rpd in block progression
-lmm1 <- lmer(
-  scale(rpd) ~ oddball * reverse * trial_number_in_block + (1|id),
-  data = df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
-anova(lmm1)
-# -> no main effect of trial_number_in_block (p = 0.13)
-
-emtrends(lmm1,~oddball,var = 'trial_number_in_block')
-# -> standard + oddball responses decrease with trial_number_in_block
-
-emtrends(lmm1,~reverse,var = 'trial_number_in_block')
-# -> pupil responses towards all stimuli in forward + reverse blocks decrease with trial_number_in_block
-
-emtrends(lmm1,~oddball|reverse,var='trial_number_in_block')
-# -> In forward blocks, slight trend towards decreasing response to oddballs
-# and increasing to standards, which is the other way round in reverse blocks.
-
-hist(df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_reverse"), ]$trial_number_in_block)
-table(df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_reverse"), ]$trial_number_in_block)
-# -> Each block contains 100 x trial_number_in_block, thus 100 oddball trials per block.
 
 bin_size <- 20
 df_trial <- df_trial %>%
   mutate(trial_number_in_block_binned = factor(trial_number_in_block%/%bin_size*20))
-
 ggplot(
   df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev"), ],
   aes(x = trial_number_in_block_binned,
       y = scale(rpd))) + 
   geom_boxplot() + 
   facet_grid(
-    rows = vars(reverse),
+    rows = vars(block),
     cols = vars(manipulation)) +
   theme_bw() +
-  ggtitle("rpd during blocks, split by forward + reverse \nbefore + after manipulation") 
+  ggtitle("rpd during blocks, split by forward + reverse \nbefore + after manipulation")
 
+et_erp_trial$binned_trial_number <- cut(
+  et_erp_trial$oddball_trial_counter, c(
+    1,  25,  50, 75,  100, 125,  150, 175, 200,  225, 250, 275, 300, 325, 350, 375, 400))
+ggplot(et_erp_trial) + geom_boxplot(aes(binned_trial_number, rpd)) + 
+  facet_grid(cols = vars(group))
 
-#baseline  - BPS
-lmm<-lmer(scale(rpd_low)~oddball*group*manipulation*reverse+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
+# RESULT 13: BPS ON TRIAL LEVEL
+lmm <- lmer(
+  scale(rpd_low) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+emmeans(
+  lmm, list(pairwise ~ group|block), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ block|group), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ group|manipulation), adjust = "tukey")
+
+emmeans(
+  lmm, list(pairwise ~ manipulation|group), adjust = "tukey")
+emmip(lmm, ~ manipulation|group)
+
+ggplot(
+  et_erp_trial,
+  aes(
+    x = trial_number_in_block,
+    y = scale(rpd_low),
+    group = trial,
+    color = trial)) +
+  geom_smooth() +
+  theme_bw() + 
+  ggtitle("BPS (rpd_low) over block: A group comparison.") +
+  facet_grid(cols = vars(group))
+
+et_erp_trial$binned_trial_number <- cut(
+  et_erp_trial$oddball_trial_counter, c(
+    1,  25,  50, 75,  100, 125,  150, 175, 200,  225, 250, 275, 300, 325, 350, 375, 400))
+ggplot(et_erp_trial[et_erp_trial$trial == "standard", ]) + geom_boxplot(aes(binned_trial_number, rpd_low)) + 
+  facet_grid(cols = vars(group))
+
+lmm <- lmer(
+  scale(rpd_low) ~ trial * manipulation * group * block * oddball_trial_counter + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+
+# RESULT 14: ASSOCIATION BETWEEN BPS AND SEPR ON TRIAL LEVEL
+ggscatter(et_erp_trial[et_erp_trial$trial == "oddball", ], 
+          x = "rpd_low",
+          y = "rpd_high",
+          add = "reg.line",
+          conf.int = TRUE,
+          cor.coef = TRUE,
+          cor.method = "pearson",
+          xlab = "BPS (rpd_low)",
+          ylab = "SEPR (rpd_high)",
+          title = "Association between SEPR + BPS in oddball trials")
+
+ggscatter(et_erp_trial[et_erp_trial$trial == "standard", ], 
+          x = "rpd_low",
+          y = "rpd_high",
+          add = "reg.line",
+          conf.int = TRUE,
+          cor.coef = TRUE,
+          cor.method = "pearson",
+          xlab = "BPS (rpd_low)",
+          ylab = "SEPR (rpd_high)",
+          title = "Association between SEPR + BPS in standard trials")
+
+lmm <- lmer(
+  scale(rpd) ~ scale(rpd_low) * trial * manipulation * group * block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+emtrends(lmm, ~ group, var = "rpd_low")
+
+# RESULT 15: ASSOCIATION BETWEEN PUPIL DATA AND ERPs ON TRIAL LEVEL
+crl <- cor(et_erp_trial[et_erp_trial$trial == "oddball", c(
+  "rpd_low",
+  "rpd",
+  "MMN_amplitude",
+  "MMN_latency"
+)],
+use="complete.obs")
+crl
+corrplot::corrplot(
+  crl,
+  method = "circle",
+  title = "Association between pupil data and ERPs in oddball trials",
+  mar=c(0,0,1,0))
+
+crl <- cor(et_erp_trial[et_erp_trial$trial == "standard", c(
+  "rpd_low",
+  "rpd",
+  "MMN_amplitude",
+  "MMN_latency"
+)],
+use="complete.obs")
+crl
+corrplot::corrplot(
+  crl,
+  method = "circle",
+  title = "Association between pupil data and ERPs in standard trials",
+  mar=c(0,0,1,0))
+
+# RESULT 16: DOES PUPIL DATA PREDICT ERPs?
+lmm <- lmer(
+  scale(MMN_amplitude) ~ rpd * rpd_low * trial *  manipulation * group + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+
+# New df et_erp_subject shows same result as df_trial, is valide ####
+lmm <- lmer(
+  scale(rpd) ~ trial * manipulation * block + trial_number_in_block + (1 | id),
+  data = df_trial[
+    df_trial$phase %in% c("oddball_block", "oddball_block_rev"), ])
 anova(lmm)
 
-#--> does not differ by stimulus
-contrast(emmeans(lmm,~manipulation),'pairwise') ##--> higher pupil size after manipulation
-confint(contrast(emmeans(lmm,~manipulation|group),'pairwise')) ##--> this effect of manipulation is emphasized in ASD
-
-contrast(emmeans(lmm,~reverse),'pairwise') ##--> higher pupil size in foward trials
-confint(contrast(emmeans(lmm,~reverse|group),'pairwise')) ##--> this difference is emphasized in TD
-confint(contrast(emmeans(lmm,~reverse|manipulation),'pairwise')) ##--> this difference is emphasized before the manipulation
-
-#area under the curve  
-lmm<-lmer(rpd_auc~oddball*group*manipulation*reverse+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
+lmm <- lmer(
+  scale(rpd) ~ trial * manipulation * block + trial_number_in_block + (1 | SEGA_ID),
+  data = et_erp_trial)
 anova(lmm)
 
-contrast(emmeans(lmm,~manipulation),'pairwise') ##--> higher response after manipulation
-confint(contrast(emmeans(lmm,~manipulation|group),'pairwise')) ##--> higher effect of manipulation in ASD
-
-confint(contrast(emmeans(lmm,~reverse|group),'pairwise')) 
-
-# DATA ANALYSIS: Baseline phase ####
+# ANALYSIS OF df (ONLY PUPIL DATA-ALL DATA POINTS) ####
+# Baseline phase
 df_baseline <- df[df$phase %in% c("baseline", "baseline_calibration"), ]
 df_baseline <- df_baseline[is.finite(df_baseline$pd), ]
 
@@ -178,7 +453,7 @@ with(df_baseline, by(
   timestamp_exp, interaction(baseline_trial_counter, phase, id),
   mean, na.rm = TRUE))
 
-# subject baseline is defined as mean of baseline trial during calibration phase
+# mean_pd (subject baseline) is defined as mean of baseline trial during calibration phase
 df_meanpd <- with(
   df_baseline[df_baseline$phase == "baseline_calibration" &
                 df_baseline$trial == "baseline" , ], by(as.numeric(pd), id, mean))
@@ -196,19 +471,19 @@ ggplot(
   # Baseline trial duration is theoretically 5 seconds.
   df_baseline_calibration[df_baseline_calibration$ts_trial < 5.0, ],
   aes(x = ts_trial,
-      y = trial_corr_pd,
+      y = pd,
       group = group,
       color = group)) +
   geom_smooth() +
   theme_bw() +
   xlab("trial duration [s]") +
-  ylab("trial-corr. pupil dilation [mm]") +
-  labs(title = "Trial-corrected LAPR for group and trial") +
+  ylab("pupil dilation [mm]") +
+  labs(title = "LAPR for group and trial") +
   facet_wrap(~ factor(trial,
                       levels = c("baseline", "baseline_whiteslide", "baseline_blackslide")))
 
 ggsave(
-  "output/Plot_2_lapr_subplots_trial_corrected.tiff",
+  "output/baseline_calibration_pd.tiff",
   device = "tiff",
   width = 6,
   height = 4,
@@ -217,26 +492,7 @@ ggsave(
   dpi = 800
 )
 
-### plot with pd --> trial corrected effects are reversed
-ggplot(
-  # Baseline trial duration is theoretically 5 seconds.
-  df_baseline_calibration[df_baseline_calibration$ts_trial < 5.0, ],
-  aes(x = ts_trial,
-      y = pd,
-      group = group,
-      color = group)) +
-  geom_smooth() +
-  theme_bw() +
-  xlab("trial duration [s]") +
-  ylab("trial-corr. pupil dilation [mm]") +
-  labs(title = "LAPR for group and trial") +
-  facet_wrap(~ factor(trial,
-                      levels = c("baseline", "baseline_whiteslide", "baseline_blackslide")))
-
-
-# DATA ANLAYSIS: Oddball phase ####
-table(df$phase)
-
+# Oddball phase
 df_oddball <- df[df$phase %in% c("oddball_block", "oddball_block_rev"), ]
 table(df_oddball$trial)
 
@@ -278,54 +534,20 @@ df_oddball$trial_number_oddballphase <- with(
 table(df_oddball$trial_number)
 hist(df_oddball$trial_number_oddballphase)
 
-# pupillary response by trial
+# Plot: Pupillary response across experiment
 ggplot(
   df_oddball,
   aes(x = trial_number_oddballphase, y = rpd)) +
   geom_smooth(method = "lm") + facet_wrap(~trial + manipulation)
+dev.off()
 
+# Plot: Density of manipulation per condition
 ggplot(df_oddball,
        aes(rpd, fill = interaction(manipulation))) +
   geom_density(alpha = 0.2) + facet_wrap(~trial)
-
-# Visualization 1: Manipulation effect
-tiff(file = paste0(
-  home_path,
-  project_path,
-  "/output/figure_audio_effectofmanipulation_pupilresponse_testdata.tiff"),
-  width = 8,
-  height = 4,
-  units = "in",
-  res = 300,
-  compression = "lzw")
-# Only forward (normal) oddball blocks, not reverse
-
-ggplot(
-  df_oddball[df_oddball$ts_trial < 1.8 & df_oddball$order == "normal", ],
-  aes(x = ts_trial,
-      y = scale(rpd),
-      group = trial_type,
-      color = trial_type)) +
-  geom_smooth() +
-  theme_bw() +
-  labs(x = "trial duration (s)",
-       y = "standardized pupil response (z)",
-       title = "effect of manipulation of pupil response") +
-  facet_wrap(~manipulation)
-
 dev.off()
 
-# Visualization 2: Group effect
-tiff(file = paste0(
-  home_path,
-  project_path,
-  "/output/group_effect.tiff"),
-  width = 8,
-  height = 4,
-  units = "in",
-  res = 300,
-  compression = "lzw")
-# Only forward (normal) oddball blocks, not reverse
+# Plot: Pupil response over a trial
 ggplot(
   df_oddball[df_oddball$ts_trial < 1.8 & df_oddball$order == "normal", ],
   aes(x = ts_trial,
@@ -338,20 +560,9 @@ ggplot(
   labs(x = "trial duration (s)",
        y = "standardized pupil response (z)",
        title = "effect of manipulation of pupil response")
-
 dev.off()
 
-# Visualization 3: Interaction effect
-tiff(file = paste0(
-  home_path,
-  project_path,
-  "/output/interaction_effect.tiff"),
-  width = 8,
-  height = 4,
-  units = "in",
-  res = 300,
-  compression = "lzw")
-# Only forward (normal) oddball blocks, not reverse
+# Plot: Effect of manipulation on pupillary response
 ggplot(
   df_oddball[df_oddball$ts_trial < 1.8 & df_oddball$order == "normal", ],
   aes(x = ts_trial,
@@ -367,36 +578,16 @@ ggplot(
   facet_wrap(~manipulation)
 dev.off()
 
-# LMM: Interaction effect of manipulation, trial_type and group
-# with random intercept id.
 lmm_interaction <- lmerTest::lmer(
   rpd ~ trial_type * manipulation * group + (1|id),
   data = df_oddball)
-anova(lmm_interaction) # p-value
+anova(lmm_interaction)
+confint(contrast(emmeans::emmeans(
+  lmm_interaction, ~ group + trial_type + manipulation), method = 'pairwise'))
+confint(contrast(emmeans::emmeans(
+  lmm_interaction, ~ manipulation + trial_type | group), method = 'pairwise'))
 
-# Get confidence interval
-confint(contrast(emmeans::emmeans(lmm_interaction, ~ group + trial_type + manipulation), method = 'pairwise'))
-confint(contrast(emmeans::emmeans(lmm_interaction, ~ manipulation + trial_type | group), method = 'pairwise'))
-
-# neurophysiological habituation to standard trials within block
-ggplot(
-  df_oddball[df_oddball$ts_trial < 2 & is.finite(df_oddball$rpd) &
-               df_oddball$trial_type == "standard", ],
-  aes(x = .thisRepN,
-      y = scale(rpd),
-      group = interaction(manipulation, order),
-      color = interaction(manipulation, order))) +
-  geom_smooth() + theme_bw()
-
-tiff(file = paste0(home_path,
-                   project_path,
-                   "/output/figure_audio_neurophysiological_habituation_standards_Jan2023.tiff"),
-     width = 8,
-     height = 4,
-     units = "in",
-     res = 300,
-     compression = "lzw")
-
+# Pupil response to manipulation and conditions within block
 ggplot(
   df_oddball[df_oddball$ts_trial < 2 & is.finite(df_oddball$rpd), ],
   aes(x = trial_number_in_block,
@@ -407,7 +598,6 @@ ggplot(
   geom_smooth() + theme_bw() +
   xlab("trial within block") +
   ylab("relative pupil size (z)")
-
 dev.off()
 
 # DATA ANALYSIS: gaze data - raw pupil data ####
@@ -440,7 +630,7 @@ ggplot(
   ylim(-200, 200) +
   scale_fill_gradientn(colours = rev(rainbow(3)))
 
-# DATA ANALYSIS: manipulation phase ####
+# Manipulation phase
 df_manip <- df[df$phase %in% c("manipulation_block"), ]
 
 table(df_manip$trial)
@@ -499,410 +689,25 @@ ggplot(
   geom_boxplot() +
   theme_bw()
 
-# Model
 lmm <- lmer(
   rpd ~ trial_type + (1 | manipulation_trial_counter),
   data = df_manip[df_manip$trial_type != "baseline_start", ])
 anova(lmm)
 plot(contrast(emmeans(lmm, ~ trial_type), "pairwise"))
 
-# DATA ANALYSIS: grip strength ####
-
+# Grip strength ####
 hist(df_trial$mean_grip_strength)
-
 df_trial$mean_grip_strength_z<-scale(df_trial$mean_grip_strength)
 #pupillary response - SEPR 
-lmm<-lmer(scale(rpd)~mean_grip_strength_z*manipulation*oddball*group*reverse+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
+lmm<-lmer(scale(rpd)~mean_grip_strength_z*manipulation*trial*group*block+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
 anova(lmm) #--> no effect of hand grip strength
 
 #pupillary response - BPS
-lmm<-lmer(scale(rpd_low)~mean_grip_strength_z*manipulation*oddball*group*reverse+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
+lmm<-lmer(scale(rpd_low)~mean_grip_strength_z*manipulation*trial*group*block+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
 anova(lmm)
-
 fixef(lmm) #higher hand grip is assoicated with lower bps
-emtrends(lmm,~manipulation|group+reverse,var = 'mean_grip_strength_z') ##--> higher pupil size after manipulation
+emtrends(lmm,~manipulation|group+block,var = 'mean_grip_strength_z') ##--> higher pupil size after manipulation
 #the hand grip strength has an effect on rpd only in the TD group
-
-
-# DATA ANALYSIS: PRELIMINARY EEG analysis ####
-# List and read MMN data
-data_files_eeg <- list.files(
-  path = datapath_eeg, full.names = TRUE)
-
-list_eeg_data <- lapply(
-  data_files_eeg,
-  read.table,
-  header = TRUE,
-  fill = TRUE,
-  skip = 2)
-
-df_MMN_500oddball <- list_eeg_data[[1]]
-df_MMN_750oddball <- list_eeg_data[[2]] 
-df_P3a_500oddball <- list_eeg_data[[3]]
-df_P3a_750oddball <- list_eeg_data[[4]]
-
-# Change column names for 500Hz-MMN data frame
-names(df_MMN_500oddball) <- c(
-  "id",
-  "L-Peak_MMN_Oddball_500_Hz_before",
-  "L-Peak_MMN_Standard_750_Hz_before",
-  "L-Peak_MMN_Oddball_rev_750_Hz_before",
-  "L-Peak_MMN_Standard_rev_500_Hz_before",
-  "L-Peak_MMN_Oddball_500_Hz_after",
-  "L-Peak_MMN_Standard_750_Hz_after",
-  "L-Peak_MMN_Oddball_rev_750_Hz_after",
-  "L-Peak_MMN_Standard_rev_500_Hz_after",
-  "Peak_MMN_Oddball_500_Hz_before",
-  "Peak_MMN_Standard_750_Hz_before",
-  "Peak_MMN_Oddball_rev_750_Hz_before",
-  "Peak_MMN_Standard_rev_500_Hz_before",
-  "Peak_MMN_Oddball_500_Hz_after",
-  "Peak_MMN_Standard_750_Hz_after",
-  "Peak_MMN_Oddball_rev_750_Hz_after",
-  "Peak_MMN_Standard_rev_500_Hz_after"
-)
-
-# Change column names for 750Hz-MMN data frame
-names(df_MMN_750oddball) <- c(
-  "id",
-  "L-Peak_MMN_Oddball_750_Hz_before",
-  "L-Peak_MMN_Standard_500_Hz_before",
-  "L-Peak_MMN_Oddball_rev_500_Hz_before",
-  "L-Peak_MMN_Standard_rev_750_Hz_before",
-  "L-Peak_MMN_Oddball_750_Hz_after",
-  "L-Peak_MMN_Standard_500_Hz_after",
-  "L-Peak_MMN_Oddball_rev_500_Hz_after",
-  "L-Peak_MMN_Standard_rev_750_Hz_after",
-  "Peak_MMN_Oddball_750_Hz_before",
-  "Peak_MMN_Standard_500_Hz_before",
-  "Peak_MMN_Oddball_rev_500_Hz_before",
-  "Peak_MMN_Standard_rev_750_Hz_before",
-  "Peak_MMN_Oddball_750_Hz_after",
-  "Peak_MMN_Standard_500_Hz_after", 
-  "Peak_MMN_Oddball_rev_500_Hz_after",
-  "Peak_MMN_Standard_rev_750_Hz_after"
-)
-
-# Change column names for 500Hz-P3a data frame
-names(df_P3a_500oddball) <- c(
-  "id",
-  "L-Peak_P3a_Oddbal_500_Hz_before",
-  "L-Peak_P3a_Standard_750_Hz_before",
-  "L-Peak_P3a_Oddball_rev_750_Hz_before",
-  "L-Peak_P3a_P3a_Standard_rev_500_Hz_before",
-  "L-Peak_P3a_Oddball_500_Hz_after",
-  "L-Peak_P3a_Standard_750_Hz_after",
-  "L-Peak_P3a_Oddball_rev_750_after",
-  "L-Peak_P3a_Standard_rev_500_Hz_after",
-  "Peak_P3a_Oddbal_500_Hz_before",
-  "Peak_P3a_Standard_750_Hz_before",
-  "Peak_P3a_Oddball_rev_750_Hz_before",
-  "Peak_P3a_Standard_rev_500_Hz_before",
-  "Peak_P3a_Oddball_500_Hz_after",
-  "Peak_P3a_Standard_750_Hz_after",
-  "Peak_P3a_Oddball_rev_750_after",
-  "Peak_P3a_Standard_rev_500_Hz_after"
-)
-
-# Correct column names for 750Hz-P3a data frame
-names(df_P3a_750oddball) <- c(
-  "id",
-  "L-Peak_P3a_Oddball_750_Hz_before",
-  "L-Peak_P3a_Standard_500_Hz_before",
-  "L-Peak_P3a_Oddball_rev_500_Hz_before",
-  "L-Peak_P3a_Standard_rev_750_Hz_before",
-  "L-Peak_P3a_Oddball_750_Hz_after",
-  "L-Peak_P3a_Standard_500_Hz_after",
-  "L-Peak_P3a_Oddball_rev_500_Hz_after",
-  "L-Peak_P3a_Standard_rev_750_Hz_after",
-  "Peak_P3a_Oddball_750_Hz_before",
-  "Peak_P3a_Standard_500_Hz_before",
-  "Peak_P3a_Oddball_rev_500_Hz_before",
-  "Peak_P3a_Standard_rev_750_Hz_before",
-  "Peak_P3a_Oddball_750_Hz_after",
-  "Peak_P3a_Standard_500_Hz_after",
-  "Peak_P3a_Oddball_rev_500_Hz_after",
-  "Peak_P3a_Standard_rev_750_Hz_after"
-)
-
-# Remove empty columns + rows
-df_MMN_500oddball <- Filter(function(x)!all(is.na(x)), df_MMN_500oddball)
-df_MMN_500oddball <- df_MMN_500oddball[!(df_MMN_500oddball$`L-Peak_MMN_Oddball_500_Hz_before` == "???"), ]
-df_MMN_750oddball <- Filter(function(x)!all(is.na(x)), df_MMN_750oddball)
-df_MMN_750oddball <- df_MMN_750oddball[!(df_MMN_750oddball$`L-Peak_MMN_Oddball_750_Hz_before` == "???"), ]
-
-df_P3a_500oddball <- Filter(function(x)!all(is.na(x)), df_P3a_500oddball)
-df_P3a_500oddball <- df_P3a_500oddball[!(df_P3a_500oddball$`L-Peak_P3a_Oddbal_500_Hz_before` == "???"), ]
-df_P3a_750oddball <- Filter(function(x)!all(is.na(x)), df_P3a_750oddball)
-df_P3a_750oddball <- df_P3a_750oddball[!(df_P3a_750oddball$`L-Peak_P3a_Oddball_750_Hz_before` == "???"), ]
-
-# Replace commas with point decimals
-for (i in 2:ncol(df_MMN_500oddball)) {
-  df_MMN_500oddball[, i] <- as.numeric(gsub(",", ".", df_MMN_500oddball[, i]))
-}
-for (i in 2:ncol(df_MMN_750oddball)) {
-  df_MMN_750oddball[, i] <- as.numeric(gsub(",", ".", df_MMN_750oddball[, i]))
-}
-for (i in 2:ncol(df_P3a_500oddball)) {
-  df_P3a_500oddball[, i] <- as.numeric(gsub(",", ".", df_P3a_500oddball[, i]))
-}
-for (i in 2:ncol(df_P3a_750oddball)) {
-  df_P3a_750oddball[, i] <- as.numeric(gsub(",", ".", df_P3a_750oddball[, i]))
-}
-
-# Diff columns contain MMN-amplitude differences between oddball + standards
-df_MMN_500oddball$diff_O500_S750_for_before <- (
-  df_MMN_500oddball$Peak_MMN_Oddball_500_Hz_before)-(df_MMN_500oddball$Peak_MMN_Standard_750_Hz_before) # 1st block (for) before
-df_MMN_500oddball$diff_O750_S500_rev_before <- (
-  df_MMN_500oddball$Peak_MMN_Oddball_rev_750_Hz_before)-(df_MMN_500oddball$Peak_MMN_Standard_rev_500_Hz_before) # 2nd block (rev) before
-df_MMN_500oddball$diff_O500_S750_for_after <- (
-  df_MMN_500oddball$Peak_MMN_Oddball_500_Hz_after)-(df_MMN_500oddball$Peak_MMN_Standard_750_Hz_after) # 3rd block (for) after
-df_MMN_500oddball$diff_O750_S500_rev_after <- (
-  df_MMN_500oddball$Peak_MMN_Oddball_rev_750_Hz_after)-(df_MMN_500oddball$Peak_MMN_Standard_rev_500_Hz_after) # 4th block (rev) after
-
-df_MMN_750oddball$diff_O750_S500_for_before <- (
-  df_MMN_750oddball$Peak_MMN_Oddball_750_Hz_before)-(df_MMN_750oddball$Peak_MMN_Standard_500_Hz_before) # 1st block (for) before
-df_MMN_750oddball$diff_O500_S750_rev_before <- (
-  df_MMN_750oddball$Peak_MMN_Oddball_rev_500_Hz_before)-(df_MMN_750oddball$Peak_MMN_Standard_rev_750_Hz_before) # 2nd block (rev) before
-df_MMN_750oddball$diff_O750_S500_for_after <- (
-  df_MMN_750oddball$Peak_MMN_Oddball_750_Hz_after)-(df_MMN_750oddball$Peak_MMN_Standard_500_Hz_after) # 3rd block (for), after
-df_MMN_750oddball$diff_O500_S750_rev_after <- (
-  df_MMN_750oddball$Peak_MMN_Oddball_rev_500_Hz_after)-(df_MMN_750oddball$Peak_MMN_Standard_rev_750_Hz_after) # 4th block (rev) after
-
-# Diff columns contain P3a-amplitude differences between oddball + standards
-df_P3a_500oddball$diff_O500_S750_for_before <- (
-  df_P3a_500oddball$Peak_P3a_Oddbal_500_Hz_before)-(df_P3a_500oddball$Peak_P3a_Standard_750_Hz_before) # 1st block (for) before
-df_P3a_500oddball$diff_O750_S500_rev_before <- (
-  df_P3a_500oddball$Peak_P3a_Oddball_rev_750_Hz_before)-(df_P3a_500oddball$Peak_P3a_Standard_rev_500_Hz_before) #2nd block (rev) before
-df_P3a_500oddball$diff_O500_S750_for_after <- (
-  df_P3a_500oddball$Peak_P3a_Oddball_500_Hz_after)-(df_P3a_500oddball$Peak_P3a_Standard_750_Hz_after) # 3rd block (for) after
-df_P3a_500oddball$diff_O750_s500_rev_after <- (
-  df_P3a_500oddball$Peak_P3a_Oddball_rev_750_after)-(df_P3a_500oddball$Peak_P3a_Standard_rev_500_Hz_after) # 4th block (rev) after
-
-df_P3a_750oddball$diff_O750_S500_for_before <- c(
-  df_P3a_750oddball$Peak_P3a_Oddball_750_Hz_before)-(df_P3a_750oddball$Peak_P3a_Standard_500_Hz_before) # 1st block (for) before
-df_P3a_750oddball$diff_O500_S750_rev_before <- c(
-  df_P3a_750oddball$Peak_P3a_Oddball_rev_500_Hz_before)-(df_P3a_750oddball$Peak_P3a_Standard_rev_750_Hz_before) # 2nd block (rev) before
-df_P3a_750oddball$diff_O750_S500_for_after <- (
-  df_P3a_750oddball$Peak_P3a_Oddball_750_Hz_after)-(df_P3a_750oddball$Peak_P3a_Standard_500_Hz_after) # 3rd block (for) after
-df_P3a_750oddball$diff_O500_S750_rev_after <- (
-  df_P3a_750oddball$Peak_P3a_Oddball_rev_500_Hz_after)-(df_P3a_750oddball$Peak_P3a_Standard_rev_750_Hz_after) # 4th block (rev) after
-
-# Diff_df is a subset of df_MMN_500oddball/df_MMN_750oddball
-diff_500_MMN <- df_MMN_500oddball[c("id", "diff_O500_S750_for_before", "diff_O750_S500_rev_before", "diff_O500_S750_for_after", "diff_O750_S500_rev_after")]
-diff_500_MMN <- reshape2::melt(diff_500_MMN, id = "id")
-diff_750_MMN <- df_MMN_750oddball[c("id", "diff_O750_S500_for_before", "diff_O500_S750_rev_before", "diff_O750_S500_for_after", "diff_O500_S750_rev_after")]
-diff_750_MMN <- reshape2::melt(diff_750_MMN, id = "id")
-
-diff_500_750_MMN <- rbind(diff_500_MMN, diff_750_MMN)
-diff_500_750_MMN$value <- scale(as.numeric(diff_500_750_MMN$value))
-
-# Diff_df is a subset of df_P3a_500oddball/df_P3a_750oddball
-diff_500_P3a <- df_P3a_500oddball[c("id", "diff_O500_S750_for_before", "diff_O750_S500_rev_before", "diff_O500_S750_for_after", "diff_O750_s500_rev_after")]
-diff_500_P3a <- reshape::melt(diff_500_P3a, id = "id")
-diff_750_P3a <- df_P3a_750oddball[c("id", "diff_O750_S500_for_before", "diff_O500_S750_rev_before", "diff_O750_S500_for_after", "diff_O500_S750_rev_after")]
-diff_750_P3a <- reshape::melt(diff_750_P3a, id = "id")
-
-diff_500_750_P3a <- rbind(diff_500_P3a, diff_750_P3a)
-diff_500_750_P3a$value <- scale(as.numeric(diff_500_750_P3a$value))
-
-# additional columns for block, pitch + manipulation
-diff_500_750_MMN$pitch <- as.factor(substr(diff_500_750_MMN$variable, 7, 9)) # MMN 
-diff_500_750_MMN$block <- as.factor(substr(diff_500_750_MMN$variable, 16, 18))
-diff_500_750_MMN$manipulation <- as.factor(substr(diff_500_750_MMN$variable, 20, 25))
-
-diff_500_750_P3a$pitch <- as.factor(substr(diff_500_750_P3a$variable, 7,9)) # P3a 
-diff_500_750_P3a$block <- as.factor(substr(diff_500_750_P3a$variable, 16, 18))
-diff_500_750_P3a$manipulation <- as.factor(substr(diff_500_750_P3a$variable, 20, 25))
-
-# LMM: MMN
-lmm <- lmer(value ~ pitch * block * manipulation + (1|id), data = diff_500_750_MMN)
-anova(lmm)
-em <- emmeans(lmm, list(pairwise ~ pitch|manipulation), adjust = "tukey")
-plot(em)
-
-bxp_750_500 <- boxplot(
-  value ~ variable,
-  data = diff_500_750_MMN,
-  ylab = "amplitude_diff",
-  xlab = "task block",
-  cex.axis = 0.5)
-
-# LMM: P3a
-lmm <- lmer(value ~ pitch * block * manipulation + (1|id), data = diff_500_750_P3a)
-anova(lmm)
-
-bxp_750_500 <- boxplot(
-  value ~ variable,
-  data = diff_500_750_P3a,
-  ylab = "amplitude_diff",
-  xlab = "task block",
-  cex.axis = 0.5)
-
-# the end_____ 
-
-df_erp <- rbind(
-  df_MMN_500oddball,
-  df_MMN_750oddball,
-  df_P3_500oddball,
-  df_P3_750oddball)
-
-# define variables
-df_erp$electrode <- substr(df_erp$variable, 1, 7)
-df_erp$manipulation <- substr(
-  df_erp$variable,
-  nchar(as.character(df_erp$variable)) - 5,
-  nchar(as.character(df_erp$variable)))
-
-df_erp$pitch <- substr(
-  df_erp$variable, nchar(as.character(df_erp$variable)) - 12,
-  nchar(as.character(df_erp$variable)) - 9)
-df_erp$reverse <- as.logical(
-  ifelse(
-    nchar(as.character(df_erp$variable)) > 42, "T", "F"))
-
-df_erp$erp <- substr(df_erp$variable, 18, 20)
-df_erp$erp <- ifelse(df_erp$erp == "_MM", "MMN", df_erp$erp)
-df_erp$trial <- substr(df_erp$variable, 22, 26)
-df_erp$trial <- ifelse(grepl("db", df_erp$trial), "oddball", "standard")
-
-# remove characters
-df_erp$electrode <- gsub("_", "", df_erp$electrode)
-df_erp$manipulation <- gsub("_", "", df_erp$manipulation)
-df_erp$pitch <- gsub("_", "", df_erp$pitch)
-df_erp$erp <- gsub("_", "", df_erp$erp)
-
-# change decimal - ERP amplitude variable
-df_erp$value <- gsub(",", ".", df_erp$value)
-df_erp$value <- ifelse(df_erp$value == "???", NA, df_erp$value)
-df_erp$value <- as.numeric(df_erp$value)
-df_erp$erp_amplitude <- df_erp$value
-df_erp <- df_erp[, !(names(df_erp) == "value")]
-
-#extract id
-df_erp$id <- ifelse(
-  grepl("SEGA_AuditoryOddball", df_erp$File),
-  substr(df_erp$File, 21, 24), substr(df_erp$File, 6, 8))
-df_erp$id <- as.numeric(gsub("_", "", df_erp$id))
-
-# Which id has EEG and also ET data?
-names(table(df_erp$id)) %in% names(table(df$id)) # 3 # 4
-names(table(df$id)) %in% names(table(df_erp$id)) # 32 # 82
-table(df$id)
-
-# converge EEG with eye tracking oddball data on condition level
-# prepare ET data - allign variables
-df_oddball$manipulation <- ifelse(
-  df_oddball$block_counter < 8, "before", "after")
-df_oddball$pitch <- ifelse(
-  df_oddball$trial == "oddball",
-  df_oddball$oddball_frequency,
-  df_oddball$standard_frequency)
-df_oddball$reverse <- as.logical(ifelse(
-  df_oddball$block_counter %in% c(5, 12), "T", "F"))
-
-# create aggregated varaibles per condition (id, manipulation, reverse, phase)
-df_oddball$merger_id <- with(
-  df_oddball, interaction(id, manipulation, reverse, trial_type))
-oddball_per_condition_high <- with(
-  df_oddball[df_oddball$ts_trial > 0.75 & df_oddball$ts_trial < 1.25, ],
-  by(as.numeric(rpd), merger_id, mean, na.rm = TRUE))
-oddball_per_condition_low <- with(
-  df_oddball[df_oddball$ts_trial > 0 & df_oddball$ts_trial < 0.25, ], by(
-    as.numeric(rpd), merger_id, mean, na.rm = TRUE))
-oddball_per_condition <- as.numeric(
-  oddball_per_condition_high - oddball_per_condition_low)
-
-id_per_condition <- as.character(
-  with(df_oddball, by(id, merger_id, head, n = 1)))
-manipulation_per_condition <- as.character(
-  with(df_oddball, by(manipulation, merger_id, head, n = 1)))
-reverse_per_condition <- as.logical(
-  with(df_oddball, by(reverse, merger_id, head, n = 1)))
-trial_type_per_condition <- as.character(
-  with(df_oddball, by(trial_type, merger_id, head, n = 1)))
-
-df_rpd_agg <- data.frame(
-  id_per_condition,
-  manipulation_per_condition,
-  reverse_per_condition,
-  oddball_per_condition,
-  trial_type_per_condition)
-names(df_rpd_agg) <- c("id", "manipulation", "reverse", "rpd", "trial_type")
-df_rpd_agg$trial_type <- ifelse(
-  df_rpd_agg$trial_type == "oddball", "oddball", "standard")
-
-# rather plausible
-# merge
-df_erp$merger_id <- with(
-  df_erp, interaction(id, manipulation, trial, reverse))
-df_rpd_agg$merger_id <- with(
-  df_rpd_agg, interaction(id, manipulation, trial_type, reverse))
-df_rpd_agg <- df_rpd_agg[, !(names(df_rpd_agg) %in% c(
-  "id", "manipulation", "trial_type", "reverse"))]
-df_erp_rpd_agg <- merge(df_rpd_agg, df_erp, by = "merger_id")
-
-# pupillary response
-ggplot(
-  df_erp_rpd_agg,
-  aes(x = interaction(
-    manipulation, trial),
-    y = rpd,
-    fill = interaction(manipulation, trial))) +
-  geom_violin() +
-  geom_boxplot(alpha = 0.4) +
-  facet_wrap(~reverse)
-
-ggplot(
-  df_erp_rpd_agg, aes(rpd, fill = trial)) +
-  geom_density(alpha = 0.2,
-               adjust = 2) +
-  facet_wrap(~reverse + manipulation)
-
-# erp
-ggplot(
-  df_erp_rpd_agg[df_erp_rpd_agg$electrode == "L.Peak", ],
-  aes(x = interaction(manipulation, trial),
-      y = erp_amplitude,
-      fill = interaction(manipulation, trial))) +
-  geom_violin() +
-  geom_boxplot(alpha = 0.4) +
-  facet_wrap(~reverse)
-
-# display
-ggplot(
-  df_erp_rpd_agg[df_erp_rpd_agg$electrode == "L.Peak", ],
-  aes(x = rpd,
-      y = erp_amplitude)) +
-  geom_point() +
-  geom_smooth(method = "lm") +
-  facet_wrap(~trial + reverse + manipulation)
-ggplot(
-  df_erp_rpd_agg[df_erp_rpd_agg$electrode == "Pz.Peak", ],
-  aes(x = rpd,
-      y = erp_amplitude)) +
-  geom_point() +
-  geom_smooth(method = "lm") +
-  facet_wrap(~trial + reverse + manipulation)
-ggplot(
-  df_erp_rpd_agg[df_erp_rpd_agg$electrode == "L.Peak" &
-                   df_erp_rpd_agg$trial == "standard" &
-                   df_erp_rpd_agg$reverse == FALSE, ],
-  aes(x = scale(rpd),
-      y = scale(erp_amplitude))) +
-  geom_point() +
-  geom_smooth(method = "lm",
-              color = "chocolate2",
-              fill = "chocolate1") +
-  xlab("pupillary response (z)") +
-  ylab("P3 amplitude (z)") +
-  theme_bw()
-ggplot(
-  df_erp_rpd_agg[df_erp_rpd_agg$electrode == "L.Peak", ],
-  aes(x = rpd,
-      y = erp_amplitude)) +
-  geom_point() +
-  geom_smooth(method = "lm")
 
 # Visualization
 g1 <- ggplot(
@@ -965,4 +770,3 @@ grid.arrange(g1, g2, g3, g4,
 dev.off()
 
 print("The End")
-
