@@ -638,6 +638,14 @@ for (row in 1:length(df_trial$id)) {
   group <- exp_groups[row_number, "group"]
   df_trial[row, "group"] <- group}
 
+# Read handdynamometer z-values from .csv files
+for (row in 1:length(df_trial$id)) {
+  SEGA_ID_df <- df_trial[row, "id"]
+  row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
+  print(row_number)
+  z_handdynamometer <- exp_groups[row_number, "z_handdynamometer"]
+  df_trial[row, "z_handdynamometer"] <- z_handdynamometer}
+
 ##--> save preprocess df_trial ####
 saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
 
@@ -1213,6 +1221,14 @@ for (row in 1:length(ERP_df$SEGA_ID)) {
 }
 ERP_df$group <- as.factor(ERP_df$group)
 
+# Include handdynamometer z-value from .csv file
+for (row in 1:length(ERP_df$SEGA_ID)) {
+  SEGA_ID_df <- ERP_df[row, "SEGA_ID"]
+  row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
+  z_handdynamometer <- exp_groups[row_number, "z_handdynamometer"]
+  ERP_df[row, "z_handdynamometer"] <- z_handdynamometer
+}
+
 # ET_df contains mean BPS + SEPR for 8 conditions per subject.
 unique_ids <- unique(ET_df_trial$SEGA_ID)
 ET_df <- NULL
@@ -1358,7 +1374,7 @@ ET_ERP_subject$gender <- as.factor(ET_ERP_subject$gender)
 ET_ERP_subject$manipulation <- droplevels(ET_ERP_subject$manipulation)
 
 # Save .Rds file for analysis on subject level
-saveRDS(ET_ERP_subject,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_subject_.rds'))
+saveRDS(ET_ERP_subject,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_subject.rds'))
 
 
 saveRDS(df, file = paste0(home_path, project_path, '/data/preprocessed_auditory_df.rds'))
