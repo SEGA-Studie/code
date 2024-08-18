@@ -9,6 +9,8 @@ require(emmeans, warn.conflicts = FALSE) # estimated marginal means (EMMs)
 require(ggplot2, warn.conflicts = FALSE) # creating graphs
 require(dplyr, warn.conflicts = FALSE) # for %>% operator
 library(ggpubr, warn.conflicts = FALSE) # ggscatter()-function
+library(knitr) # dynamic report generation
+library(kableExtra) # table formatting
 
 # PATHS
 if (Sys.info()["sysname"] == "Linux") {
@@ -56,7 +58,7 @@ if (Sys.info()["sysname"] == "Darwin") {
 # Can be used to skip preprocessing and directly read proprocessed data from .rds file:
 df_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds')) # trial pupil data including ALL trials
 df <- readRDS(paste0(home_path, project_path,'/data/preprocessed_auditory_df.rds')) # pupil data (all data points for visualizing)
-et_erp_subject <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_subject_.rds')) # eeg + pupil (subject level, only oddball(rev) blocks)
+et_erp_subject <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_subject.rds')) # eeg + pupil (subject level, only oddball(rev) blocks)
 et_erp_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_trial.rds')) # eeg + pupil(single-trial, only oddball(rev) blocks)
 
 # changes random intercept to a factor
@@ -427,6 +429,74 @@ lmm <- lmer(
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm)
+
+# RESULT 17: EXPLORATORY ANALYSIS OF MODEL FIT FOR "trial_number_in_block" ON BPS
+linear_fit <- lmer(
+  scale(rpd_low) ~ trial * manipulation * group * trial_number_in_block * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial, REML = F)
+anova(linear_fit)
+
+quadratic_fit <- lmer(
+  scale(rpd_low) ~ trial * manipulation * group * poly(trial_number_in_block, 2) * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial, REML = F)
+anova(quadratic_fit)
+r2_nakagawa(quadratic_fit) 
+
+cubic_fit <- lmer(
+  scale(rpd_low) ~ trial * manipulation * group * poly(trial_number_in_block, 3) * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial, REML = F)
+anova(cubic_fit)
+r2_nakagawa(cubic_fit) 
+
+table_model_compare <- anova(linear_fit, quadratic_fit, cubic_fit)
+
+table_model_compare <- cbind(
+  c("linear_fit", "quadratic_fit", "cubic_fit"),
+  table_model_compare
+)
+
+table_formatted_BPS <- table_model_compare %>% 
+  kbl(caption = "Model comparision of trial_number_in_block on BPS",
+      col.names = c("","number of parameters",'AIC','BIC','log likelihood','deviance','Chi-squared','df','p-value'),
+      row.names = F) %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+table_formatted_BPS
+
+# RESULT 18: EXPLORATIVE ANALYSIS OF MODEL FIT FOR "trial_number_in_block" on SEPR**
+linear_fit <- lmer(
+  scale(rpd) ~ trial * manipulation * group * trial_number_in_block * block+ (1|SEGA_ID) + pitch + age + gender,
+  data = et_erp_trial, REML = F)
+anova(linear_fit)
+r2_nakagawa(linear_fit) 
+
+quadratic_fit <- lmer(
+  scale(rpd) ~ trial * manipulation * group * poly(trial_number_in_block, 2) * block + (1|SEGA_ID) + pitch + age + gender,
+  data = et_erp_trial, REML = F)
+anova(quadratic_fit)
+r2_nakagawa(quadratic_fit) 
+
+cubic_fit <- lmer(
+  scale(rpd) ~ trial * manipulation * group * poly(trial_number_in_block, 3) * block + (1|SEGA_ID) + pitch + age + gender,
+  data = et_erp_trial, REML = F)
+anova(cubic_fit)
+r2_nakagawa(cubic_fit) 
+
+table_model_compare <- anova(linear_fit, quadratic_fit, cubic_fit)
+
+table_model_compare <- cbind(
+  c("linear_fit", "quadratic_fit", "cubic_fit"),
+  table_model_compare
+)
+
+table_formatted_SEPR <- table_model_compare %>% 
+  kbl(caption = "Model comparision of trial_number_in_block on SEPR",
+      col.names = c("","number of parameters",'AIC','BIC','log likelihood','deviance','Chi-squared','df','p-value'),
+      row.names = F) %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+table_formatted_SEPR
+
 
 # New df et_erp_subject shows same result as df_trial, is valide ####
 lmm <- lmer(
