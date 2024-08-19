@@ -1,0 +1,706 @@
+---
+title: "SEGA: ERP-ET Analysis (ASD-CON-MHC)"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    number_sections: true
+    theme: cerulean
+    code_folding: hide
+editor_options:
+  chunk_output_type: console
+  pdf_document:
+    toc: yes
+---
+```{r setup, include = FALSE, warning = FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+# REQUIRED PACKAGES
+require(performance) # marginal + conditional R2
+require(lme4) # linear-mixed-effects models
+require(lmerTest, warn.conflicts = FALSE) # linear-mixed-effects models
+require(emmeans, warn.conflicts = FALSE) # estimated marginal means (EMMs)
+require(ggplot2, warn.conflicts = FALSE) # creating graphs
+require(dplyr, warn.conflicts = FALSE) # for %>% operator
+library(ggpubr, warn.conflicts = FALSE) # ggscatter()-function
+library(knitr) # dynamic report generation
+library(kableExtra) # table formatting
+
+# PATHS
+if (Sys.info()["sysname"] == "Linux") {
+  home_path <- "~"
+  project_path <- "/PowerFolders/project_sega"
+  data_path <- "/PowerFolders/project_sega/data/AuditoryOddball"
+  data_path_eeg <- "/PowerFolders/project_sega/data/AuditoryOddball_EEG"
+  datapath <- paste0(home_path, data_path) # .csv + .hdf5 input files
+  datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
+  # List all .hdf and .csv files
+  data_files <- list.files(path = datapath, full.names = TRUE)
+}
+
+if (Sys.info()["sysname"] == "Windows") {
+  home_path <- "C:/Users/Nico"
+  project_path <- "/PowerFolders/project_sega"
+  data_path <- "/PowerFolders/project_sega/data/et auditory oddball"
+  data_path_task<-"/PowerFolders/project_sega/data/task auditory oddball"
+  data_path_eeg <- "/PowerFolders/project_sega/data/tests/eeg preprocessed auditory oddball"
+  datapath <- paste0(home_path, data_path) # hdf5 input files
+  datapath_task <- paste0(home_path, data_path_task) # hdf5 input files
+  datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
+  # List all .hdf and .csv files
+  data_files <- c(list.files(path = datapath, full.names = TRUE),
+                  list.files(path = datapath_task, full.names = TRUE))
+}
+
+if (Sys.info()["sysname"] == "Darwin") {
+  home_path <- "~"
+  project_path <- "/code"
+  data_path <- "/code/input/AuditoryOddball/eyetracking"
+  data_path_task <- "/code/input/AuditoryOddball/taskdata"
+  data_path_eeg <- "/code/input/AuditoryOddball/eeg"
+  datapath <- paste0(home_path, data_path) # .hdf5 input files
+  datapath_task <- paste0(home_path, data_path_task) # .csv input files
+  datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
+  data_path_single_trial_eeg <- "/code/input/AuditoryOddball/eeg_single_trial"
+  datapath_single_eeg <- paste0(home_path, data_path_single_trial_eeg)
+  # List all .hdf and .csv files
+  data_files <- c(
+    list.files(path = datapath, full.names = TRUE),
+    list.files(path = datapath_task, full.names = TRUE))
+}
+
+# Can be used to skip preprocessing and directly read proprocessed data from .rds file:
+et_erp_subject <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_subject.rds')) # eeg + pupil (subject level, only oddball(rev) blocks)
+et_erp_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_trial.rds')) # eeg + pupil(single-trial, only oddball(rev) blocks)
+
+# changes random intercept to a factor
+et_erp_subject$SEGA_ID <- as.factor(et_erp_subject$SEGA_ID)
+et_erp_trial$SEGA_ID <- as.factor(et_erp_trial$SEGA_ID)
+
+# changes covariates to a factor
+et_erp_subject$gender <- as.factor(et_erp_subject$gender)
+et_erp_trial$gender <- as.factor(et_erp_trial$gender)
+```
+
+# **Subject Level**
+## Sample size
+```{r, warning=FALSE}
+length(unique(et_erp_subject$SEGA_ID))
+table(et_erp_subject$group)/8
+```
+
+## Distributions of dependent variables
+```{r, warning=FALSE}
+hist(et_erp_subject$rpd,
+     main = "Distribution of SEPR (500-1500 ms)",
+     xlab = "SEPR (= rpd)",
+     xlim = c(-0.1, 0.2),
+     breaks = 200)
+
+hist(et_erp_subject$rpd_low,
+     main = "Distribution of BPS (0-250 ms)",
+     xlab = "BPS (= rpd_low)",
+     xlim = c(2, 5.5),
+     breaks = 200)
+
+hist(et_erp_subject$MMN_amplitude,
+     main = "Distribution of MMN amplitude (100-150 ms)",
+     xlab = "MMN amplitude (FC1, FC2, FCz, Fz)",
+     ylim = c(0, 30),
+     xlim = c(-15, 4.5),
+     breaks = 200)
+
+hist(et_erp_subject$P3a_amplitude,
+     main = "Distribution of P3a amplitude (150-250 ms)",
+     xlab = "P3a amplitude (Cz, FCz)",
+     ylim = c(0, 30),
+     xlim = c(-5, 10),
+     breaks = 200)
+```
+
+## MMN Amplitude
+### Main Model
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(MMN_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+```
+
+### Post-hoc: trial
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ trial), adjust = "tukey")
+```
+
+### Post-hoc: manipulation x block
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ block|manipulation), adjust = "tukey")
+plot(emmeans(
+  lmm, list(pairwise ~ manipulation|block), adjust = "tukey"))
+```
+
+## MMN Latency
+### Main Model
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(MMN_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+```
+
+### Post-hoc: manipulation x group
+```{r, warning=FALSE}
+contrast(emmeans(lmm, ~ trial * manipulation|group), "pairwise")
+emmip(lmm, ~ manipulation |group * trial)
+```
+
+## P3a Amplitude
+### Main model
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(P3a_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm) 
+```
+
+### Post-hoc: trial
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ trial ), adjust = "tukey")
+```
+
+### Post-hoc: trial x group
+```{r, warning=FALSE}
+contrast(emmeans(lmm, ~ trial|group), "pairwise")
+contrast(emmeans(lmm, ~ group|trial), "pairwise")
+emmip(lmm, ~ trial|group)
+```
+
+## P3a Latency
+### Main model
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(P3a_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm) 
+```
+
+### Post-hoc: trial
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ trial), adjust = "tukey")
+```
+
+### Post-hoc: manipulation
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
+```
+
+## SEPR
+### Main model
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(rpd) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm) 
+```
+
+### Post-hoc: trial
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ trial), adjust = "tukey")
+```
+
+### Post-hoc: manipulation*block
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
+```
+
+### Post-hoc: trial*group*block
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ group|block*trial), adjust = "tukey")
+```
+
+## BPS
+### Main model
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(rpd_low) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  data = et_erp_subject)
+anova(lmm) 
+r2_nakagawa(lmm) 
+```
+
+### Post-hoc: manipulation
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
+```
+
+### Post-hoc: manipulation x block
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
+```
+
+## Does pupil data predict ERPs?
+### Does SEPR/BPS predict MMN amplitude?
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(MMN_amplitude) ~ rpd * rpd_low * trial *  manipulation * group + (1|SEGA_ID),
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+```
+
+### Does SEPR/BPS predict P3a amplitude?
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(P3a_amplitude) ~ rpd * rpd_low * trial *  manipulation * group + (1|SEGA_ID),
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+```
+
+## Exploratory: Grip strength (z-values)
+### MMN Amplitude
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(MMN_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender + z_handdynamometer,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+```
+
+### MMN Latency
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(MMN_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+```
+
+### P3a Amplitude
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(P3a_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+```
+
+### P3a Latency
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(P3a_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+```
+
+### SEPR
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(rpd) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+```
+
+### BPS
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(rpd_low) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
+  data = et_erp_subject)
+anova(lmm) 
+r2_nakagawa(lmm)
+```
+
+# **Trial Level**
+## MMN Amplitude
+### Main model
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(MMN_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm) 
+```
+
+### Post-hoc: trial
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ trial), adjust = "tukey")
+```
+
+## MMN Latency
+### Main model
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(MMN_latency) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm) 
+```
+
+### Post-hoc: trial
+```{r, warning=FALSE}
+contrast(emmeans(lmm, ~ trial), "pairwise")
+emmip(lmm, ~ trial)
+```
+
+### post-hoc: manipulation x block
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
+emmip(lmm, ~ manipulation|block)
+```
+
+## P3a Amplitude
+### Main model
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(P3a_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm) 
+```
+
+### Post-hoc: trial x group
+```{r, warning=FALSE}
+contrast(emmeans(lmm, ~ trial | group), "pairwise")
+contrast(emmeans(lmm, ~ group | trial), "pairwise")
+plot(emmeans(lmm, ~ trial|group))
+```
+
+### Post-hoc: group
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
+plot(emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey"))
+```
+  
+## P3a Latency
+### Main model
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(P3a_latency) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+```
+
+### Post-hoc: trial
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ trial), adjust = "tukey")
+```
+
+### Plot: trial x manipulation x group x block
+```{r, warning=FALSE}
+emmip(lmm, ~ block|group * manipulation|trial)
+```
+
+## SEPR
+### Main model
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(rpd) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm) 
+```
+
+### Post-hoc: trial
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ trial), adjust = "tukey")
+```
+
+### Plot: trial x group x block
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ group |trial * block), adjust = "tukey")
+```
+
+### Model with _oddball_trial_counter_
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(rpd) ~ trial * manipulation * group * block * oddball_trial_counter + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+```
+
+```{r, warning=FALSE}
+emtrends(lmm,~ manipulation, var = 'oddball_trial_counter')
+```
+
+### Plot: SEPR over block
+```{r, warning=FALSE}
+ggplot(
+  et_erp_trial,
+  aes(
+    x = trial_number_in_block,
+    y = scale(rpd),
+    group = trial,
+    color = trial)) +
+  geom_smooth() +
+  theme_bw() + 
+  ggtitle("SEPR (rpd) over block: A group comparison.") +
+  facet_grid(cols = vars(group))
+```
+
+### Plot: SEPR over task
+```{r, warning=FALSE}
+et_erp_trial$binned_trial_number <- cut(
+  et_erp_trial$oddball_trial_counter, c(
+    1,  25,  50, 75,  100, 125,  150, 175, 200,  225, 250, 275, 300, 325, 350, 375, 400))
+ggplot(et_erp_trial) + geom_boxplot(aes(binned_trial_number, rpd)) + 
+  facet_grid(cols = vars(group))
+```
+
+## BPS
+### Main model
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(rpd_low) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm) 
+```
+
+### Post-hoc: manipulation
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
+```
+
+### Post-hoc: manipulation x group
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ group|manipulation), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation|group), adjust = "tukey")
+emmip(lmm, ~ manipulation|group)
+```
+
+### Post-hoc: manipulation x block
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
+```
+
+### Post-hoc: group x block
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ group|block), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ block|group), adjust = "tukey")
+```
+
+### Model with _oddball_trial_counter
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(rpd) ~ trial * manipulation * group * block * oddball_trial_counter + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+```
+
+### Plot: BPS over block
+```{r, warning=FALSE}
+ggplot(
+  et_erp_trial,
+  aes(
+    x = trial_number_in_block,
+    y = scale(rpd_low),
+    group = trial,
+    color = trial)) +
+  geom_smooth() +
+  theme_bw() + 
+  ggtitle("BPS (rpd_low) over block: A group comparison.") +
+  facet_grid(cols = vars(group))
+```
+
+### Plot: BPS over the task
+```{r, warning=FALSE}
+et_erp_trial$binned_trial_number <- cut(
+  et_erp_trial$oddball_trial_counter, c(
+    1,  25,  50, 75,  100, 125,  150, 175, 200,  225, 250, 275, 300, 325, 350, 375, 400))
+ggplot(et_erp_trial[et_erp_trial$trial == "standard", ]) + geom_boxplot(aes(binned_trial_number, rpd_low)) + 
+  facet_grid(cols = vars(group))
+```
+
+## Association between BPS and SEPR
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(rpd) ~ scale(rpd_low) * trial * manipulation * group * block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm) 
+```
+
+```{r, warning=FALSE}
+emtrends(lmm, ~ group, var = "rpd_low")
+```
+
+```{r, warning=FALSE}
+ggscatter(et_erp_trial[et_erp_trial$trial == "oddball", ], 
+          x = "rpd_low",
+          y = "rpd_high",
+          add = "reg.line",
+          conf.int = TRUE,
+          cor.coef = TRUE,
+          cor.method = "pearson",
+          xlab = "BPS (rpd_low)",
+          ylab = "SEPR (rpd_high)",
+          title = "Association between SEPR + BPS in oddball trials")
+
+ggscatter(et_erp_trial[et_erp_trial$trial == "standard", ], 
+          x = "rpd_low",
+          y = "rpd_high",
+          add = "reg.line",
+          conf.int = TRUE,
+          cor.coef = TRUE,
+          cor.method = "pearson",
+          xlab = "BPS (rpd_low)",
+          ylab = "SEPR (rpd_high)",
+          title = "Association between SEPR + BPS in standard trials")
+```
+
+## Association between pupil data and ERPs
+```{r, warning=FALSE}
+crl <- cor(et_erp_trial[et_erp_trial$trial == "oddball", c(
+  "rpd_low",
+  "rpd",
+  "MMN_amplitude",
+  "MMN_latency"
+)],
+use="complete.obs")
+crl
+corrplot::corrplot(
+  crl,
+  method = "circle",
+  title = "Association between pupil data and ERPs in oddball trials",
+  mar=c(0,0,1,0))
+
+crl <- cor(et_erp_trial[et_erp_trial$trial == "standard", c(
+  "rpd_low",
+  "rpd",
+  "MMN_amplitude",
+  "MMN_latency"
+)],
+use="complete.obs")
+crl
+corrplot::corrplot(
+  crl,
+  method = "circle",
+  title = "Association between pupil data and ERPs in standard trials",
+  mar=c(0,0,1,0))
+```
+
+## Does pupil data predict ERPs?
+### Does SEPR/BPS predict MMN amplitude?
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(MMN_amplitude) ~ rpd * rpd_low * trial *  manipulation * group + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+```
+
+### Does SEPR/BPS predict MMN amplitude?
+```{r, warning=FALSE}
+lmm <- lmer(
+  scale(MMN_amplitude) ~ rpd * rpd_low * trial *  manipulation * group + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+```
+
+## Exploratory: Block pregression
+### Model fit for BPS
+```{r, warning=FALSE}
+linear_fit <- lmer(
+  scale(rpd_low) ~ trial * manipulation * group * trial_number_in_block * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial, REML = F)
+anova(linear_fit)
+
+quadratic_fit <- lmer(
+  scale(rpd_low) ~ trial * manipulation * group * poly(trial_number_in_block, 2) * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial, REML = F)
+anova(quadratic_fit)
+r2_nakagawa(quadratic_fit) 
+
+cubic_fit <- lmer(
+  scale(rpd_low) ~ trial * manipulation * group * poly(trial_number_in_block, 3) * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial, REML = F)
+anova(cubic_fit)
+r2_nakagawa(cubic_fit) 
+
+table_model_compare <- anova(linear_fit, quadratic_fit, cubic_fit)
+
+table_model_compare <- cbind(
+  c("linear_fit", "quadratic_fit", "cubic_fit"),
+  table_model_compare
+)
+
+table_formatted_BPS <- table_model_compare %>% 
+  kbl(caption = "Model comparision of trial_number_in_block on BPS",
+      col.names = c("","number of parameters",'AIC','BIC','log likelihood','deviance','Chi-squared','df','p-value'),
+      row.names = F) %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+table_formatted_BPS
+```
+
+### Model fit for SEPR
+```{r, warning=FALSE}
+linear_fit <- lmer(
+  scale(rpd) ~ trial * manipulation * group * trial_number_in_block * block+ (1|SEGA_ID) + pitch + age + gender,
+  data = et_erp_trial, REML = F)
+anova(linear_fit)
+r2_nakagawa(linear_fit) 
+
+quadratic_fit <- lmer(
+  scale(rpd) ~ trial * manipulation * group * poly(trial_number_in_block, 2) * block + (1|SEGA_ID) + pitch + age + gender,
+  data = et_erp_trial, REML = F)
+anova(quadratic_fit)
+r2_nakagawa(quadratic_fit) 
+
+cubic_fit <- lmer(
+  scale(rpd) ~ trial * manipulation * group * poly(trial_number_in_block, 3) * block + (1|SEGA_ID) + pitch + age + gender,
+  data = et_erp_trial, REML = F)
+anova(cubic_fit)
+r2_nakagawa(cubic_fit) 
+
+table_model_compare <- anova(linear_fit, quadratic_fit, cubic_fit)
+
+table_model_compare <- cbind(
+  c("linear_fit", "quadratic_fit", "cubic_fit"),
+  table_model_compare
+)
+
+table_formatted_SEPR <- table_model_compare %>% 
+  kbl(caption = "Model comparision of trial_number_in_block on SEPR",
+      col.names = c("","number of parameters",'AIC','BIC','log likelihood','deviance','Chi-squared','df','p-value'),
+      row.names = F) %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+table_formatted_SEPR
+```
