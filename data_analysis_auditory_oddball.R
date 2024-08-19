@@ -74,6 +74,10 @@ df_trial$pitch <- as.factor(df_trial$pitch)
 df_trial$block <- as.factor(df_trial$block)
 
 # DATA ANALYSIS ON SUBJECT LEVEL ####
+# Sample size
+length(unique(et_erp_subject$SEGA_ID))
+table(et_erp_subject$group)/8
+
 # Distributions of dependent variables
 hist(et_erp_subject$rpd,
      main = "Distribution of rpd (500-1500 ms)",
@@ -134,7 +138,6 @@ r2_nakagawa(lmm)
 contrast(emmeans(lmm, ~ trial * manipulation|group), "pairwise")
 emmip(lmm, ~ manipulation |group * trial)
 
-
 # RESULT 3: P3A AMPLITUDE ON SUBJECT LEVEL
 lmm <- lmer(
   scale(P3a_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
@@ -163,7 +166,7 @@ emmeans(
 
 # RESULT 5: SEPR ON SUBJECT LEVEL
 lmm <- lmer(
-  scale(rpd) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  scale(rpd) ~ trial * manipulation * group * block + (1|SEGA_ID),
   data = et_erp_subject)
 anova(lmm)
 r2_nakagawa(lmm) 
@@ -171,12 +174,21 @@ r2_nakagawa(lmm)
 emmeans(
   lmm, list(pairwise ~ trial), adjust = "tukey")
 
+emmeans(
+  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
+
+emmeans(
+  lmm, list(pairwise ~ group|block*trial), adjust = "tukey")
+
 # RESULT 6: BPS ON SUBJECT LEVEL
 lmm <- lmer(
-  scale(rpd_low) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  scale(rpd_low) ~ trial * manipulation * group * block + (1|SEGA_ID),
   data = et_erp_subject)
 anova(lmm) 
 r2_nakagawa(lmm) 
+
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
 
 emmeans(
   lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
@@ -244,9 +256,8 @@ r2_nakagawa(lmm)
 
 emmeans(
   lmm, list(pairwise ~ trial), adjust = "tukey")
-emmip(lmm, ~ trial)
 
-emmip(lmm, ~ trial * block|group * manipulation)
+emmip(lmm, ~block|group * manipulation|trial)
 
 # RESULT 12: SEPR ON TRIAL LEVEL
 lmm <- lmer(
@@ -326,6 +337,10 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ group|manipulation), adjust = "tukey")
 emmeans(
   lmm, list(pairwise ~ group|block), adjust = "tukey")
 emmeans(
@@ -497,6 +512,42 @@ table_formatted_SEPR <- table_model_compare %>%
 
 table_formatted_SEPR
 
+# RESULT 19: EXPLORATORY ANALYSIS OF GRIP STRENGTH EFFECT (Z-VALUES)
+lmm <- lmer(
+  scale(MMN_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender + z_handdynamometer,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+
+lmm <- lmer(
+  scale(MMN_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+
+lmm <- lmer(
+  scale(P3a_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+lmm <- lmer(
+  scale(P3a_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+lmm <- lmer(
+  scale(rpd) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+lmm <- lmer(
+  scale(rpd_low) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
+  data = et_erp_subject)
+anova(lmm) 
+r2_nakagawa(lmm)
 
 # New df et_erp_subject shows same result as df_trial, is valide ####
 lmm <- lmer(
