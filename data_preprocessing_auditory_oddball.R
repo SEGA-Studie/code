@@ -623,10 +623,6 @@ ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<0.7 & df$block_
 # Association between pupil variables
 hist(df_trial$rpd_block, xlim = c(-2, 2))
 hist(df_trial$rpd, xlim = c(-1, 1))
-crl <- cor(df_trial[, c("rpd_low", "rpd_high", "rpd", "rpd_block")], use = "complete.obs")
-corrplot::corrplot(crl, method = "circle")
-
-length(unique(df$id))
 
 # Read experimental group data from .csv file
 exp_groups <- read.csv("exp_groups.csv", header = TRUE)
@@ -642,7 +638,6 @@ for (row in 1:length(df_trial$id)) {
 for (row in 1:length(df_trial$id)) {
   SEGA_ID_df <- df_trial[row, "id"]
   row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
-  print(row_number)
   z_handdynamometer <- exp_groups[row_number, "z_handdynamometer"]
   df_trial[row, "z_handdynamometer"] <- z_handdynamometer}
 
@@ -796,6 +791,12 @@ ET_ERP_trial$gender <- as.factor(ET_ERP_trial$gender)
 
 # Remove unused factor level
 ET_ERP_trial$manipulation <- droplevels(ET_ERP_trial$manipulation)
+
+# Scaled values for correlation plots of dependend variables
+ET_ERP_trial$z_rpd <- as.numeric(scale(ET_ERP_trial$rpd))
+ET_ERP_trial$z_rpd_low <- as.numeric(scale(ET_ERP_trial$rpd_low))
+ET_ERP_trial$z_MMN_amplitude <- as.numeric(scale(ET_ERP_trial$MMN_amplitude))
+ET_ERP_trial$z_P3a_amplitude <- as.numeric(scale(ET_ERP_trial$P3a_amplitude))
 
 # Save .Rds file for analysis on trial level
 saveRDS(ET_ERP_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_trial.rds'))

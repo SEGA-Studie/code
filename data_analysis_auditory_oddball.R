@@ -217,6 +217,9 @@ r2_nakagawa(lmm)
 emmeans(
   lmm, list(pairwise ~ trial), adjust = "tukey")
 
+emmeans(
+  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
+
 # RESULT 9: MMN LATENCY ON TRIAL LEVEL
 lmm <- lmer(
   scale(MMN_latency) ~ trial * manipulation * group * block + (1|SEGA_ID),
@@ -237,11 +240,6 @@ lmm <- lmer(
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm) 
-
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
-plot(emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey"))
 
 contrast(emmeans(lmm, ~ trial | group), "pairwise")
 contrast(emmeans(lmm, ~ group | trial), "pairwise")
@@ -271,6 +269,7 @@ emmeans(
 
 emmeans(
   lmm, list(pairwise ~ group |trial * block), adjust = "tukey")
+emmip(lmm, ~ trial|group|block)
 
 lmm <- lmer(
   scale(rpd) ~ trial * manipulation * group * block * oddball_trial_counter + (1|SEGA_ID),
@@ -349,7 +348,6 @@ emmeans(
   lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
 emmeans(
   lmm, list(pairwise ~ group|manipulation), adjust = "tukey")
-
 emmeans(
   lmm, list(pairwise ~ manipulation|group), adjust = "tukey")
 emmip(lmm, ~ manipulation|group)
@@ -380,25 +378,25 @@ r2_nakagawa(lmm)
 
 # RESULT 14: ASSOCIATION BETWEEN BPS AND SEPR ON TRIAL LEVEL
 ggscatter(et_erp_trial[et_erp_trial$trial == "oddball", ], 
-          x = "rpd_low",
-          y = "rpd_high",
+          x = "z_rpd_low",
+          y = "z_rpd",
           add = "reg.line",
           conf.int = TRUE,
           cor.coef = TRUE,
           cor.method = "pearson",
-          xlab = "BPS (rpd_low)",
-          ylab = "SEPR (rpd_high)",
+          xlab = "scaled BPS (rpd_low)",
+          ylab = "scaled SEPR (rpd)",
           title = "Association between SEPR + BPS in oddball trials")
 
 ggscatter(et_erp_trial[et_erp_trial$trial == "standard", ], 
-          x = "rpd_low",
-          y = "rpd_high",
+          x = "z_rpd_low",
+          y = "z_rpd",
           add = "reg.line",
           conf.int = TRUE,
           cor.coef = TRUE,
           cor.method = "pearson",
-          xlab = "BPS (rpd_low)",
-          ylab = "SEPR (rpd_high)",
+          xlab = "scaled BPS (rpd_low)",
+          ylab = "scaled SEPR (rpd)",
           title = "Association between SEPR + BPS in standard trials")
 
 lmm <- lmer(
@@ -411,10 +409,10 @@ emtrends(lmm, ~ group, var = "rpd_low")
 
 # RESULT 15: ASSOCIATION BETWEEN PUPIL DATA AND ERPs ON TRIAL LEVEL
 crl <- cor(et_erp_trial[et_erp_trial$trial == "oddball", c(
-  "rpd_low",
-  "rpd",
-  "MMN_amplitude",
-  "MMN_latency"
+  "z_rpd_low",
+  "z_rpd",
+  "z_MMN_amplitude",
+  "z_P3a_amplitude"
 )],
 use="complete.obs")
 crl
@@ -425,10 +423,10 @@ corrplot::corrplot(
   mar=c(0,0,1,0))
 
 crl <- cor(et_erp_trial[et_erp_trial$trial == "standard", c(
-  "rpd_low",
-  "rpd",
-  "MMN_amplitude",
-  "MMN_latency"
+  "z_rpd_low",
+  "z_rpd",
+  "z_MMN_amplitude",
+  "z_P3a_amplitude"
 )],
 use="complete.obs")
 crl
@@ -439,11 +437,27 @@ corrplot::corrplot(
   mar=c(0,0,1,0))
 
 # RESULT 16: DOES PUPIL DATA PREDICT ERPs?
+## MMN amplitude
 lmm <- lmer(
   scale(MMN_amplitude) ~ rpd * rpd_low * trial *  manipulation * group + (1|SEGA_ID),
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm)
+
+summary(lmm)
+emtrends(lmm, ~ group, var = c("rpd"))
+
+## P3a amplitude
+lmm <- lmer(
+  scale(P3a_amplitude) ~ rpd * rpd_low * trial *  manipulation * group + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+
+emtrends(lmm, ~ manipulation | group, var = c("rpd_low"))
+plot(emtrends(lmm, ~ manipulation | group, var = c("rpd_low")))
+
+emtrends(lmm, ~ manipulation, var = c("rpd_low"))
 
 # RESULT 17: EXPLORATORY ANALYSIS OF MODEL FIT FOR "trial_number_in_block" ON BPS
 linear_fit <- lmer(
@@ -514,40 +528,45 @@ table_formatted_SEPR
 
 # RESULT 19: EXPLORATORY ANALYSIS OF GRIP STRENGTH EFFECT (Z-VALUES)
 lmm <- lmer(
-  scale(MMN_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender + z_handdynamometer,
-  data = et_erp_subject)
+  scale(MMN_amplitude) ~ trial * group * block * z_handdynamometer + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
 r2_nakagawa(lmm)
 
 lmm <- lmer(
-  scale(MMN_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
-  data = et_erp_subject)
+  scale(MMN_latency) ~ trial * group * block * z_handdynamometer+ (1|SEGA_ID) + gender + age,
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
 r2_nakagawa(lmm)
 
 lmm <- lmer(
-  scale(P3a_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
-  data = et_erp_subject)
+  scale(P3a_amplitude) ~ trial * group * block * z_handdynamometer + (1|SEGA_ID) + gender + age,
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
 r2_nakagawa(lmm) 
 
 lmm <- lmer(
-  scale(P3a_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
-  data = et_erp_subject)
+  scale(P3a_latency) ~ trial * group * block * z_handdynamometer+ (1|SEGA_ID) + gender + age,
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
 r2_nakagawa(lmm) 
 
 lmm <- lmer(
-  scale(rpd) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
-  data = et_erp_subject)
+  scale(rpd) ~ trial * group * block * z_handdynamometer + (1|SEGA_ID),
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
 r2_nakagawa(lmm) 
 
 lmm <- lmer(
-  scale(rpd_low) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
-  data = et_erp_subject)
+  scale(rpd_low) ~ trial * group * block * z_handdynamometer + (1|SEGA_ID),
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm) 
 r2_nakagawa(lmm)
+
+emtrends(lmm, ~ group|block, var = 'z_handdynamometer')
+contrast(emtrends(lmm, ~ group|block, var = 'z_handdynamometer'))
+contrast(emtrends(lmm, ~ block|group, var = 'z_handdynamometer'))
+plot(emtrends(lmm, ~ group|block, var = 'z_handdynamometer'))
 
 # New df et_erp_subject shows same result as df_trial, is valide ####
 lmm <- lmer(

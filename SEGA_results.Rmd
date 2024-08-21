@@ -154,7 +154,7 @@ anova(lmm)
 r2_nakagawa(lmm)
 ```
 
-### Post-hoc: manipulation x group
+### Post-hoc: trial x manipulation x group
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ trial * manipulation|group), "pairwise")
 emmip(lmm, ~ manipulation |group * trial)
@@ -221,16 +221,21 @@ emmeans(
   lmm, list(pairwise ~ trial), adjust = "tukey")
 ```
 
-### Post-hoc: manipulation*block
+### Post-hoc: manipulation x block
 ```{r, warning=FALSE}
 emmeans(
   lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
 ```
 
-### Post-hoc: trial*group*block
+### Post-hoc: trial x group x block
 ```{r, warning=FALSE}
 emmeans(
   lmm, list(pairwise ~ group|block*trial), adjust = "tukey")
+```
+
+### Plot: trial x group x block
+```{r, warning=FALSE}
+emmip(lmm, ~ trial|group|block)
 ```
 
 ## BPS
@@ -278,8 +283,8 @@ r2_nakagawa(lmm)
 ### MMN Amplitude
 ```{r, warning=FALSE}
 lmm <- lmer(
-  scale(MMN_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender + z_handdynamometer,
-  data = et_erp_subject)
+  scale(MMN_amplitude) ~ trial * group * block * z_handdynamometer + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
 r2_nakagawa(lmm)
 ```
@@ -287,8 +292,8 @@ r2_nakagawa(lmm)
 ### MMN Latency
 ```{r, warning=FALSE}
 lmm <- lmer(
-  scale(MMN_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
-  data = et_erp_subject)
+  scale(MMN_latency) ~ trial * group * block * z_handdynamometer+ (1|SEGA_ID) + gender + age,
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
 r2_nakagawa(lmm)
 ```
@@ -296,37 +301,42 @@ r2_nakagawa(lmm)
 ### P3a Amplitude
 ```{r, warning=FALSE}
 lmm <- lmer(
-  scale(P3a_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
-  data = et_erp_subject)
+  scale(P3a_amplitude) ~ trial * group * block * z_handdynamometer + (1|SEGA_ID) + gender + age,
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
-r2_nakagawa(lmm)
+r2_nakagawa(lmm) 
 ```
 
 ### P3a Latency
 ```{r, warning=FALSE}
 lmm <- lmer(
-  scale(P3a_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
-  data = et_erp_subject)
+  scale(P3a_latency) ~ trial * group * block * z_handdynamometer+ (1|SEGA_ID) + gender + age,
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
-r2_nakagawa(lmm)
+r2_nakagawa(lmm) 
 ```
 
 ### SEPR
 ```{r, warning=FALSE}
 lmm <- lmer(
-  scale(rpd) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
-  data = et_erp_subject)
+  scale(rpd) ~ trial * group * block * z_handdynamometer + (1|SEGA_ID),
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
-r2_nakagawa(lmm)
+r2_nakagawa(lmm) 
 ```
 
 ### BPS
 ```{r, warning=FALSE}
 lmm <- lmer(
-  scale(rpd_low) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age + z_handdynamometer,
-  data = et_erp_subject)
+  scale(rpd_low) ~ trial * group * block * z_handdynamometer + (1|SEGA_ID),
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm) 
 r2_nakagawa(lmm)
+
+emtrends(lmm, ~ group|block, var = 'z_handdynamometer')
+contrast(emtrends(lmm, ~ group|block, var = 'z_handdynamometer'))
+contrast(emtrends(lmm, ~ block|group, var = 'z_handdynamometer'))
+plot(emtrends(lmm, ~ group|block, var = 'z_handdynamometer'))
 ```
 
 # **Trial Level**
@@ -346,6 +356,14 @@ emmeans(
   lmm, list(pairwise ~ trial), adjust = "tukey")
 ```
 
+### Post-hoc: manipulation x block
+```{r, warning=FALSE}
+emmeans(
+  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ block|manipulation), adjust = "tukey")
+```
+
 ## MMN Latency
 ### Main model
 ```{r, warning=FALSE}
@@ -359,10 +377,9 @@ r2_nakagawa(lmm)
 ### Post-hoc: trial
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ trial), "pairwise")
-emmip(lmm, ~ trial)
 ```
 
-### post-hoc: manipulation x block
+### Post-hoc: manipulation x block
 ```{r, warning=FALSE}
 emmeans(
   lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
@@ -386,14 +403,6 @@ contrast(emmeans(lmm, ~ group | trial), "pairwise")
 plot(emmeans(lmm, ~ trial|group))
 ```
 
-### Post-hoc: group
-```{r, warning=FALSE}
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
-plot(emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey"))
-```
-  
 ## P3a Latency
 ### Main model
 ```{r, warning=FALSE}
@@ -431,23 +440,15 @@ emmeans(
   lmm, list(pairwise ~ trial), adjust = "tukey")
 ```
 
-### Plot: trial x group x block
+### Post-hoc: trial x group x block
 ```{r, warning=FALSE}
 emmeans(
   lmm, list(pairwise ~ group |trial * block), adjust = "tukey")
 ```
 
-### Model with _oddball_trial_counter_
+### Plot: trial x group x block
 ```{r, warning=FALSE}
-lmm <- lmer(
-  scale(rpd) ~ trial * manipulation * group * block * oddball_trial_counter + (1|SEGA_ID),
-  data = et_erp_trial)
-anova(lmm)
-r2_nakagawa(lmm)
-```
-
-```{r, warning=FALSE}
-emtrends(lmm,~ manipulation, var = 'oddball_trial_counter')
+emmip(lmm, ~ trial|group|block)
 ```
 
 ### Plot: SEPR over block
@@ -513,15 +514,6 @@ emmeans(
   lmm, list(pairwise ~ block|group), adjust = "tukey")
 ```
 
-### Model with _oddball_trial_counter
-```{r, warning=FALSE}
-lmm <- lmer(
-  scale(rpd) ~ trial * manipulation * group * block * oddball_trial_counter + (1|SEGA_ID),
-  data = et_erp_trial)
-anova(lmm)
-r2_nakagawa(lmm)
-```
-
 ### Plot: BPS over block
 ```{r, warning=FALSE}
 ggplot(
@@ -548,6 +540,30 @@ ggplot(et_erp_trial[et_erp_trial$trial == "standard", ]) + geom_boxplot(aes(binn
 
 ## Association between BPS and SEPR
 ```{r, warning=FALSE}
+ggscatter(et_erp_trial[et_erp_trial$trial == "oddball", ], 
+          x = "z_rpd_low",
+          y = "z_rpd",
+          add = "reg.line",
+          conf.int = TRUE,
+          cor.coef = TRUE,
+          cor.method = "pearson",
+          xlab = "scaled BPS (rpd_low)",
+          ylab = "scaled SEPR (rpd)",
+          title = "Association between SEPR + BPS in oddball trials")
+
+ggscatter(et_erp_trial[et_erp_trial$trial == "standard", ], 
+          x = "z_rpd_low",
+          y = "z_rpd",
+          add = "reg.line",
+          conf.int = TRUE,
+          cor.coef = TRUE,
+          cor.method = "pearson",
+          xlab = "scaled BPS (rpd_low)",
+          ylab = "scaled SEPR (rpd)",
+          title = "Association between SEPR + BPS in standard trials")
+```
+
+```{r, warning=FALSE}
 lmm <- lmer(
   scale(rpd) ~ scale(rpd_low) * trial * manipulation * group * block + (1|SEGA_ID),
   data = et_erp_trial)
@@ -559,37 +575,13 @@ r2_nakagawa(lmm)
 emtrends(lmm, ~ group, var = "rpd_low")
 ```
 
-```{r, warning=FALSE}
-ggscatter(et_erp_trial[et_erp_trial$trial == "oddball", ], 
-          x = "rpd_low",
-          y = "rpd_high",
-          add = "reg.line",
-          conf.int = TRUE,
-          cor.coef = TRUE,
-          cor.method = "pearson",
-          xlab = "BPS (rpd_low)",
-          ylab = "SEPR (rpd_high)",
-          title = "Association between SEPR + BPS in oddball trials")
-
-ggscatter(et_erp_trial[et_erp_trial$trial == "standard", ], 
-          x = "rpd_low",
-          y = "rpd_high",
-          add = "reg.line",
-          conf.int = TRUE,
-          cor.coef = TRUE,
-          cor.method = "pearson",
-          xlab = "BPS (rpd_low)",
-          ylab = "SEPR (rpd_high)",
-          title = "Association between SEPR + BPS in standard trials")
-```
-
 ## Association between pupil data and ERPs
 ```{r, warning=FALSE}
 crl <- cor(et_erp_trial[et_erp_trial$trial == "oddball", c(
-  "rpd_low",
-  "rpd",
-  "MMN_amplitude",
-  "MMN_latency"
+  "z_rpd_low",
+  "z_rpd",
+  "z_MMN_amplitude",
+  "z_P3a_amplitude"
 )],
 use="complete.obs")
 crl
@@ -600,10 +592,10 @@ corrplot::corrplot(
   mar=c(0,0,1,0))
 
 crl <- cor(et_erp_trial[et_erp_trial$trial == "standard", c(
-  "rpd_low",
-  "rpd",
-  "MMN_amplitude",
-  "MMN_latency"
+  "z_rpd_low",
+  "z_rpd",
+  "z_MMN_amplitude",
+  "z_P3a_amplitude"
 )],
 use="complete.obs")
 crl
@@ -624,13 +616,30 @@ anova(lmm)
 r2_nakagawa(lmm)
 ```
 
-### Does SEPR/BPS predict MMN amplitude?
+```{r, warning=FALSE}
+summary(lmm)
+```
+
+```{r, warning=FALSE}
+emtrends(lmm, ~ group, var = c("rpd"))
+```
+
+### Does SEPR/BPS predict P3a amplitude?
 ```{r, warning=FALSE}
 lmm <- lmer(
-  scale(MMN_amplitude) ~ rpd * rpd_low * trial *  manipulation * group + (1|SEGA_ID),
+  scale(P3a_amplitude) ~ rpd * rpd_low * trial *  manipulation * group + (1|SEGA_ID),
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm)
+```
+
+```{r, warning=FALSE}
+emtrends(lmm, ~ manipulation | group, var = c("rpd_low"))
+plot(emtrends(lmm, ~ manipulation | group, var = c("rpd_low")))
+```
+
+```{r, warning=FALSE}
+emtrends(lmm, ~ manipulation, var = c("rpd_low"))
 ```
 
 ## Exploratory: Block pregression
