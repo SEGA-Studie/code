@@ -11,11 +11,15 @@
 # - 073 without ET data
 # - 056 program failed
 # - 070 no data due to subject-related issues
+# - 073 problems with starting the task
 # - 077 complete data but script fails
 # - 139 no data due to subject-related issues
 # - 122 no eeg data due to eeg pc problem
 # - 114 no eeg data due to eeg pc problem
 # - 103 only .psydat, no csv file
+# - 164 no eeg due to subject's aversion
+# - 161 no egg because wearing wig
+
 
 ## SETUP ####
 
@@ -821,6 +825,8 @@ df_MMN_500oddball <- list_eeg_data[[1]]
 df_MMN_750oddball <- list_eeg_data[[2]]
 df_P3a_500oddball <- list_eeg_data[[3]]
 df_P3a_750oddball <- list_eeg_data[[4]]
+df_P3b_500oddball <- list_eeg_data[[5]]
+df_P3b_750oddball <- list_eeg_data[[6]]
 
 # Change column names for 500Hz-MMN data frame
 names(df_MMN_500oddball) <- c(
@@ -906,6 +912,48 @@ names(df_P3a_750oddball) <- c(
   "Peak_P3a_Standard_rev_750_Hz_after"
 )
 
+# Change column names for 500Hz-P3b data frame
+names(df_P3b_500oddball) <- c(
+  "id",
+  "L-Peak_P3b_Oddball_500_Hz_before",
+  "L-Peak_P3b_Standard_750_Hz_before",
+  "L-Peak_P3b_Oddball_rev_750_Hz_before",
+  "L-Peak_P3b_Standard_rev_500_Hz_before",
+  "L-Peak_P3b_Oddball_500_Hz_after",
+  "L-Peak_P3b_Standard_750_Hz_after",
+  "L-Peak_P3b_Oddball_rev_750_Hz_after",
+  "L-Peak_P3b_Standard_rev_500_Hz_after",
+  "Peak_P3b_Oddball_500_Hz_before",
+  "Peak_P3b_Standard_750_Hz_before",
+  "Peak_P3b_Oddball_rev_750_Hz_before",
+  "Peak_P3b_Standard_rev_500_Hz_before",
+  "Peak_P3b_Oddball_500_Hz_after",
+  "Peak_P3b_Standard_750_Hz_after",
+  "Peak_P3b_Oddball_rev_750_Hz_after", 
+  "Peak_P3b_Standard_rev_500_Hz_after"
+)
+
+# Change column names for 750Hz-P3b data frame
+names(df_P3b_750oddball) <- c(
+  "id",
+  "L-Peak_P3b_Oddball_750_Hz_before",
+  "L-Peak_P3b_Standard_500_Hz_before",
+  "L-Peak_P3b_Oddball_rev_500_Hz_before",
+  "L-Peak_P3b_Standard_rev_750_Hz_before",
+  "L-Peak_P3b_Oddball_750_Hz_after",
+  "L-Peak_P3b_Standard_500_Hz_after",
+  "L-Peak_P3b_Oddball_rev_500_Hz_after",
+  "L-Peak_P3b_Standard_rev_750_Hz_after",
+  "Peak_P3b_Oddball_750_Hz_before",
+  "Peak_P3b_Standard_500_Hz_before",
+  "Peak_P3b_Oddball_rev_500_Hz_before",
+  "Peak_P3b_Standard_rev_750_Hz_before",
+  "Peak_P3b_Oddball_750_Hz_after",
+  "Peak_P3b_Standard_500_Hz_after",
+  "Peak_P3b_Oddball_rev_500Hz_after",
+  "Peak_P3b_Standard_rev_750_Hz_after"
+)
+
 # Remove empty columns + rows
 df_MMN_500oddball <- Filter(function(x)!all(is.na(x)), df_MMN_500oddball)
 df_MMN_500oddball <- df_MMN_500oddball[!(df_MMN_500oddball$`L-Peak_MMN_Oddball_500_Hz_before` == "???"), ]
@@ -916,6 +964,11 @@ df_P3a_500oddball <- Filter(function(x)!all(is.na(x)), df_P3a_500oddball)
 df_P3a_500oddball <- df_P3a_500oddball[!(df_P3a_500oddball$`L-Peak_P3a_Oddbal_500_Hz_before` == "???"), ]
 df_P3a_750oddball <- Filter(function(x)!all(is.na(x)), df_P3a_750oddball)
 df_P3a_750oddball <- df_P3a_750oddball[!(df_P3a_750oddball$`L-Peak_P3a_Oddball_750_Hz_before` == "???"), ]
+
+df_P3b_500oddball <- Filter(function(x)!all(is.na(x)), df_P3b_500oddball)
+df_P3b_500oddball <- df_P3b_500oddball[!(df_P3b_500oddball$`L-Peak_P3b_Oddball_500_Hz_before` == "???"), ]
+df_P3b_750oddball <- Filter(function(x)!all(is.na(x)), df_P3b_750oddball)
+df_P3b_750oddball <- df_P3b_750oddball[!(df_P3b_750oddball$`L-Peak_P3b_Oddball_750_Hz_before` == "???"), ]
 
 # Replace commas with point decimals
 for (i in 2:ncol(df_MMN_500oddball)) {
@@ -929,6 +982,12 @@ for (i in 2:ncol(df_P3a_500oddball)) {
 }
 for (i in 2:ncol(df_P3a_750oddball)) {
   df_P3a_750oddball[, i] <- as.numeric(gsub(",", ".", df_P3a_750oddball[, i]))
+}
+for (i in 2:ncol(df_P3b_500oddball)) {
+  df_P3b_500oddball[, i] <- as.numeric(gsub(",", ".", df_P3b_500oddball[, i]))
+}
+for (i in 2:ncol(df_P3b_750oddball)) {
+  df_P3b_750oddball[, i] <- as.numeric(gsub(",", ".", df_P3b_750oddball[, i]))
 }
 
 # Split the 4 data frames based on amplitude/latency 
@@ -1210,8 +1269,148 @@ P3a_latency_df <- rbind(reshaped_P3a_latency_500, reshaped_P3a_latency_750)
 # Combine amplitude + latency in P3a_df
 P3a_df <- merge(P3_amplitude_df, P3a_latency_df, by = c("SEGA_ID", "block", "manipulation", "trial", "pitch"))
 
+# P3b AMPLITUDE
+P3b_amplitude_500 <- df_P3b_500oddball[c(
+  "id",
+  "Peak_P3b_Oddball_500_Hz_before",
+  "Peak_P3b_Standard_750_Hz_before",
+  "Peak_P3b_Oddball_rev_750_Hz_before",
+  "Peak_P3b_Standard_rev_500_Hz_before",
+  "Peak_P3b_Oddball_500_Hz_after",
+  "Peak_P3b_Standard_750_Hz_after",
+  "Peak_P3b_Oddball_rev_750_Hz_after",
+  "Peak_P3b_Standard_rev_500_Hz_after"
+)]
+reshaped_P3b_amplitude_500 <- reshape::melt(P3b_amplitude_500, id = "id")
+
+# Additional variables and correct 3 SEGA-IDs
+reshaped_P3b_amplitude_500$block <- as.factor(ifelse(grepl("rev", reshaped_P3b_amplitude_500$variable), "reverse", "forward"))
+reshaped_P3b_amplitude_500$trial <- as.factor(str_extract(reshaped_P3b_amplitude_500$variable, "Oddball|Oddbal|Standard"))
+reshaped_P3b_amplitude_500$manipulation <- as.factor(str_extract(reshaped_P3b_amplitude_500$variable, "before|after"))
+reshaped_P3b_amplitude_500$pitch <- as.factor(str_extract(reshaped_P3b_amplitude_500$variable, "500|750"))
+reshaped_P3b_amplitude_500$id <- str_replace(
+  reshaped_P3b_amplitude_500$id, "SEGA_AuditoryOddball_022_24102022", "SEGA_022_AuditoryOddball_24102022")
+reshaped_P3b_amplitude_500$id <- str_replace(
+  reshaped_P3b_amplitude_500$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
+reshaped_P3b_amplitude_500$id <- str_replace(
+  reshaped_P3b_amplitude_500$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
+reshaped_P3b_amplitude_500$SEGA_ID <- as.factor(substr(reshaped_P3b_amplitude_500$id, 6, 8))
+reshaped_P3b_amplitude_500$SEGA_ID <- sub("^0+", "", reshaped_P3b_amplitude_500$SEGA_ID)
+
+# Delete unnecessary 2 columns
+reshaped_P3b_amplitude_500 <- subset(reshaped_P3b_amplitude_500, select = -c(variable, id))
+# Rename column with MMN amplitude values
+colnames(reshaped_P3b_amplitude_500)[colnames(reshaped_P3b_amplitude_500) == "value"] <- "P3b_amplitude"
+
+P3b_amplitude_750 <- df_P3b_750oddball[c(
+  "id",
+  "Peak_P3b_Oddball_750_Hz_before",
+  "Peak_P3b_Standard_500_Hz_before",
+  "Peak_P3b_Oddball_rev_500_Hz_before",
+  "Peak_P3b_Standard_rev_750_Hz_before",
+  "Peak_P3b_Oddball_750_Hz_after",
+  "Peak_P3b_Standard_500_Hz_after",
+  "Peak_P3b_Oddball_rev_500Hz_after",
+  "Peak_P3b_Standard_rev_750_Hz_after"
+)]
+reshaped_P3b_amplitude_750 <- reshape::melt(P3b_amplitude_750, id = "id")
+
+# Additional variables an correct 3 SEGA-IDs
+reshaped_P3b_amplitude_750$block <- as.factor(ifelse(grepl("rev", reshaped_P3b_amplitude_750$variable), "reverse", "forward"))
+reshaped_P3b_amplitude_750$trial <- as.factor(str_extract(reshaped_P3b_amplitude_750$variable, "Oddball|Oddbal|Standard"))
+reshaped_P3b_amplitude_750$manipulation <- as.factor(str_extract(reshaped_P3b_amplitude_750$variable, "before|after"))
+reshaped_P3b_amplitude_750$pitch <- as.factor(str_extract(reshaped_P3b_amplitude_750$variable, "500|750"))
+reshaped_P3b_amplitude_750$id <- str_replace(
+  reshaped_P3b_amplitude_750$id, "SEGA_AuditoryOddball_022_24102022", "SEGA_022_AuditoryOddball_24102022")
+reshaped_P3b_amplitude_750$id <- str_replace(
+  reshaped_P3b_amplitude_750$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
+reshaped_P3b_amplitude_750$id <- str_replace(
+  reshaped_P3b_amplitude_750$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
+reshaped_P3b_amplitude_750$SEGA_ID <- as.factor(substr(reshaped_P3b_amplitude_750$id, 6, 8))
+reshaped_P3b_amplitude_750$SEGA_ID <- sub("^0+", "", reshaped_P3b_amplitude_750$SEGA_ID)
+
+# Delete unnecessary 2 columns
+reshaped_P3b_amplitude_750 <- subset(reshaped_P3b_amplitude_750, select = -c(variable, id))
+
+# Rename column with MMN amplitude values
+colnames(reshaped_P3b_amplitude_750)[colnames(reshaped_P3b_amplitude_750) == "value"] <- "P3b_amplitude"
+
+# combine MMN Amplitude in MMN_amplitude_df
+P3b_amplitude_df <- rbind(reshaped_P3b_amplitude_500, reshaped_P3b_amplitude_750)
+
+# P3b LATENCY
+P3b_latency_500 <- df_P3b_500oddball[c(
+  "id",
+  "L-Peak_P3b_Oddball_500_Hz_before",
+  "L-Peak_P3b_Standard_750_Hz_before",
+  "L-Peak_P3b_Oddball_rev_750_Hz_before",
+  "L-Peak_P3b_Standard_rev_500_Hz_before",
+  "L-Peak_P3b_Oddball_500_Hz_after",
+  "L-Peak_P3b_Standard_750_Hz_after",
+  "L-Peak_P3b_Oddball_rev_750_Hz_after",
+  "L-Peak_P3b_Standard_rev_500_Hz_after"
+)]
+reshaped_P3b_latency_500 <- reshape::melt(P3b_latency_500, id = "id")
+
+# Additional variables an correct 3 SEGA-IDs
+reshaped_P3b_latency_500$block <- as.factor(ifelse(grepl("rev", reshaped_P3b_latency_500$variable), "reverse", "forward"))
+reshaped_P3b_latency_500$trial <- as.factor(str_extract(reshaped_P3b_latency_500$variable, "Oddball|Oddbal|Standard"))
+reshaped_P3b_latency_500$manipulation <- as.factor(str_extract(reshaped_P3b_latency_500$variable, "before|after"))
+reshaped_P3b_latency_500$pitch <- as.factor(str_extract(reshaped_P3b_latency_500$variable, "500|750"))
+reshaped_P3b_latency_500$id <- str_replace(
+  reshaped_P3b_latency_500$id, "SEGA_AuditoryOddball_022_24102022", "SEGA_022_AuditoryOddball_24102022")
+reshaped_P3b_latency_500$id <- str_replace(
+  reshaped_P3b_latency_500$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
+reshaped_P3b_latency_500$id <- str_replace(
+  reshaped_P3b_latency_500$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
+reshaped_P3b_latency_500$SEGA_ID <- as.factor(substr(reshaped_P3b_latency_500$id, 6, 8))
+reshaped_P3b_latency_500$SEGA_ID <- sub("^0+", "", reshaped_P3b_latency_500$SEGA_ID)
+
+# Delete unnecessary 2 columns
+reshaped_P3b_latency_500 <- subset(reshaped_P3b_latency_500, select = -c(variable, id))
+# Rename column with MMN latency values
+colnames(reshaped_P3b_latency_500)[colnames(reshaped_P3b_latency_500) == "value"] <- "P3b_latency"
+
+P3b_latency_750 <- df_P3b_750oddball[c(
+  "id",
+  "L-Peak_P3b_Oddball_750_Hz_before",
+  "L-Peak_P3b_Standard_500_Hz_before",
+  "L-Peak_P3b_Oddball_rev_500_Hz_before",
+  "L-Peak_P3b_Standard_rev_750_Hz_before",
+  "L-Peak_P3b_Oddball_750_Hz_after",
+  "L-Peak_P3b_Standard_500_Hz_after",
+  "L-Peak_P3b_Oddball_rev_500_Hz_after",
+  "L-Peak_P3b_Standard_rev_750_Hz_after"
+)]
+reshaped_P3b_latency_750 <- reshape::melt(P3b_latency_750, id = "id")
+
+# Additional variables an correct 3 SEGA-IDs
+reshaped_P3b_latency_750$block <- as.factor(ifelse(grepl("rev", reshaped_P3b_latency_750$variable), "reverse", "forward"))
+reshaped_P3b_latency_750$trial <- as.factor(str_extract(reshaped_P3b_latency_750$variable, "Oddball|Oddbal|Standard"))
+reshaped_P3b_latency_750$manipulation <- as.factor(str_extract(reshaped_P3b_latency_750$variable, "before|after"))
+reshaped_P3b_latency_750$pitch <- as.factor(str_extract(reshaped_P3b_latency_750$variable, "500|750"))
+reshaped_P3b_latency_750$id <- str_replace(
+  reshaped_P3b_latency_750$id, "SEGA_AuditoryOddball_022_24102022", "SEGA_022_AuditoryOddball_24102022")
+reshaped_P3b_latency_750$id <- str_replace(
+  reshaped_P3b_latency_750$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
+reshaped_P3b_latency_750$id <- str_replace(
+  reshaped_P3b_latency_750$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
+reshaped_P3b_latency_750$SEGA_ID <- as.factor(substr(reshaped_P3b_latency_750$id, 6, 8))
+reshaped_P3b_latency_750$SEGA_ID <- sub("^0+", "", reshaped_P3b_latency_750$SEGA_ID)
+
+# Delete unnecessary 2 columns
+reshaped_P3b_latency_750 <- subset(reshaped_P3b_latency_750, select = -c(variable, id))
+# Rename column with MMN amplitude values
+colnames(reshaped_P3b_latency_750)[colnames(reshaped_P3b_latency_750) == "value"] <- "P3b_latency"
+
+P3b_latency_df <- rbind(reshaped_P3b_latency_500, reshaped_P3b_latency_750)
+
+P3b_df <- merge(P3b_amplitude_df, P3b_latency_df, by = c("SEGA_ID", "block", "manipulation", "trial", "pitch"))
+
 # Combine MMN + P3a in ERP_df (outer join because of subjects having only one ERP)
 ERP_df <- merge(P3a_df, MMN_df, by = c("SEGA_ID", "block", "manipulation", "trial", "pitch"), all = TRUE)
+# Add P3b to ERP_df
+ERP_df <- merge(ERP_df, P3b_df, by = c("SEGA_ID", "block", "manipulation", "trial", "pitch"), all = TRUE)
 
 # Include experimental group from .csv file in ERP_df
 for (row in 1:length(ERP_df$SEGA_ID)) {
@@ -1370,6 +1569,13 @@ for (row in 1:length(ET_ERP_subject$SEGA_ID)) {
 # Correct data types for analysis
 ET_ERP_subject$trial <- as.factor(ET_ERP_subject$trial)
 ET_ERP_subject$gender <- as.factor(ET_ERP_subject$gender)
+
+# Scaled values for correlation plots of dependend variables
+ET_ERP_subject$z_rpd <- as.numeric(scale(ET_ERP_subject$rpd))
+ET_ERP_subject$z_rpd_low <- as.numeric(scale(ET_ERP_subject$rpd_low))
+ET_ERP_subject$z_MMN_amplitude <- as.numeric(scale(ET_ERP_subject$MMN_amplitude))
+ET_ERP_subject$z_P3a_amplitude <- as.numeric(scale(ET_ERP_subject$P3a_amplitude))
+ET_ERP_subject$z_P3b_amplitude <- as.numeric(scale(ET_ERP_subject$P3b_amplitude))
 
 # Remove unused factor level
 ET_ERP_subject$manipulation <- droplevels(ET_ERP_subject$manipulation)
