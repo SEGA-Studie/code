@@ -262,13 +262,16 @@ r2_nakagawa(lmm)
 
 emmeans(
   lmm, list(pairwise ~ trial), adjust = "tukey")
-
 emmeans(
   lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
 emmeans(
   lmm, list(pairwise ~ block|manipulation), adjust = "tukey")
 plot(emmeans(
   lmm, list(pairwise ~ manipulation|block), adjust = "tukey"))
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
 
 
 # RESULT 2: MMN LATENCY ON SUBJECT LEVEL
@@ -280,6 +283,10 @@ r2_nakagawa(lmm)
 
 contrast(emmeans(lmm, ~ trial * manipulation|group), "pairwise")
 emmip(lmm, ~ manipulation |group * trial, CI = T)
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
 
 # RESULT 3: P3A AMPLITUDE ON SUBJECT LEVEL
 lmm <- lmer(
@@ -292,12 +299,17 @@ emm <- emmeans(
   lmm, list(pairwise ~ trial ), adjust = "tukey")
 emmip(lmm, ~ trial, CIs = T)
 contrast(emmeans(lmm, ~ trial|group), "pairwise")
+plot(contrast(emmeans(lmm, ~ trial|group), "pairwise"))
 contrast(emmeans(lmm, ~ group|trial), "pairwise")
 emmip(lmm, ~ trial|group, CI = T)
 contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
 emmip(lmm, ~ manipulation|block, CI = T)
 contrast(emmeans(lmm, ~ group * trial|block), "pairwise")
 emmip(lmm, ~ trial|group * block, CI = T)
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
 
 # RESULT 4: P3A LATENCY ON SUBJECT LEVEL
 lmm <- lmer(
@@ -311,6 +323,8 @@ emmeans(
 plot(emmeans(
   lmm, list(pairwise ~ manipulation), adjust = "tukey"))
 emmip(lmm, ~ manipulation, CIs = T)
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
 
 # RESULT 5: P3B AMPLITUDE ON SUBJECT LEVEL
 lmm <- lmer(
@@ -321,6 +335,10 @@ r2_nakagawa(lmm)
 
 emmeans(
   lmm, list(pairwise ~ trial), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
 
 # RESULT 6: P3B LATENCY ON SUBJECT LEVEL
 lmm <- lmer(
@@ -337,8 +355,10 @@ emmip(lmm, ~ group | trial, CI = T)
 emmeans(
   lmm, list(pairwise ~ group|trial * manipulation), adjust = "tukey")
 emmip(lmm, ~ group | trial * manipulation, CI = T)
-
-
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
 emmeans(
   lmm, list(pairwise ~ manipulation|trial * block), adjust = "tukey")
 emmip(lmm, ~ manipulation| trial * block, CI = T)
@@ -352,6 +372,10 @@ r2_nakagawa(lmm)
 
 emmeans(
   lmm, list(pairwise ~ trial), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
 
 # RESULT 6: BPS ON SUBJECT LEVEL
 lmm <- lmer(
@@ -365,7 +389,11 @@ emmeans(
 emmeans(
   lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
 emmip(lmm, ~ manipulation | block, CIs = T)
-emmip(lmm, ~ manipulation, CIs = T)
+emmeans(
+  lmm, list(pairwise ~ manipulation|group), adjust = "tukey")
+emmip(lmm, ~ manipulation | group, CIs = T)
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
 
 # RESULT 7: DOES PUPUIL DATA PREDICT ERPs?
 lmm <- lmer(
@@ -417,7 +445,6 @@ corrplot::corrplot(
   title = "Association between pupil data and ERPs in standard trials",
   mar=c(0,0,1,0))
 
-
 # DATA ANALYSIS ON TRIAL LEVEL ####
 # RESULT 8: MMN AMPLITUDE ON TRIAL LEVEL
 lmm <- lmer(
@@ -430,6 +457,12 @@ emmeans(
   lmm, list(pairwise ~ trial), adjust = "tukey")
 emmeans(
   lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ block|manipulation), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
 
 # RESULT 9: MMN LATENCY ON TRIAL LEVEL
 lmm <- lmer(
@@ -440,6 +473,12 @@ r2_nakagawa(lmm)
 
 emmeans(
   lmm, list(pairwise ~ trial), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
 
 # RESULT 10: P3A AMPLITUDE ON TRIAL LEVEL
 lmm <- lmer(
@@ -453,6 +492,10 @@ contrast(emmeans(lmm, ~ group | trial), "pairwise")
 plot(emmeans(lmm, ~ trial|group))
 contrast(emmeans(lmm, ~ manipulation | block), "pairwise")
 plot(emmeans(lmm, ~ manipulation|block))
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
 
 # RESULT 11: P3A LATENCY ON TRIAL LEVEL
 lmm <- lmer(
@@ -464,6 +507,10 @@ r2_nakagawa(lmm)
 emmeans(
   lmm, list(pairwise ~ trial), adjust = "tukey")
 emmip(lmm, ~block|group * manipulation|trial, CIs = T)
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
 
 # RESULT 12: SEPR ON TRIAL LEVEL
 lmm <- lmer(
@@ -474,6 +521,10 @@ r2_nakagawa(lmm)
 
 emmeans(
   lmm, list(pairwise ~ trial), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
 
 lmm <- lmer(
   scale(rpd) ~ trial * manipulation * group * block * oddball_trial_counter + (1|SEGA_ID),
@@ -546,16 +597,18 @@ emmeans(
 emmeans(
   lmm, list(pairwise ~ group|manipulation), adjust = "tukey")
 emmeans(
+  lmm, list(pairwise ~ manipulation|group), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
+emmeans(
   lmm, list(pairwise ~ group|block), adjust = "tukey")
 emmeans(
   lmm, list(pairwise ~ block|group), adjust = "tukey")
 emmeans(
-  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ group|manipulation), adjust = "tukey")
-emmeans(
   lmm, list(pairwise ~ manipulation|group), adjust = "tukey")
 emmip(lmm, ~ manipulation|group, CIs = T)
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
 
 ggplot(
   et_erp_trial,
@@ -662,8 +715,11 @@ r2_nakagawa(lmm)
 
 emtrends(lmm, ~ manipulation | group, var = c("rpd_low"))
 plot(emtrends(lmm, ~ manipulation | group, var = c("rpd_low")))
-
 emtrends(lmm, ~ manipulation, var = c("rpd_low"))
+emmeans(
+  lmm, list(pairwise ~ group), adjust = "tukey")
+emmeans(
+  lmm, list(pairwise ~ manipulation), adjust = "tukey")
 
 # RESULT 17: EXPLORATORY ANALYSIS OF MODEL FIT FOR "trial_number_in_block" ON BPS
 linear_fit <- lmer(
