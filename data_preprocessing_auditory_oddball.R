@@ -89,12 +89,23 @@ if (Sys.info()["sysname"] == "Darwin") {
 
 # Get eye tracking data and store them in a list of df (one per subject)
 data_files_et <- data_files[grepl(".hdf5", data_files)]
+
+#exclude files that cannot be read
+exclude_unreadable<-c("C:/Users/Nico/PowerFolders/project_sega/data/et auditory oddball/auditory_103_2024-04-28-1236.hdf5",
+                      "C:/Users/Nico/PowerFolders/project_sega/data/et auditory oddball/auditory_2022-10-04-0911.hdf5",
+                      "C:/Users/Nico/PowerFolders/project_sega/data/et auditory oddball/auditory_2022-10-05-1440.hdf5",
+                      "C:/Users/Nico/PowerFolders/project_sega/data/et auditory oddball/auditory_2022-10-19-1220.hdf5")
+
+
+data_files_et<-data_files_et[!data_files_et %in% exclude_unreadable]
+
 list_et_data <- list(0)
 for (i in 1:length(data_files_et)) {
+  print(paste0("now reading: ", data_files_et[i]))
   list_et_data[[i]] <- h5read(
     file = data_files_et[i],
     name = "data_collection/events/eyetracker/BinocularEyeSampleEvent")
-  print(paste0("read ET data file: ", i))
+  #print(paste0("completed reading: ", data_files_et[i]))
  }
 h5closeAll()
 
@@ -105,6 +116,7 @@ id_names <- substr(
   data_files_et,
   nchar(datapath) + 2,
   nchar(data_files_et))
+
 names(list_et_data) <- id_names
 
 # These eye tracker variables are being dropped, keeping variables
@@ -267,7 +279,7 @@ df_list <- pblapply(df_list, function(x) {
 
 # Delete 3 preceding standard trials at the beginning of each of the 4 blocks
 standards_index <- c("-1.0.3", "-1.0.5", "-1.0.10", "-1.0.12")
-df_list <- lapply(df_list, function(x) {
+df_list <- pblapply(df_list, function(x) {
   x <- subset(x, ! trial_index %in% standards_index)
   return(x)
 })
@@ -279,7 +291,7 @@ list_split_trial <- pblapply(df_list, function(x) {
 list_split_trial <- unlist(list_split_trial, recursive = FALSE)
 
 # New variable ts_trial: Timestamp for each et event within a trial
-list_split_trial <- lapply(list_split_trial, function(x) {
+list_split_trial <- pblapply(list_split_trial, function(x) {
   x$ts_trial <- x$logged_time - x$timestamp_exp
   return(x)
   })
@@ -488,7 +500,7 @@ ggplot(
 list_split_blocks <- split(df,
 droplevels(interaction(df$block_counter, df$id)))
 
-list_split_blocks <- lapply(list_split_blocks, function(x) {
+list_split_blocks <- pblapply(list_split_blocks, function(x) {
   # name to identify individual trials within BLOCK
   x$trial_index_in_block <- with(x,
   droplevels(interaction(.thisTrialN, .thisRepN)))
@@ -538,7 +550,7 @@ rpd_low <- sapply(list_split_trial, function(x) {
 trial_number <- sapply(list_split_trial, function(x) {
   unique(x$trial_number)})
 trial_number_in_block <- sapply(list_split_trial, function(x) {
-  unique(x$trial_number_in_block)})
+  unique(x$trial_number_in_block)[1]})
 
 # merge data
 merger_id <- sapply(list_split_trial, function(x) {
@@ -596,7 +608,7 @@ df_trial$trial <- as.factor(ifelse(grepl(
 ### VISUALIZATION ####
 
 ##manipulation check
-sampled_rows<-sample(1:nrow(df),nrow(df)/100) #randomly select rows
+sampled_rows<-sample(1:nrow(df),nrow(df)/1000) #randomly select rows
 ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<2,],aes(x=ts_trial,y=pd,group=trial,color=trial))+geom_smooth()+facet_wrap(~block_counter)+theme_bw()  
 ggplot(df[sampled_rows & df$phase=='oddball_block_rev' & df$ts_trial<2,],aes(x=ts_trial,y=pd,group=trial,color=trial))+geom_smooth()+facet_wrap(~block_counter)+theme_bw()  
 ###--> select rpd high based on data inspection
@@ -628,6 +640,10 @@ ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<0.7 & df$block_
 hist(df_trial$rpd_block, xlim = c(-2, 2))
 hist(df_trial$rpd, xlim = c(-1, 1))
 
+### add experimental group data ####
+
+###--> where is this file?
+
 # Read experimental group data from .csv file
 exp_groups <- read.csv("exp_groups.csv", header = TRUE)
 exp_groups$SEGA_ID <- as.character(exp_groups$SEGA_ID)
@@ -646,7 +662,8 @@ for (row in 1:length(df_trial$id)) {
   df_trial[row, "z_handdynamometer"] <- z_handdynamometer}
 
 ##--> save preprocess df_trial ####
-saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
+#saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
+saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata_24092024.rds'))
 
 # # Can be used to skip preprocessing and directly read proprocessed data from .rds file:
 # df_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))

@@ -29,7 +29,8 @@ theme_set(theme_bw())
 
 #location of data folder
 #datapath<-'C:/Users/nico/PowerFolders/project_sega/data/DB_exports/14092023/'
-datapath<-'C:/Users/nico/PowerFolders/project_sega/data/DB_exports/28052024/'
+#datapath<-'C:/Users/nico/PowerFolders/project_sega/data/DB_exports/28052024/'
+datapath<-'C:/Users/nico/PowerFolders/project_sega/data/DB_exports/13092024/'
 #savepath<-'C:/Users/nico/PowerFolders/data_AFFIP/'
 list.files(datapath)
 
@@ -92,7 +93,8 @@ names(addon)[names(addon)=='Gruppe']<-'group_addon'
 
 ```{r load YSR}
 
-ysr <- read_xlsx(paste0(datapath,'YSR_JM_11_18.xlsx'))
+#ysr <- read_xlsx(paste0(datapath,'YSR_JM_11_18.xlsx'))
+ysr <- read_xlsx(paste0(datapath,'YSR.xlsx'))
 ysr<- select(ysr, ID_Bado, YSR_INT, YSR_EXT, YSR_GES, YSR_T_INT, YSR_T_EXT, YSR_T_GES)
 
 ```
@@ -101,7 +103,7 @@ ysr<- select(ysr, ID_Bado, YSR_INT, YSR_EXT, YSR_GES, YSR_T_INT, YSR_T_EXT, YSR_
 ```{r load IQ data}
 
 wais <- read_xlsx(paste0(datapath,'WAIS_IV.xlsx'))
-wisc <- read_xlsx(paste0(datapath,'HAWIK-V.xlsx'))
+wisc <- read_xlsx(paste0(datapath,'HAWIK_V.xlsx'))
 
 ```
 
@@ -109,8 +111,8 @@ wisc <- read_xlsx(paste0(datapath,'HAWIK-V.xlsx'))
 
 ```{r merge data}
 
-df_dem<-merge(checklist,cbcl,by="ID_Bado",all.x=T)
-df_dem<-merge(df_dem,addon,by="ID_Bado",all.x=T)
+df_dem<-merge(checklist,cbcl,by="ID_Bado")
+df_dem<-merge(df_dem,addon,by="ID_Bado")
 
 ##long format of SDQ as parent and self ratings
 sdq_parent<-sdq[sdq$Beurteiler=='Eltern',]
@@ -121,10 +123,19 @@ names(sdq_self)<-c('ID_Bado','Beurteiler','SDQ_int_s','SDQ_ext_s','SDQ_emot_s','
 
 sdq_parent<-sdq_parent[,!(names(sdq_parent)=='Beurteiler')]
 sdq_self<-sdq_self[,!(names(sdq_self)=='Beurteiler')]
-sdq<-merge(sdq_parent,sdq_self,by='ID_Bado',all.x=T)
+sdq<-merge(sdq_parent,sdq_self,by='ID_Bado')
+
+#remove duplicates
+sdq<-sdq[unique(sdq$ID_Bado),]
+ysr<-ysr[unique(ysr$ID_Bado),]
 
 df_dem<-merge(df_dem,sdq,by='ID_Bado',all.x=T)
 df_dem<-merge(df_dem,ysr,by='ID_Bado',all.x=T)
+
+length(unique(df_dem$ID_Bado))
+
+#remove duplicates
+df_dem<-df_dem[unique(df_dem$ID_Bado),]
 
 ```
 
@@ -132,7 +143,8 @@ save dataframe for matching
 
 ```{r save data}
 
-saveRDS(df_dem, file = "C:/Users/nico/PowerFolders/project_sega/data/demographics_28052024.rds")
+saveRDS(df_dem, file = "C:/Users/nico/PowerFolders/project_sega/data/demographics_25092024.rds")
+#saveRDS(df_dem, file = "C:/Users/nico/PowerFolders/project_sega/data/demographics_28052024.rds")
 #saveRDS(df_dem, file = "C:/Users/nico/PowerFolders/project_sega/data/demographics_14092023.rds")
 
 ```

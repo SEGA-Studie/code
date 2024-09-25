@@ -174,6 +174,9 @@ df_agg<-merge(df_agg,df_saliva_change,by='id')
 
 hist(df_hair$hair_cortisol)
 
+  plot(df_hair$hair_cortisol,df_hair$hair_mass)
+  ###--> remove participants with very low hair mass
+
 ggplot(df_hair,aes(hair_cortisone,hair_cortisol,color=hair_mass))+geom_point()+
   labs(x='hair cortisone (pg/mg, log-scaled)', y='hair cortisol (pg/mg, log-scaled)', color='sample mass (mg)')+
   geom_smooth(color='grey',method='lm')+
@@ -350,6 +353,8 @@ summary(lmer(scale(hair_cortisol)~scale(rpd)*oddball*manipulation*reverse+(1|id)
 
 ##assocaition of hair cortisol and pupillary response
 df_agg$hair_cortisol_z<-scale(df_agg$hair_cortisol) #z standardize before to use emtrends later
+df_agg<-df_agg[df_agg$manipulation!='during',]
+
 lmm<-lmer(scale(rpd)~(oddball*manipulation*reverse)*hair_cortisol_z+(1|id),df_agg)
 
 anova(lmm)
