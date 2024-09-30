@@ -65,18 +65,6 @@ df <- readRDS(paste0(home_path, project_path,'/data/preprocessed_auditory_df.rds
 et_erp_subject <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_subject.rds')) # eeg + pupil (subject level, only oddball(rev) blocks)
 et_erp_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_trial.rds')) # eeg + pupil(single-trial, only oddball(rev) blocks)
 
-# changes random intercept to a factor
-et_erp_subject$SEGA_ID <- as.factor(et_erp_subject$SEGA_ID)
-df_trial$id<-as.factor(df_trial$id) 
-et_erp_trial$SEGA_ID <- as.factor(et_erp_trial$SEGA_ID)
-
-# changes covariates to a factor
-et_erp_subject$gender <- as.factor(et_erp_subject$gender)
-et_erp_trial$gender <- as.factor(et_erp_trial$gender)
-df_trial$group <- as.factor(df_trial$group)
-df_trial$pitch <- as.factor(df_trial$pitch)
-df_trial$block <- as.factor(df_trial$block)
-
 # DATA ANALYSIS ON SUBJECT LEVEL ####
 # Sample size
 length(unique(et_erp_subject$SEGA_ID))
@@ -88,104 +76,57 @@ hist(et_erp_subject$rpd,
      xlab = "rpd",
      xlim = c(-0.1, 0.2),
      breaks = 200)
-
 hist(et_erp_subject$rpd_low,
      main = "Distribution of rpd_low (0-250 ms)",
      xlab = "rpd_low",
      xlim = c(2, 5.5),
      breaks = 200)
-
 hist(et_erp_subject$rpd_block,
      main = "Distribution of rpd_block",
      xlab = "rpd_block",
      breaks = 200)
-
 hist(et_erp_subject$MMN_amplitude,
      main = "Distribution of MMN amplitude (100-150 ms)",
      xlab = "MMN amplitude (FC1, FC2, FCz, Fz)",
-     ylim = c(0, 30),
      xlim = c(-15, 4.5),
      breaks = 200)
-
 hist(et_erp_subject$P3a_amplitude,
      main = "Distribution of P3a amplitude (150-250 ms)",
      xlab = "P3a amplitude (Cz, FCz)",
      ylim = c(0, 30),
      xlim = c(-5, 15),
      breaks = 200)
-
 hist(et_erp_subject$P3b_amplitude,
-     main = "Distribution of P3a amplitude (250-500 ms)",
+     main = "Distribution of P3b amplitude (250-500 ms)",
      xlab = "P3b amplitude (Pz)",
-     ylim = c(0, 30),
      xlim = c(-10, 20),
      breaks = 200)
 
-# QUESTIONNAIRE DATA AND DEMOGRAPHICS
-exp_groups <- read.csv("exp_groups.csv", header = TRUE)
-exp_groups$SEGA_ID <- as.factor(exp_groups$SEGA_ID)
-exp_groups$group <- as.factor(exp_groups$group)
-
-## FSK
-fsk_import <- read.csv("FSK.csv", header = T, sep = ";", dec = ",", fill = T)
-fsk <- fsk_import[c("ID_Studie", "FSK_ges")]
-colnames(fsk)[colnames(fsk) == "ID_Studie"] <- "SEGA_ID" # same column name as in exp_groups for matching
-fsk$SEGA_ID <- sub(".*SEGA_", "", fsk$SEGA_ID)
-fsk$SEGA_ID <- str_replace(fsk$SEGA_ID, "^0+", "")
-fsk$SEGA_ID <- as.factor(fsk$SEGA_ID)
-
-## CBCL
-cbcl_import <- read.csv("CBCL.csv", header = T, sep = ";", dec = ",", fill = T)
-cbcl <- cbcl_import[c("ID_Studie", "CBCL_T_INT", "CBCL_T_EXT", "CBCL_T_GES")]
-colnames(cbcl)[colnames(cbcl) == "ID_Studie"] <- "SEGA_ID" # same column name as in exp_groups for matching
-cbcl$SEGA_ID <- sub(".*SEGA_", "", cbcl$SEGA_ID)
-cbcl$SEGA_ID <- str_replace(cbcl$SEGA_ID, "^0+", "")
-cbcl$SEGA_ID <- as.factor(cbcl$SEGA_ID)
-
-## SRS
-srs_import <- read.csv("SRS.csv", header = T, sep = ";", dec = ",", fill = T)
-srs <- srs_import[c("ID_Studie", "Gesamtwert_N_k_RW")]
-colnames(srs)[colnames(srs) == "ID_Studie"] <- "SEGA_ID" # same column name as in exp_groups for matching
-### add questionnaire name to column names 
-colnames(srs)[colnames(srs) == "Gesamtwert_N_k_RW"] <- "SRS_Gesamtwert_N_k_RW"
-colnames(srs)[colnames(srs) == "Gesamt_TW_ASS"] <- "SRS_Gesamt_TW_ASS"
-colnames(srs)[colnames(srs) == "Gesamt_TW_AB"] <- "SRS_Gesamt_TW_AB"
-srs$SEGA_ID <- sub(".*SEGA_", "", srs$SEGA_ID)
-srs$SEGA_ID <- str_replace(srs$SEGA_ID, "^0+", "")
-srs$SEGA_ID <- as.factor(srs$SEGA_ID)
-
-### Create df for sample characteristics
-age_gender <- et_erp_subject[, c("gender", "age", "SEGA_ID")]
-# Combine in one df: sample_characteristics
-list_sample <- list(age_gender, exp_groups, fsk, cbcl, srs)
-sample_characteristics <- list_sample %>% reduce(full_join, by = "SEGA_ID")
-# et_erp_subjects brings 6 rows with identical age + gender per subject -> delete duplicates
-sample_characteristics <- sample_characteristics[!duplicated(sample_characteristics), ]
-# Only keep sample characteristics for subjects in ERP_ET data
-sample_characteristics <- sample_characteristics[sample_characteristics$SEGA_ID %in% et_erp_subject$SEGA_ID, ]
-
-
 fun_return_descriptives <- function(group){
-  group_df <- sample_characteristics[sample_characteristics$group == group, ]
-  n <- count(group_df)
-  male <- length(which(group_df$gender == "männlich"))
-  female <- length(which(group_df$gender == "weiblich"))
+  group_df <- et_erp_subject[et_erp_subject$group == group, c("gender", "age", "srs", "fsk", "cbcl", "z_handdynamometer", "SEGA_ID")]
+  n <- length(unique(group_df$SEGA_ID))
+  male <- (length(which(group_df$gender == "männlich"))/8)
+  female <- (length(which(group_df$gender == "weiblich"))/8)
   gender_f_m <- paste(female,"/",male)
   age_mean <- round(mean(group_df$age, na.rm = TRUE), digits = 1)
   age_sd <- round(sd(group_df$age, na.rm = TRUE), digits = 1)
   age <- paste(age_mean, "(",age_sd,")" )
-  srs_mean <- round(mean(group_df$SRS_Gesamtwert_N_k_RW, na.rm = TRUE), digits = 1)
-  srs_sd <- round(sd(group_df$SRS_Gesamtwert_N_k_RW, na.rm = TRUE), digits = 1)
+  srs_mean <- round(mean(group_df$srs, na.rm = TRUE), digits = 1)
+  srs_sd <- round(sd(group_df$srs, na.rm = TRUE), digits = 1)
   srs <- paste(srs_mean, "(",srs_sd,")")
-  cbcl_mean <- round(mean(group_df$CBCL_T_GES, na.rm = TRUE), digits = 1)
-  cbcl_sd <- round(sd(group_df$CBCL_T_GES, na.rm = TRUE), digits = 1)
+  cbcl_mean <- round(mean(group_df$cbcl, na.rm = TRUE), digits = 1)
+  cbcl_sd <- round(sd(group_df$cbcl, na.rm = TRUE), digits = 1)
   cbcl <- paste(cbcl_mean, "(",cbcl_sd,")")
-  fsk_mean <- round(mean(group_df$FSK_ges, na.rm = TRUE), digits = 1)
-  fsk_sd <- round(sd(group_df$FSK_ges, na.rm = TRUE), digits = 1)
+  fsk_mean <- round(mean(group_df$fsk, na.rm = TRUE), digits = 1)
+  fsk_sd <- round(sd(group_df$fsk, na.rm = TRUE), digits = 1)
   fsk <- paste(fsk_mean, "(", fsk_sd, ")")
-  group_characteristics <- data.frame(n, gender_f_m, age, srs, cbcl, fsk)
+  grip_strength_mean <- round(mean(group_df$z_handdynamometer, na.rm = TRUE), digits = 1)
+  grip_strength_sd <- round(sd(group_df$z_handdynamometer, na.rm = TRUE), digits = 1)
+  grip_strength <- paste(grip_strength_mean, "(", grip_strength_sd, ")")
+  group_characteristics <- data.frame(n, gender_f_m, age, srs, cbcl, fsk, grip_strength)
   t(group_characteristics)
 }
+
 ## Descriptive statistics
 asd_characteristics <- fun_return_descriptives(group = "ASD")
 colnames(asd_characteristics) <- "ASD"
@@ -194,64 +135,60 @@ colnames(con_characteristics) <- "CON"
 mhc_characteristics <- fun_return_descriptives(group = "MHC")
 colnames(mhc_characteristics) <- "MHC"
 
-fsk_anova <- aov(FSK_ges ~ group, data = sample_characteristics)
+fsk_anova <- aov(fsk ~ group, data = et_erp_subject)
 fsk_anova_p <- summary(fsk_anova)[[1]][["Pr(>F)"]][[1]]
-age_anova <- aov(age ~ group, data = sample_characteristics)
+age_anova <- aov(age ~ group, data = et_erp_subject)
 age_anova_p <- summary(age_anova)[[1]][["Pr(>F)"]][[1]]
-age_anova_p <- round(age_anova_p, digits = 2)
-cbcl_anova <- aov(CBCL_T_GES ~ group, data = sample_characteristics)
+age_anova_p <- age_anova_p
+cbcl_anova <- aov(cbcl ~ group, data = et_erp_subject)
 cbcl_anova_p <- summary(cbcl_anova)[[1]][["Pr(>F)"]][[1]]
-srs_anova <- aov(SRS_Gesamtwert_N_k_RW ~ group, data = sample_characteristics)
+srs_anova <- aov(srs ~ group, data = et_erp_subject)
 srs_anova_p <- summary(srs_anova)[[1]][["Pr(>F)"]][[1]]
+grip_strength_anova <- aov(z_handdynamometer ~ group, data = et_erp_subject)
+grip_strength_anova_p <- summary(grip_strength_anova)[[1]][["Pr(>F)"]][[1]]
 # don't know how to extract p-value from chi2-test -> inserted manually
-gender_chi2 <- chisq.test(sample_characteristics$gender, sample_characteristics$group)
+gender_chi2 <- chisq.test(et_erp_subject$gender, et_erp_subject$group)
 gender_chi2
-p_values <- c(NA, 0.005, age_anova_p, srs_anova_p, cbcl_anova_p, fsk_anova_p)
+p_values <- c(NA, "< 0.001", age_anova_p, srs_anova_p, cbcl_anova_p, fsk_anova_p, grip_strength_anova_p)
 
 sample_table <- cbind(asd_characteristics, con_characteristics, mhc_characteristics, p_values)
 
-sample_characteristics_table <- kable(sample_table, caption = "Sample characteristics", digits = 2) %>%
+sample_characteristics_table <- kable(sample_table, caption = "Sample characteristics", digits = 4) %>%
   kable_classic(full_width = F, html_font = "Cambria") %>% kable_styling
 sample_characteristics_table
 
 ## Plot FSK
-boxplot_fsk <- boxplot(
-  FSK_ges ~ group, data = sample_characteristics, main = "FSK")
-stripchart(sample_characteristics$FSK_ges ~ sample_characteristics$group, vertical = TRUE, method = "jitter",
-           pch = 19, add = TRUE, col = 1:length(levels(sample_characteristics$group)))
-ggplot(sample_characteristics, aes(x = group, y = FSK_ges), col = "group") + 
+ggplot(et_erp_subject, aes(x = group, y = fsk), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
               y_position = c(24, 25.5, 21)) +
   theme_bw() + 
-  theme_classic()
+  theme_classic() +
+  ggtitle("FSK") +
+  theme(plot.title = element_text(face="bold"))
 
 ## Plot SRS
-boxplot_srs <- boxplot(
-  SRS_Gesamtwert_N_k_RW ~ group, data = sample_characteristics, main = "SRS")
-stripchart(sample_characteristics$SRS_Gesamtwert_N_k_RW ~ sample_characteristics$group, vertical = TRUE, method = "jitter",
-           pch = 19, add = TRUE, col = 1:length(levels(sample_characteristics$group)))
-ggplot(sample_characteristics, aes(x = group, y = SRS_Gesamtwert_N_k_RW), col = "group") + 
+ggplot(et_erp_subject, aes(x = group, y = srs), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
               y_position = c(42, 45, 40)) +
   theme_bw() + 
-  theme_classic()
+  theme_classic() +
+  ggtitle("SRS") +
+  theme(plot.title = element_text(face="bold"))
 
 ## Plot CBCL
-boxplot_cbcl <- boxplot(
-  CBCL_T_GES ~ group, data = sample_characteristics, main = "CBCL")
-stripchart(sample_characteristics$CBCL_T_GES ~ sample_characteristics$group, vertical = TRUE, method = "jitter",
-           pch = 19, add = TRUE, col = 1:length(levels(sample_characteristics$group)))
-ggplot(sample_characteristics, aes(x = group, y = CBCL_T_GES), col = "group") + 
+ggplot(et_erp_subject, aes(x = group, y = cbcl), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
               y_position = c(87, 90, 84)) +
   theme_bw() + 
-  theme_classic()
+  theme_classic() +
+  ggtitle("CBCL") +
+  theme(plot.title = element_text(face="bold"))
 
 # RESULT 1: MMN AMPLITUDE ON SUBJECT LEVEL
 lmm <- lmer(
@@ -446,9 +383,34 @@ corrplot::corrplot(
   mar=c(0,0,1,0))
 
 # DATA ANALYSIS ON TRIAL LEVEL ####
+# Distributions of dependent variables
+hist(et_erp_trial$rpd,
+     main = "Distribution of rpd (500-1500 ms)",
+     xlab = "rpd",
+     xlim = c(-1.2, 0.9),
+     breaks = 200)
+
+hist(et_erp_trial$rpd_low,
+     main = "Distribution of rpd_low (0-250 ms)",
+     xlab = "rpd_low",
+     xlim = c(1.8, 5.9),
+     breaks = 200)
+
+hist(et_erp_trial$MMN_amplitude,
+     main = "Distribution of MMN amplitude (100-150 ms)",
+     xlab = "MMN amplitude (FC1, FC2, FCz, Fz)",
+     xlim = c(-40, 24),
+     breaks = 200)
+
+hist(et_erp_trial$P3a_amplitude,
+     main = "Distribution of P3a amplitude (150-250 ms)",
+     xlab = "P3a amplitude (Cz, FCz)",
+     xlim = c(-33, 60),
+     breaks = 200)
+
 # RESULT 8: MMN AMPLITUDE ON TRIAL LEVEL
 lmm <- lmer(
-  scale(MMN_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  scale(MMN_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm) 
@@ -466,7 +428,7 @@ emmeans(
 
 # RESULT 9: MMN LATENCY ON TRIAL LEVEL
 lmm <- lmer(
-  scale(MMN_latency) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  scale(MMN_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm) 
@@ -482,7 +444,7 @@ emmeans(
 
 # RESULT 10: P3A AMPLITUDE ON TRIAL LEVEL
 lmm <- lmer(
-  scale(P3a_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  scale(P3a_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm) 
@@ -499,7 +461,7 @@ emmeans(
 
 # RESULT 11: P3A LATENCY ON TRIAL LEVEL
 lmm <- lmer(
-  scale(P3a_latency) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  scale(P3a_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm)
@@ -519,6 +481,7 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
+emmeans(lmm, list(pairwise ~ trial))
 emmeans(
   lmm, list(pairwise ~ trial), adjust = "tukey")
 emmeans(
@@ -958,6 +921,22 @@ ggplot(
        y = "standardized pupil response (z)",
        title = "effect of manipulation of pupil response")
 dev.off()
+
+# Plot: Pupil response over a trial
+ggplot(
+  df_oddball[df_oddball$ts_trial < 1.8, ],
+  aes(x = ts_trial,
+      y = scale(rpd),
+      group = interaction(order, manipulation),
+      color = order,
+      linetype = trial_type)) +
+  geom_smooth() +
+  theme_bw() +
+  labs(x = "trial duration (s)",
+       y = "standardized pupil response (z)",
+       title = "effect of manipulation of pupil response by block")
+dev.off()
+
 
 # Plot: Pupil response over a trial across groups
 plot_dgkjp <- ggplot(

@@ -779,34 +779,49 @@ ET_ERP_trial$group <- as.factor(ET_ERP_trial$group)
 ET_ERP_trial$SEGA_ID <- as.numeric(ET_ERP_trial$SEGA_ID)
 str(ET_ERP_trial)
 
-## Read Checkliste.csv contains age, gender + date of data collection
-demographics_import <- read.csv("Checkliste.csv", header = T, sep = ";", dec = ",", fill = T)
-demographics <- demographics_import[c("ID_Studie", "Geschlecht_Index", "Geburt_Index")]
-colnames(demographics)[colnames(demographics) == "ID_Studie"] <- "SEGA_ID" # same column name as in exp_groups for matching
+# Checkliste.csv contains age + gender
+checkliste_import <- fread("checkliste.csv", select = c("ID_Bado", "ID_Studie", "Geburt_Index", "Geschlecht_Index"))
+colnames(checkliste_import)[colnames(checkliste_import) == "ID_Studie"] <- "SEGA_ID" # same column name as in exp_groups for matching
+checkliste_import$SEGA_ID <- sub(".*SEGA_", "", checkliste_import$SEGA_ID)
+checkliste_import$SEGA_ID <- str_replace(checkliste_import$SEGA_ID, "^0+", "")
 
-demographics$SEGA_ID <- sub(".*SEGA_", "", demographics$SEGA_ID)
-demographics$SEGA_ID <- str_replace(demographics$SEGA_ID, "^0+", "")
+# FSK
+fsk_import <- read.csv("FSK.csv", header = T, sep = ";", dec = ",", fill = T)
+fsk <- fsk_import[c("ID_Bado", "FSK_ges")]
+# SRS
+srs_import <- read.csv("SRS.csv", header = T, sep = ";", dec = ",", fill = T)
+srs <- srs_import[c("ID_Bado", "Gesamtwert_N_k_RW")]
+colnames(srs)[colnames(srs) == "Gesamtwert_N_k_RW"] <- "SRS_Gesamtwert_N_k_RW" # add questionnaire name to column names
+# CBCL
+cbcl_import <- read.csv("CBCL_4_18.csv", header = T, sep = ";", dec = ",", fill = T)
+cbcl <- cbcl_import[c("ID_Bado", "CBCL_T_INT", "CBCL_T_EXT", "CBCL_T_GES")]
 
-## New df sample_characteristics contains gender, birthday, group, date of data collection, 
-list_sample <- list(demographics, exp_groups)
-sample_characteristics <- list_sample %>% reduce(full_join, by = "SEGA_ID")
-
-## Calculated age in separate column
+# Merge sample characteristics 
+questionnaires <- list(checkliste_import, fsk, srs, cbcl) %>%
+  reduce(full_join, by = "ID_Bado")
+sample_characteristics <- merge(questionnaires, exp_groups, by = "SEGA_ID")
+# Calculated age in separate column
 sample_characteristics$age <- as.numeric(
   difftime(sample_characteristics$date_data_collection, sample_characteristics$Geburt_Index,
            units = "weeks"))/52.25
 
-# Add covariates age + gender to ET_ERP_trial
+# Add sample characteristics to ET_ERP_trial
 for (row in 1:length(ET_ERP_trial$SEGA_ID)) {
   SEGA_ID_df <- ET_ERP_trial[row, "SEGA_ID"]
   row_number <- which(sample_characteristics$SEGA_ID == SEGA_ID_df)
   gender <- sample_characteristics[row_number, "Geschlecht_Index"]
   age <- sample_characteristics[row_number, "age"]
+  FSK <- sample_characteristics[row_number, "FSK_ges"]
+  SRS <- sample_characteristics[row_number, "SRS_Gesamtwert_N_k_RW"]
+  CBCL <- sample_characteristics[row_number, "CBCL_T_GES"]
   ET_ERP_trial[row, "gender"] <- gender
   ET_ERP_trial[row, "age"] <- age
+  ET_ERP_trial[row, "fsk"] <- FSK
+  ET_ERP_trial[row, "srs"] <- SRS
+  ET_ERP_trial[row, "cbcl"] <- CBCL
 }
 
-# Correct data types for analysis
+# Correct data types of ET_ERP_trial for analyses
 ET_ERP_trial$SEGA_ID <- as.factor(ET_ERP_trial$SEGA_ID)
 ET_ERP_trial$gender <- as.factor(ET_ERP_trial$gender)
 
@@ -1558,9 +1573,6 @@ for (i in unique_ids){
 
 # Trial variable with capital letters due to congruence with eeg format
 ET_df$trial <- str_to_sentence(ET_df$trial)
-# Predictor variables as factors
-ET_df$SEGA_ID <- as.factor(ET_df$SEGA_ID)
-ET_df$block <- as.factor(ET_df$block)
 
 # Include experimental group from .csv file in ET_df
 for (row in 1:length(ET_df$SEGA_ID)) {
@@ -1573,19 +1585,27 @@ ET_df$group <- as.factor(ET_df$group)
 
 ET_ERP_subject <- merge(ET_df, ERP_df, by = c("SEGA_ID", "block", "trial", "manipulation", 'group'), all = T)
 
-# Add covariates age + gender to ET_ERP_subject
+# Add sample characteristics to ET_ERP_subject
 for (row in 1:length(ET_ERP_subject$SEGA_ID)) {
   SEGA_ID_df <- ET_ERP_subject[row, "SEGA_ID"]
   row_number <- which(sample_characteristics$SEGA_ID == SEGA_ID_df)
   gender <- sample_characteristics[row_number, "Geschlecht_Index"]
   age <- sample_characteristics[row_number, "age"]
+  FSK <- sample_characteristics[row_number, "FSK_ges"]
+  SRS <- sample_characteristics[row_number, "SRS_Gesamtwert_N_k_RW"]
+  CBCL <- sample_characteristics[row_number, "CBCL_T_GES"]
   ET_ERP_subject[row, "gender"] <- gender
   ET_ERP_subject[row, "age"] <- age
+  ET_ERP_subject[row, "fsk"] <- FSK
+  ET_ERP_subject[row, "srs"] <- SRS
+  ET_ERP_subject[row, "cbcl"] <- CBCL
 }
 
 # Correct data types for analysis
 ET_ERP_subject$trial <- as.factor(ET_ERP_subject$trial)
 ET_ERP_subject$gender <- as.factor(ET_ERP_subject$gender)
+ET_ERP_subject$SEGA_ID <- as.factor(ET_ERP_subject$SEGA_ID)
+ET_ERP_subject$block <- as.factor(ET_ERP_subject$block)
 
 # Scaled values for correlation plots of dependend variables
 ET_ERP_subject$z_rpd <- as.numeric(scale(ET_ERP_subject$rpd))
