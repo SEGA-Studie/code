@@ -785,19 +785,25 @@ colnames(checkliste_import)[colnames(checkliste_import) == "ID_Studie"] <- "SEGA
 checkliste_import$SEGA_ID <- sub(".*SEGA_", "", checkliste_import$SEGA_ID)
 checkliste_import$SEGA_ID <- str_replace(checkliste_import$SEGA_ID, "^0+", "")
 
-# FSK
-fsk_import <- read.csv("FSK.csv", header = T, sep = ";", dec = ",", fill = T)
-fsk <- fsk_import[c("ID_Bado", "FSK_ges")]
+# SCQ
+SCQ_import <- read.csv("FSK.csv", header = T, sep = ";", dec = ",", fill = T)
+SCQ <- SCQ_import[c("ID_Bado", "FSK_ges")]
 # SRS
-srs_import <- read.csv("SRS.csv", header = T, sep = ";", dec = ",", fill = T)
-srs <- srs_import[c("ID_Bado", "Gesamtwert_N_k_RW")]
-colnames(srs)[colnames(srs) == "Gesamtwert_N_k_RW"] <- "SRS_Gesamtwert_N_k_RW" # add questionnaire name to column names
+SRS_import <- read.csv("SRS.csv", header = T, sep = ";", dec = ",", fill = T)
+SRS <- SRS_import[c("ID_Bado", "Gesamtwert_N_k_RW")]
+colnames(SRS)[colnames(SRS) == "Gesamtwert_N_k_RW"] <- "SRS_Gesamtwert_N_k_RW" # add questionnaire name to column names
 # CBCL
-cbcl_import <- read.csv("CBCL_4_18.csv", header = T, sep = ";", dec = ",", fill = T)
-cbcl <- cbcl_import[c("ID_Bado", "CBCL_T_INT", "CBCL_T_EXT", "CBCL_T_GES")]
+CBCL_import <- read.csv("CBCL_4_18.csv", header = T, sep = ";", dec = ",", fill = T)
+CBCL <- CBCL_import[c("ID_Bado", "CBCL_T_INT", "CBCL_T_EXT", "CBCL_T_GES")]
+# YSR
+YSR_import <- read.csv("YSR.csv", header = T, sep = ";", dec = ",", fill = T)
+YSR <- YSR_import[c("ID_Bado", "YSR_T_GES")]
+# SP2
+SP2_import <- read.csv("SP2_Eltern.csv", header = T, sep = ";", dec = ",", fill = T)
+SP2 <- SP2_import[c("ID_Bado", "SP2_Eltern_RW_Auditiv")]
 
 # Merge sample characteristics 
-questionnaires <- list(checkliste_import, fsk, srs, cbcl) %>%
+questionnaires <- list(checkliste_import, SCQ, SRS, CBCL, YSR, SP2) %>%
   reduce(full_join, by = "ID_Bado")
 sample_characteristics <- merge(questionnaires, exp_groups, by = "SEGA_ID")
 # Calculated age in separate column
@@ -811,14 +817,18 @@ for (row in 1:length(ET_ERP_trial$SEGA_ID)) {
   row_number <- which(sample_characteristics$SEGA_ID == SEGA_ID_df)
   gender <- sample_characteristics[row_number, "Geschlecht_Index"]
   age <- sample_characteristics[row_number, "age"]
-  FSK <- sample_characteristics[row_number, "FSK_ges"]
+  SCQ <- sample_characteristics[row_number, "FSK_ges"]
   SRS <- sample_characteristics[row_number, "SRS_Gesamtwert_N_k_RW"]
   CBCL <- sample_characteristics[row_number, "CBCL_T_GES"]
+  YSR <- sample_characteristics[row_number, "YSR_T_GES"]
+  SP2 <- sample_characteristics[row_number, "SP2_Eltern_RW_Auditiv"]
   ET_ERP_trial[row, "gender"] <- gender
   ET_ERP_trial[row, "age"] <- age
-  ET_ERP_trial[row, "fsk"] <- FSK
-  ET_ERP_trial[row, "srs"] <- SRS
-  ET_ERP_trial[row, "cbcl"] <- CBCL
+  ET_ERP_trial[row, "SCQ"] <- SCQ
+  ET_ERP_trial[row, "SRS"] <- SRS
+  ET_ERP_trial[row, "CBCL"] <- CBCL
+  ET_ERP_trial[row, "YSR"] <- YSR
+  ET_ERP_trial[row, "SP2"] <- SP2
 }
 
 # Correct data types of ET_ERP_trial for analyses
@@ -832,7 +842,9 @@ ET_ERP_trial$manipulation <- droplevels(ET_ERP_trial$manipulation)
 ET_ERP_trial$z_rpd <- as.numeric(scale(ET_ERP_trial$rpd))
 ET_ERP_trial$z_rpd_low <- as.numeric(scale(ET_ERP_trial$rpd_low))
 ET_ERP_trial$z_MMN_amplitude <- as.numeric(scale(ET_ERP_trial$MMN_amplitude))
+ET_ERP_trial$z_MMN_latency <- as.numeric(scale(ET_ERP_trial$MMN_latency))
 ET_ERP_trial$z_P3a_amplitude <- as.numeric(scale(ET_ERP_trial$P3a_amplitude))
+ET_ERP_trial$z_P3a_latency <- as.numeric(scale(ET_ERP_trial$P3a_latency))
 
 # Save .Rds file for analysis on trial level
 saveRDS(ET_ERP_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_trial.rds'))
@@ -1591,14 +1603,18 @@ for (row in 1:length(ET_ERP_subject$SEGA_ID)) {
   row_number <- which(sample_characteristics$SEGA_ID == SEGA_ID_df)
   gender <- sample_characteristics[row_number, "Geschlecht_Index"]
   age <- sample_characteristics[row_number, "age"]
-  FSK <- sample_characteristics[row_number, "FSK_ges"]
+  SCQ <- sample_characteristics[row_number, "FSK_ges"]
   SRS <- sample_characteristics[row_number, "SRS_Gesamtwert_N_k_RW"]
   CBCL <- sample_characteristics[row_number, "CBCL_T_GES"]
+  YSR <- sample_characteristics[row_number, "YSR_T_GES"]
+  SP2 <- sample_characteristics[row_number, "SP2_Eltern_RW_Auditiv"]
   ET_ERP_subject[row, "gender"] <- gender
   ET_ERP_subject[row, "age"] <- age
-  ET_ERP_subject[row, "fsk"] <- FSK
-  ET_ERP_subject[row, "srs"] <- SRS
-  ET_ERP_subject[row, "cbcl"] <- CBCL
+  ET_ERP_subject[row, "SCQ"] <- SCQ
+  ET_ERP_subject[row, "SRS"] <- SRS
+  ET_ERP_subject[row, "CBCL"] <- CBCL
+  ET_ERP_subject[row, "YSR"] <- YSR
+  ET_ERP_subject[row, "SP2"] <- SP2
 }
 
 # Correct data types for analysis
@@ -1607,12 +1623,16 @@ ET_ERP_subject$gender <- as.factor(ET_ERP_subject$gender)
 ET_ERP_subject$SEGA_ID <- as.factor(ET_ERP_subject$SEGA_ID)
 ET_ERP_subject$block <- as.factor(ET_ERP_subject$block)
 
-# Scaled values for correlation plots of dependend variables
+# Scaled values for correlation plots of dependent variables
 ET_ERP_subject$z_rpd <- as.numeric(scale(ET_ERP_subject$rpd))
 ET_ERP_subject$z_rpd_low <- as.numeric(scale(ET_ERP_subject$rpd_low))
 ET_ERP_subject$z_MMN_amplitude <- as.numeric(scale(ET_ERP_subject$MMN_amplitude))
+ET_ERP_subject$z_MMN_latency <- as.numeric(scale(ET_ERP_subject$MMN_latency))
 ET_ERP_subject$z_P3a_amplitude <- as.numeric(scale(ET_ERP_subject$P3a_amplitude))
+ET_ERP_subject$z_P3a_latency <- as.numeric(scale(ET_ERP_subject$P3a_latency))
 ET_ERP_subject$z_P3b_amplitude <- as.numeric(scale(ET_ERP_subject$P3b_amplitude))
+ET_ERP_subject$z_P3b_latency <- as.numeric(scale(ET_ERP_subject$P3b_latency))
+ET_ERP_subject$z_rpd_block <- as.numeric(scale(ET_ERP_subject$rpd_block))
 
 # Remove unused factor level
 ET_ERP_subject$manipulation <- droplevels(ET_ERP_subject$manipulation)

@@ -70,40 +70,48 @@ et_erp_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_audito
 length(unique(et_erp_subject$SEGA_ID))
 table(et_erp_subject$group)/8
 
+excluded_ids <- c("117", "152", "36") # to balance age between groups
+et_erp_subject <- subset(et_erp_subject, ! (SEGA_ID %in% excluded_ids))
+et_erp_trial <- subset(et_erp_trial, ! (SEGA_ID %in% excluded_ids))
+
+# Sample Size after removing subjects (age balance)
+length(unique(et_erp_subject$SEGA_ID))
+table(et_erp_subject$group)/8
+
 # Distributions of dependent variables
-hist(et_erp_subject$rpd,
+hist(et_erp_subject$z_rpd,
      main = "Distribution of rpd (500-1500 ms)",
      xlab = "rpd",
-     xlim = c(-0.1, 0.2),
+     xlim = c(-4, 6),
      breaks = 200)
-hist(et_erp_subject$rpd_low,
+hist(et_erp_subject$z_rpd_low,
      main = "Distribution of rpd_low (0-250 ms)",
      xlab = "rpd_low",
-     xlim = c(2, 5.5),
+     xlim = c(-4, 6),
      breaks = 200)
-hist(et_erp_subject$rpd_block,
+hist(et_erp_subject$z_rpd_block,
      main = "Distribution of rpd_block",
      xlab = "rpd_block",
+     xlim = c(-4, 4),
      breaks = 200)
-hist(et_erp_subject$MMN_amplitude,
+hist(et_erp_subject$z_MMN_amplitude,
      main = "Distribution of MMN amplitude (100-150 ms)",
      xlab = "MMN amplitude (FC1, FC2, FCz, Fz)",
-     xlim = c(-15, 4.5),
      breaks = 200)
-hist(et_erp_subject$P3a_amplitude,
+hist(et_erp_subject$z_P3a_amplitude,
      main = "Distribution of P3a amplitude (150-250 ms)",
      xlab = "P3a amplitude (Cz, FCz)",
      ylim = c(0, 30),
-     xlim = c(-5, 15),
+     xlim = c(-4, 6),
      breaks = 200)
-hist(et_erp_subject$P3b_amplitude,
+hist(et_erp_subject$z_P3b_amplitude,
      main = "Distribution of P3b amplitude (250-500 ms)",
      xlab = "P3b amplitude (Pz)",
-     xlim = c(-10, 20),
+     xlim = c(-6, 8),
      breaks = 200)
 
 fun_return_descriptives <- function(group){
-  group_df <- et_erp_subject[et_erp_subject$group == group, c("gender", "age", "srs", "fsk", "cbcl", "z_handdynamometer", "SEGA_ID")]
+  group_df <- et_erp_subject[et_erp_subject$group == group, c("gender", "age", "SRS", "SCQ", "CBCL", "YSR", "SP2", "z_handdynamometer", "SEGA_ID")]
   n <- length(unique(group_df$SEGA_ID))
   male <- (length(which(group_df$gender == "männlich"))/8)
   female <- (length(which(group_df$gender == "weiblich"))/8)
@@ -111,62 +119,72 @@ fun_return_descriptives <- function(group){
   age_mean <- round(mean(group_df$age, na.rm = TRUE), digits = 1)
   age_sd <- round(sd(group_df$age, na.rm = TRUE), digits = 1)
   age <- paste(age_mean, "(",age_sd,")" )
-  srs_mean <- round(mean(group_df$srs, na.rm = TRUE), digits = 1)
-  srs_sd <- round(sd(group_df$srs, na.rm = TRUE), digits = 1)
-  srs <- paste(srs_mean, "(",srs_sd,")")
-  cbcl_mean <- round(mean(group_df$cbcl, na.rm = TRUE), digits = 1)
-  cbcl_sd <- round(sd(group_df$cbcl, na.rm = TRUE), digits = 1)
-  cbcl <- paste(cbcl_mean, "(",cbcl_sd,")")
-  fsk_mean <- round(mean(group_df$fsk, na.rm = TRUE), digits = 1)
-  fsk_sd <- round(sd(group_df$fsk, na.rm = TRUE), digits = 1)
-  fsk <- paste(fsk_mean, "(", fsk_sd, ")")
+  SRS_mean <- round(mean(group_df$SRS, na.rm = TRUE), digits = 1)
+  SRS_sd <- round(sd(group_df$SRS, na.rm = TRUE), digits = 1)
+  SRS <- paste(SRS_mean, "(",SRS_sd,")")
+  CBCL_mean <- round(mean(group_df$CBCL, na.rm = TRUE), digits = 1)
+  CBCL_sd <- round(sd(group_df$CBCL, na.rm = TRUE), digits = 1)
+  CBCL <- paste(CBCL_mean, "(",CBCL_sd,")")
+  SCQ_mean <- round(mean(group_df$SCQ, na.rm = TRUE), digits = 1)
+  SCQ_sd <- round(sd(group_df$SCQ, na.rm = TRUE), digits = 1)
+  SCQ <- paste(SCQ_mean, "(", SCQ_sd, ")")
+  YSR_mean <- round(mean(group_df$YSR, na.rm = TRUE), digits = 1)
+  YSR_sd <- round(sd(group_df$YSR, na.rm = TRUE), digits = 1)
+  YSR <- paste(YSR_mean, "(", YSR_sd, ")")
+  SP2_mean <- round(mean(group_df$SP2, na.rm = TRUE), digits = 1)
+  SP2_sd <- round(sd(group_df$SP2, na.rm = TRUE), digits = 1)
+  SP2 <- paste(SCQ_mean, "(", SP2_sd, ")")
   grip_strength_mean <- round(mean(group_df$z_handdynamometer, na.rm = TRUE), digits = 1)
   grip_strength_sd <- round(sd(group_df$z_handdynamometer, na.rm = TRUE), digits = 1)
   grip_strength <- paste(grip_strength_mean, "(", grip_strength_sd, ")")
-  group_characteristics <- data.frame(n, gender_f_m, age, srs, cbcl, fsk, grip_strength)
-  t(group_characteristics)
+  group_description <- data.frame(n, gender_f_m, age, SRS, CBCL, SCQ, YSR, SP2, grip_strength)
+  t(group_description)
 }
 
 ## Descriptive statistics
-asd_characteristics <- fun_return_descriptives(group = "ASD")
-colnames(asd_characteristics) <- "ASD"
-con_characteristics <- fun_return_descriptives(group = "CON")
-colnames(con_characteristics) <- "CON"
-mhc_characteristics <- fun_return_descriptives(group = "MHC")
-colnames(mhc_characteristics) <- "MHC"
+asd_description <- fun_return_descriptives(group = "ASD")
+colnames(asd_description) <- "ASD"
+con_description <- fun_return_descriptives(group = "CON")
+colnames(con_description) <- "CON"
+mhc_description <- fun_return_descriptives(group = "MHC")
+colnames(mhc_description) <- "MHC"
 
-fsk_anova <- aov(fsk ~ group, data = et_erp_subject)
-fsk_anova_p <- summary(fsk_anova)[[1]][["Pr(>F)"]][[1]]
+SCQ_anova <- aov(SCQ ~ group, data = et_erp_subject)
+SCQ_anova_p <- summary(SCQ_anova)[[1]][["Pr(>F)"]][[1]]
 age_anova <- aov(age ~ group, data = et_erp_subject)
 age_anova_p <- summary(age_anova)[[1]][["Pr(>F)"]][[1]]
 age_anova_p <- age_anova_p
-cbcl_anova <- aov(cbcl ~ group, data = et_erp_subject)
-cbcl_anova_p <- summary(cbcl_anova)[[1]][["Pr(>F)"]][[1]]
-srs_anova <- aov(srs ~ group, data = et_erp_subject)
-srs_anova_p <- summary(srs_anova)[[1]][["Pr(>F)"]][[1]]
+CBCL_anova <- aov(CBCL ~ group, data = et_erp_subject)
+CBCL_anova_p <- summary(CBCL_anova)[[1]][["Pr(>F)"]][[1]]
+SRS_anova <- aov(SRS ~ group, data = et_erp_subject)
+SRS_anova_p <- summary(SRS_anova)[[1]][["Pr(>F)"]][[1]]
+YSR_anova <- aov(YSR ~ group, data = et_erp_subject)
+YSR_anova_p <- summary(YSR_anova)[[1]][["Pr(>F)"]][[1]]
+SP2_anova <- aov(SP2 ~ group, data = et_erp_subject)
+SP2_anova_p <- summary(SP2_anova)[[1]][["Pr(>F)"]][[1]]
 grip_strength_anova <- aov(z_handdynamometer ~ group, data = et_erp_subject)
 grip_strength_anova_p <- summary(grip_strength_anova)[[1]][["Pr(>F)"]][[1]]
 # don't know how to extract p-value from chi2-test -> inserted manually
 gender_chi2 <- chisq.test(et_erp_subject$gender, et_erp_subject$group)
-gender_chi2
-p_values <- c(NA, "< 0.001", age_anova_p, srs_anova_p, cbcl_anova_p, fsk_anova_p, grip_strength_anova_p)
+p_values <- c(
+  NA, "< 0.001", age_anova_p, SRS_anova_p, CBCL_anova_p, SCQ_anova_p, SP2_anova_p, YSR_anova_p, grip_strength_anova_p)
 
-sample_table <- cbind(asd_characteristics, con_characteristics, mhc_characteristics, p_values)
+sample_table <- cbind(asd_description, con_description, mhc_description, p_values)
 
-sample_characteristics_table <- kable(sample_table, caption = "Sample characteristics", digits = 4) %>%
+sample_description_table <- kable(sample_table, caption = "Sample description", digits = 4) %>%
   kable_classic(full_width = F, html_font = "Cambria") %>% kable_styling
-sample_characteristics_table
+sample_description_table
 
-## Plot FSK
-ggplot(et_erp_subject, aes(x = group, y = fsk), col = "group") + 
+## Plot SCQ
+ggplot(et_erp_subject, aes(x = group, y = SCQ), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
               y_position = c(24, 25.5, 21)) +
   theme_bw() + 
   theme_classic() +
-  ggtitle("FSK") +
-  theme(plot.title = element_text(face="bold"))
+  ggtitle("SCQ") +
+  theme(plot.title = element_text(face = "bold"))
 
 ## Plot SRS
 ggplot(et_erp_subject, aes(x = group, y = srs), col = "group") + 
@@ -177,7 +195,7 @@ ggplot(et_erp_subject, aes(x = group, y = srs), col = "group") +
   theme_bw() + 
   theme_classic() +
   ggtitle("SRS") +
-  theme(plot.title = element_text(face="bold"))
+  theme(plot.title = element_text(face = "bold"))
 
 ## Plot CBCL
 ggplot(et_erp_subject, aes(x = group, y = cbcl), col = "group") + 
@@ -188,170 +206,151 @@ ggplot(et_erp_subject, aes(x = group, y = cbcl), col = "group") +
   theme_bw() + 
   theme_classic() +
   ggtitle("CBCL") +
+  theme(plot.title = element_text(face = "bold"))
+
+## Plot: YSR
+ggplot(et_erp_subject, aes(x = group, y = ysr), col = "group") + 
+  geom_boxplot(fill = "grey") +
+  geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
+              map_signif_level=TRUE,
+              y_position = c(87, 90, 84)) +
+  theme_bw() + 
+  theme_classic() +
+  ggtitle("YSR") +
+  theme(plot.title = element_text(face="bold"))
+
+## Plot: SP2-Auditiv
+ggplot(et_erp_subject, aes(x = group, y = sp2), col = "group") + 
+  geom_boxplot(fill = "grey") +
+  geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
+              map_signif_level=TRUE,
+              y_position = c(43, 46, 40)) +
+  theme_bw() + 
+  theme_classic() +
+  ggtitle("SP2-Auditiv") +
+  theme(plot.title = element_text(face="bold"))
+
+## Age
+age_df <- data.frame()
+for (id in unique(et_erp_subject$SEGA_ID)) {
+  SEGA_ID_df <- et_erp_subject[et_erp_subject$SEGA_ID == id, c("SEGA_ID", "group", "age")]
+  age_df <- rbind(age_df, SEGA_ID_df)
+}
+age_df <- age_df[!duplicated(age_df), ]
+
+ggplot(age_df, aes(x = group, y = age), col = "group") + 
+  geom_boxplot(fill = "grey") +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
+              map_signif_level=TRUE,
+              y_position = c(19.5, 20, 19)) +
+  theme_bw() + 
+  theme_classic() +
+  ggtitle("Age") +
+  #scale_y_continuous(limits = )
   theme(plot.title = element_text(face="bold"))
 
 # RESULT 1: MMN AMPLITUDE ON SUBJECT LEVEL
 lmm <- lmer(
-  scale(MMN_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  z_MMN_amplitude ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_subject)
 anova(lmm)
 r2_nakagawa(lmm)
 
-emmeans(
-  lmm, list(pairwise ~ trial), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ block|manipulation), adjust = "tukey")
-plot(emmeans(
-  lmm, list(pairwise ~ manipulation|block), adjust = "tukey"))
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation), adjust = "tukey")
-
+emmeans(lmm, list(pairwise ~ trial))
+emmeans(lmm, list(pairwise ~ manipulation|block))
+emmip(lmm, ~ manipulation |block, CI = T)
 
 # RESULT 2: MMN LATENCY ON SUBJECT LEVEL
 lmm <- lmer(
-  scale(MMN_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  z_MMN_latency ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
   data = et_erp_subject)
 anova(lmm)
 r2_nakagawa(lmm)
 
-contrast(emmeans(lmm, ~ trial * manipulation|group), "pairwise")
-emmip(lmm, ~ manipulation |group * trial, CI = T)
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation), adjust = "tukey")
-
 # RESULT 3: P3A AMPLITUDE ON SUBJECT LEVEL
 lmm <- lmer(
-  scale(P3a_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  z_P3a_amplitude ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
   data = et_erp_subject)
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emm <- emmeans(
-  lmm, list(pairwise ~ trial ), adjust = "tukey")
-emmip(lmm, ~ trial, CIs = T)
-contrast(emmeans(lmm, ~ trial|group), "pairwise")
-plot(contrast(emmeans(lmm, ~ trial|group), "pairwise"))
-contrast(emmeans(lmm, ~ group|trial), "pairwise")
+emmeans(lmm, ~ trial|group)
+contrast(emmeans(lmm, ~ trial|group))
 emmip(lmm, ~ trial|group, CI = T)
+
+emmeans(lmm, ~ manipulation|block)
 contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
 emmip(lmm, ~ manipulation|block, CI = T)
+
+emmeans(lmm, ~ group * trial|block)
 contrast(emmeans(lmm, ~ group * trial|block), "pairwise")
 emmip(lmm, ~ trial|group * block, CI = T)
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation), adjust = "tukey")
 
 # RESULT 4: P3A LATENCY ON SUBJECT LEVEL
 lmm <- lmer(
-  scale(P3a_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  z_P3a_latency ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
   data = et_erp_subject)
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emmeans(
-  lmm, list(pairwise ~ trial), adjust = "tukey")
-plot(emmeans(
-  lmm, list(pairwise ~ manipulation), adjust = "tukey"))
-emmip(lmm, ~ manipulation, CIs = T)
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
+emmeans(lmm, list(pairwise ~ trial))
 
 # RESULT 5: P3B AMPLITUDE ON SUBJECT LEVEL
 lmm <- lmer(
-  scale(P3b_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  z_P3b_amplitude ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
   data = et_erp_subject)
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emmeans(
-  lmm, list(pairwise ~ trial), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation), adjust = "tukey")
+emmeans(lmm, list(pairwise ~ trial))
+emmeans(lmm, list(pairwise ~ manipulation))
 
 # RESULT 6: P3B LATENCY ON SUBJECT LEVEL
 lmm <- lmer(
-  scale(P3b_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  z_P3b_latency ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
   data = et_erp_subject)
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emmeans(
-  lmm, list(pairwise ~ trial), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ group|trial), adjust = "tukey")
-emmip(lmm, ~ group | trial, CI = T)
-emmeans(
-  lmm, list(pairwise ~ group|trial * manipulation), adjust = "tukey")
+emmeans(lmm, list(pairwise ~ trial))
+emmeans(lmm, list(pairwise ~ group|trial * manipulation), adjust = "tukey")
 emmip(lmm, ~ group | trial * manipulation, CI = T)
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation|trial * block), adjust = "tukey")
-emmip(lmm, ~ manipulation| trial * block, CI = T)
 
 # RESULT 7: SEPR ON SUBJECT LEVEL
 lmm <- lmer(
-  scale(rpd) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  z_rpd ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_subject)
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emmeans(
-  lmm, list(pairwise ~ trial), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation), adjust = "tukey")
+emmeans(lmm, list(pairwise ~ trial))
 
 # RESULT 6: BPS ON SUBJECT LEVEL
 lmm <- lmer(
-  scale(rpd_low) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  z_rpd_low ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_subject)
 anova(lmm) 
 r2_nakagawa(lmm) 
 
-emmeans(
-  lmm, list(pairwise ~ manipulation), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
-emmip(lmm, ~ manipulation | block, CIs = T)
-emmeans(
-  lmm, list(pairwise ~ manipulation|group), adjust = "tukey")
+emmeans(lmm, list(pairwise ~ manipulation|group))
 emmip(lmm, ~ manipulation | group, CIs = T)
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
+emmeans(lmm, list(pairwise ~ manipulation|block))
+emmip(lmm, ~ manipulation | block, CIs = T)
 
-# RESULT 7: DOES PUPUIL DATA PREDICT ERPs?
+# Does BPS predict SEPR?
 lmm <- lmer(
-  scale(MMN_amplitude) ~ rpd * rpd_low * trial *  manipulation * group + (1|SEGA_ID),
+  z_rpd ~ z_rpd_low * trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_subject)
 anova(lmm)
 r2_nakagawa(lmm)
 
-lmm <- lmer(
-  scale(P3a_amplitude) ~ rpd * rpd_low * trial *  manipulation * group + (1|SEGA_ID),
-  data = et_erp_subject)
-anova(lmm)
-r2_nakagawa(lmm)
+emtrends(lmm, ~ group, var = "z_rpd_low")
+contrast(emtrends(lmm, ~ group, var = "z_rpd_low"))
+emtrends(lmm, ~ trial * manipulation * block, var = "z_rpd_low")
+contrast(emtrends(lmm, ~ trial * manipulation * block, var = "z_rpd_low"))
 
-lmm <- lmer(
-  scale(P3b_amplitude) ~ rpd * rpd_low * trial *  manipulation * group + (1|SEGA_ID),
-  data = et_erp_subject)
-anova(lmm)
-r2_nakagawa(lmm)
-
-# RESULT 8: ASSOCIATION BETWEEN PUPIL DATA AND ERPs ON SUBJECT LEVEL
+# RESULT 8: CORRELATION: PUPIL DATA AND ERPs ON SUBJECT LEVEL
 crl <- cor(et_erp_subject[et_erp_subject$trial == "Oddball", c(
   "z_rpd_low",
   "z_rpd",
@@ -382,157 +381,137 @@ corrplot::corrplot(
   title = "Association between pupil data and ERPs in standard trials",
   mar=c(0,0,1,0))
 
+# RESULT 7: DOES PUPUIL DATA PREDICT ERPs?
+lmm <- lmer(
+  z_MMN_amplitude ~ z_rpd * z_rpd_low * trial *  manipulation * group + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+
+emtrends(lmm, ~ z_rpd_low * trial * z_rpd, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
+
+lmm <- lmer(
+  z_P3a_amplitude ~ z_rpd * z_rpd_low * trial *  manipulation * group + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+
+emtrends(lmm, ~ z_rpd * trial * group * manipulation, var = 'z_rpd')
+
+lmm <- lmer(
+  z_P3b_amplitude ~ z_rpd * z_rpd_low * trial *  manipulation * group + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+
 # DATA ANALYSIS ON TRIAL LEVEL ####
 # Distributions of dependent variables
-hist(et_erp_trial$rpd,
+hist(et_erp_trial$z_rpd,
      main = "Distribution of rpd (500-1500 ms)",
-     xlab = "rpd",
-     xlim = c(-1.2, 0.9),
+     xlab = "z_rpd",
+     xlim = c(-6, 6),
      breaks = 200)
-
-hist(et_erp_trial$rpd_low,
+hist(et_erp_trial$z_rpd_low,
      main = "Distribution of rpd_low (0-250 ms)",
      xlab = "rpd_low",
-     xlim = c(1.8, 5.9),
+     xlim = c(-4, 6),
      breaks = 200)
-
-hist(et_erp_trial$MMN_amplitude,
+hist(et_erp_trial$z_MMN_amplitude,
      main = "Distribution of MMN amplitude (100-150 ms)",
      xlab = "MMN amplitude (FC1, FC2, FCz, Fz)",
-     xlim = c(-40, 24),
+     xlim = c(-6, 6),
      breaks = 200)
-
-hist(et_erp_trial$P3a_amplitude,
+hist(et_erp_trial$z_P3a_amplitude,
      main = "Distribution of P3a amplitude (150-250 ms)",
      xlab = "P3a amplitude (Cz, FCz)",
-     xlim = c(-33, 60),
+     xlim = c(-4, 6),
      breaks = 200)
 
 # RESULT 8: MMN AMPLITUDE ON TRIAL LEVEL
 lmm <- lmer(
-  scale(MMN_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
-  data = et_erp_trial)
-anova(lmm)
-r2_nakagawa(lmm) 
-
-emmeans(
-  lmm, list(pairwise ~ trial), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ block|manipulation), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation), adjust = "tukey")
-
-# RESULT 9: MMN LATENCY ON TRIAL LEVEL
-lmm <- lmer(
-  scale(MMN_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
-  data = et_erp_trial)
-anova(lmm)
-r2_nakagawa(lmm) 
-
-emmeans(
-  lmm, list(pairwise ~ trial), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation), adjust = "tukey")
-
-# RESULT 10: P3A AMPLITUDE ON TRIAL LEVEL
-lmm <- lmer(
-  scale(P3a_amplitude) ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
-  data = et_erp_trial)
-anova(lmm)
-r2_nakagawa(lmm) 
-
-contrast(emmeans(lmm, ~ trial | group), "pairwise")
-contrast(emmeans(lmm, ~ group | trial), "pairwise")
-plot(emmeans(lmm, ~ trial|group))
-contrast(emmeans(lmm, ~ manipulation | block), "pairwise")
-plot(emmeans(lmm, ~ manipulation|block))
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation), adjust = "tukey")
-
-# RESULT 11: P3A LATENCY ON TRIAL LEVEL
-lmm <- lmer(
-  scale(P3a_latency) ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
-  data = et_erp_trial)
-anova(lmm)
-r2_nakagawa(lmm)
-
-emmeans(
-  lmm, list(pairwise ~ trial), adjust = "tukey")
-emmip(lmm, ~block|group * manipulation|trial, CIs = T)
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation), adjust = "tukey")
-
-# RESULT 12: SEPR ON TRIAL LEVEL
-lmm <- lmer(
-  scale(rpd) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  z_MMN_amplitude ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm) 
 
 emmeans(lmm, list(pairwise ~ trial))
-emmeans(
-  lmm, list(pairwise ~ trial), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation), adjust = "tukey")
+emmeans(lmm, list(pairwise ~ manipulation|block))
+emmip(lmm, ~ manipulation|block, CI = T)
 
+# RESULT 9: MMN LATENCY ON TRIAL LEVEL
 lmm <- lmer(
-  scale(rpd) ~ trial * manipulation * group * block * oddball_trial_counter + (1|SEGA_ID),
+  z_MMN_latency ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+emmeans(lmm, list(pairwise ~ trial))
+emmeans(lmm, list(pairwise ~ manipulation|block))
+emmip(lmm, ~ manipulation|block, CI = T)
+
+# RESULT 10: P3A AMPLITUDE ON TRIAL LEVEL
+lmm <- lmer(
+  z_P3a_amplitude ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+contrast(emmeans(lmm, ~ trial | group))
+emmeans(lmm, ~ trial | group)
+emmeans(lmm, list(pairwise ~ manipulation|block))
+emmip(lmm, ~ manipulation|block, CI = T)
+
+# RESULT 11: P3A LATENCY ON TRIAL LEVEL
+lmm <- lmer(
+  z_P3a_latency ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm)
 
-plot(emtrends(lmm,~ group, var = 'oddball_trial_counter'))
-emtrends(lmm,~ group, var = 'oddball_trial_counter')
+emmeans(lmm, list(pairwise ~ trial))
+emmip(lmm, ~block|group * manipulation|trial, CIs = T)
 
-ggplot(
-  et_erp_trial,
-  aes(
-    x = trial_number_in_block,
-    y = scale(rpd),
-    group = trial,
-    color = trial)) +
-  geom_smooth() +
-  theme_bw() + 
-  ggtitle("SEPR (rpd) over block: A group comparison.") +
-  facet_grid(cols = vars(group))
+# RESULT 12: SEPR ON TRIAL LEVEL
+lmm <- lmer(
+  z_rpd ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm) 
 
-ggplot(
-  df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev") &
-             df_trial$trial_number_in_block >= 10 & is.finite(
-               df_trial$rpd), ],
-  aes(x = trial_number_in_block, y = rpd, group = trial, color = trial)) +
-  geom_smooth() +
-  facet_grid(rows = vars(block), cols = vars(manipulation)) + theme_bw()
+emmeans(lmm, list(pairwise ~ trial))
 
-ggplot(
-  df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev") &
-             is.finite(df_trial$rpd), ],
-  aes(x = as.factor(trial_number_in_block), y = rpd)) +
-  geom_boxplot() +
-  facet_grid(
-    rows = vars(block),
-    cols = vars(manipulation, trial)) +
-  theme_bw()
+# EXPLORATORY: SEPR OVER TASK
+lmm <- lmer(
+  z_rpd ~ trial * manipulation * group * block * oddball_trial_counter + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+
+emtrends(lmm,~ manipulation, var = 'oddball_trial_counter')
+emtrends(lmm,~ group * group * block, var = 'oddball_trial_counter')
+
+et_erp_trial$binned_trial_number <- cut(
+  et_erp_trial$oddball_trial_counter, c(
+    1,  103, 206, 309, 412))
+ggplot(et_erp_trial[et_erp_trial$trial == "oddball", ]) + geom_boxplot(aes(binned_trial_number, z_rpd)) + 
+  facet_grid(cols = vars(group)) + 
+  ggtitle("SEPR in oddball trials during the task, \nsplit by group") +
+  theme(plot.title = element_text(face = "bold", size = 14))
+
+# EXPLORATORY: SEPR OVER BLOCK
+lmm <- lmer(
+  z_rpd ~ trial * manipulation * group * block * trial_number_in_block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+
+emtrends(lmm,~ manipulation, var = 'trial_number_in_block')
 
 bin_size <- 20
 df_trial <- df_trial %>%
   mutate(trial_number_in_block_binned = factor(trial_number_in_block%/%bin_size*20))
 ggplot(
-  df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev"), ],
+  df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev") & df_trial$trial == "oddball", ],
   aes(x = trial_number_in_block_binned,
       y = scale(rpd))) + 
   geom_boxplot() + 
@@ -540,62 +519,71 @@ ggplot(
     rows = vars(block),
     cols = vars(manipulation)) +
   theme_bw() +
-  ggtitle("rpd during blocks, split by forward + reverse \nbefore + after manipulation")
+  ggtitle("SEPR in oddball trials during blocks, \nsplit by forward + reverse and before + after manipulation") +
+  theme(plot.title = element_text(face = "bold", size = 14))
 
 et_erp_trial$binned_trial_number <- cut(
-  et_erp_trial$oddball_trial_counter, c(
-    1,  25,  50, 75,  100, 125,  150, 175, 200,  225, 250, 275, 300, 325, 350, 375, 400))
-ggplot(et_erp_trial) + geom_boxplot(aes(binned_trial_number, rpd)) + 
-  facet_grid(cols = vars(group))
+  et_erp_trial$trial_number_in_block, c(
+    0,  20, 40, 60, 80, 100))
+ggplot(et_erp_trial[et_erp_trial$trial == "oddball", ]) + geom_boxplot(aes(binned_trial_number, z_rpd)) + 
+  facet_grid(cols = vars(group)) + 
+  ggtitle("SEPR in oddball trials during blocks, split by group") +
+  theme(plot.title = element_text(face = "bold", size = 14))
 
 # RESULT 13: BPS ON TRIAL LEVEL
 lmm <- lmer(
-  scale(rpd_low) ~ trial * manipulation * group * block + (1|SEGA_ID),
+  z_rpd_low ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emmeans(
-  lmm, list(pairwise ~ manipulation), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ group|manipulation), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation|group), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation|block), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ group|block), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ block|group), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation|group), adjust = "tukey")
+emmeans(lmm, list(pairwise ~ manipulation|group))
 emmip(lmm, ~ manipulation|group, CIs = T)
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
+emmeans(lmm, list(pairwise ~ block|group))
+emmip(lmm, ~ block|group, CIs = T)
+emmeans(lmm, list(pairwise ~ manipulation|block))
+emmip(lmm, ~ manipulation|block, CIs = T)
 
-ggplot(
-  et_erp_trial,
-  aes(
-    x = trial_number_in_block,
-    y = scale(rpd_low),
-    group = trial,
-    color = trial)) +
-  geom_smooth() +
-  theme_bw() + 
-  ggtitle("BPS (rpd_low) over block: A group comparison.") +
-  facet_grid(cols = vars(group))
-
-et_erp_trial$binned_trial_number <- cut(
-  et_erp_trial$oddball_trial_counter, c(
-    1,  25,  50, 75,  100, 125,  150, 175, 200,  225, 250, 275, 300, 325, 350, 375, 400))
-ggplot(et_erp_trial[et_erp_trial$trial == "standard", ]) + geom_boxplot(aes(binned_trial_number, rpd_low)) + 
-  facet_grid(cols = vars(group))
-
+# EXPLORATORY: BPS OVER TASK
 lmm <- lmer(
-  scale(rpd_low) ~ trial * manipulation * group * block * oddball_trial_counter + (1|SEGA_ID),
+  z_rpd_low ~ trial * manipulation * group * block * oddball_trial_counter + (1|SEGA_ID),
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm)
+
+emtrends(lmm,~ manipulation * group|block, var = 'oddball_trial_counter')
+
+et_erp_trial$binned_trial_number <- cut(
+  et_erp_trial$oddball_trial_counter, c(
+    1,  103, 206, 309, 412))
+ggplot(et_erp_trial[et_erp_trial$trial == "standard", ]) + geom_boxplot(aes(binned_trial_number, z_rpd_low)) + 
+  facet_grid(cols = vars(group)) + 
+  ggtitle("BPS in standard trials during the task, split by group") +
+  theme(plot.title = element_text(face = "bold", size = 14))
+
+# EXPLORATORY: BPS OVER BLOCK
+lmm <- lmer(
+  z_rpd_low ~ trial * manipulation * group * block * trial_number_in_block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+
+emtrends(lmm,~ manipulation * group|block, var = 'trial_number_in_block')
+
+bin_size <- 20
+df_trial <- df_trial %>%
+  mutate(trial_number_in_block_binned = factor(trial_number_in_block%/%bin_size*20))
+ggplot(
+  df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev") & df_trial$trial == "standard", ],
+  aes(x = trial_number_in_block_binned,
+      y = scale(rpd_low))) + 
+  geom_boxplot() + 
+  facet_grid(
+    rows = vars(block),
+    cols = vars(manipulation)) +
+  theme_bw() +
+  ggtitle("BPS in standard trials during blocks, \nsplit by forward + reverse and before + after manipulation") +
+  theme(plot.title = element_text(face = "bold", size = 14))
 
 # RESULT 14: ASSOCIATION BETWEEN BPS AND SEPR ON TRIAL LEVEL
 ggscatter(et_erp_trial[et_erp_trial$trial == "oddball", ], 
@@ -621,15 +609,15 @@ ggscatter(et_erp_trial[et_erp_trial$trial == "standard", ],
           title = "Association between SEPR + BPS in standard trials")
 
 lmm <- lmer(
-  scale(rpd) ~ scale(rpd_low) * trial * manipulation * group * block + (1|SEGA_ID),
+  z_rpd ~ z_rpd_low * trial * manipulation * group * block + (1|SEGA_ID),
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emtrends(lmm, ~ group, var = "rpd_low")
-plot(emtrends(lmm, ~ group, var = "rpd_low"))
+emtrends(lmm, ~ manipulation|block, var = "z_rpd_low")
+emtrends(lmm, ~ group|manipulation, var = "z_rpd_low")
 
-# RESULT 15: ASSOCIATION BETWEEN PUPIL DATA AND ERPs ON TRIAL LEVEL
+# RESULT 15: Correlation: Pupil-ERP
 crl <- cor(et_erp_trial[et_erp_trial$trial == "oddball", c(
   "z_rpd_low",
   "z_rpd",
@@ -661,24 +649,23 @@ corrplot::corrplot(
 # RESULT 16: DOES PUPIL DATA PREDICT ERPs?
 ## MMN amplitude
 lmm <- lmer(
-  scale(MMN_amplitude) ~ rpd * rpd_low * trial *  manipulation * group + (1|SEGA_ID),
+  z_MMN_amplitude ~ z_rpd * z_rpd_low * trial *  manipulation * group + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm)
 
-summary(lmm)
-emtrends(lmm, ~ group, var = c("rpd"))
+emtrends(lmm, ~ z_rpd_low * group * z_rpd, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
 
 ## P3a amplitude
 lmm <- lmer(
-  scale(P3a_amplitude) ~ rpd * rpd_low * trial *  manipulation * group + (1|SEGA_ID),
+  z_P3a_amplitude ~ z_rpd * z_rpd_low * trial *  manipulation * group + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm)
 
-emtrends(lmm, ~ manipulation | group, var = c("rpd_low"))
-plot(emtrends(lmm, ~ manipulation | group, var = c("rpd_low")))
-emtrends(lmm, ~ manipulation, var = c("rpd_low"))
+emtrends(lmm, ~ manipulation | group, var = c("z_rpd_low"))
+plot(emtrends(lmm, ~ manipulation | group, var = c("z_rpd_low")))
+emtrends(lmm, ~ manipulation, var = c("z_rpd_low"))
 emmeans(
   lmm, list(pairwise ~ group), adjust = "tukey")
 emmeans(
@@ -686,18 +673,18 @@ emmeans(
 
 # RESULT 17: EXPLORATORY ANALYSIS OF MODEL FIT FOR "trial_number_in_block" ON BPS
 linear_fit <- lmer(
-  scale(rpd_low) ~ trial * manipulation * group * trial_number_in_block * block + (1|SEGA_ID) + age + gender,
+  z_rpd_low ~ trial * manipulation * group * trial_number_in_block * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial, REML = F)
 anova(linear_fit)
 
 quadratic_fit <- lmer(
-  scale(rpd_low) ~ trial * manipulation * group * poly(trial_number_in_block, 2) * block + (1|SEGA_ID) + age + gender,
+  z_rpd_low ~ trial * manipulation * group * poly(trial_number_in_block, 2) * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial, REML = F)
 anova(quadratic_fit)
 r2_nakagawa(quadratic_fit) 
 
 cubic_fit <- lmer(
-  scale(rpd_low) ~ trial * manipulation * group * poly(trial_number_in_block, 3) * block + (1|SEGA_ID) + age + gender,
+  z_rpd_low ~ trial * manipulation * group * poly(trial_number_in_block, 3) * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial, REML = F)
 anova(cubic_fit)
 r2_nakagawa(cubic_fit) 
@@ -719,19 +706,19 @@ table_formatted_BPS
 
 # RESULT 18: EXPLORATIVE ANALYSIS OF MODEL FIT FOR "trial_number_in_block" on SEPR**
 linear_fit <- lmer(
-  scale(rpd) ~ trial * manipulation * group * trial_number_in_block * block+ (1|SEGA_ID) + pitch + age + gender,
+  z_rpd ~ trial * manipulation * group * trial_number_in_block * block+ (1|SEGA_ID) + pitch + age + gender,
   data = et_erp_trial, REML = F)
 anova(linear_fit)
 r2_nakagawa(linear_fit) 
 
 quadratic_fit <- lmer(
-  scale(rpd) ~ trial * manipulation * group * poly(trial_number_in_block, 2) * block + (1|SEGA_ID) + pitch + age + gender,
+  z_rpd ~ trial * manipulation * group * poly(trial_number_in_block, 2) * block + (1|SEGA_ID) + pitch + age + gender,
   data = et_erp_trial, REML = F)
 anova(quadratic_fit)
 r2_nakagawa(quadratic_fit) 
 
 cubic_fit <- lmer(
-  scale(rpd) ~ trial * manipulation * group * poly(trial_number_in_block, 3) * block + (1|SEGA_ID) + pitch + age + gender,
+  z_rpd ~ trial * manipulation * group * poly(trial_number_in_block, 3) * block + (1|SEGA_ID) + pitch + age + gender,
   data = et_erp_trial, REML = F)
 anova(cubic_fit)
 r2_nakagawa(cubic_fit) 
@@ -753,50 +740,53 @@ table_formatted_SEPR
 
 # RESULT 19: EXPLORATORY ANALYSIS OF GRIP STRENGTH EFFECT (Z-VALUES)
 lmm <- lmer(
-  scale(MMN_amplitude) ~ trial * group * block * z_handdynamometer + (1|SEGA_ID) + age + gender,
+  z_MMN_amplitude ~ trial * group * block * z_handdynamometer + (1|SEGA_ID) + age + gender,
   data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
 r2_nakagawa(lmm)
 
 lmm <- lmer(
-  scale(MMN_latency) ~ trial * group * block * z_handdynamometer+ (1|SEGA_ID) + gender + age,
+  z_MMN_latency ~ trial * group * block * z_handdynamometer+ (1|SEGA_ID) + gender + age,
   data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
 r2_nakagawa(lmm)
 
 lmm <- lmer(
-  scale(P3a_amplitude) ~ trial * group * block * z_handdynamometer + (1|SEGA_ID) + gender + age,
+  z_P3a_amplitude ~ trial * group * block * z_handdynamometer + (1|SEGA_ID) + gender + age,
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
+anova(lmm)
+r2_nakagawa(lmm) 
+
+emtrends(lmm,~ trial * block, var = 'z_handdynamometer')
+
+
+lmm <- lmer(
+  z_P3a_latency ~ trial * group * block * z_handdynamometer+ (1|SEGA_ID) + gender + age,
   data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
 r2_nakagawa(lmm) 
 
 lmm <- lmer(
-  scale(P3a_latency) ~ trial * group * block * z_handdynamometer+ (1|SEGA_ID) + gender + age,
+  z_rpd ~ trial * group * block * z_handdynamometer + (1|SEGA_ID),
   data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
 r2_nakagawa(lmm) 
 
 lmm <- lmer(
-  scale(rpd) ~ trial * group * block * z_handdynamometer + (1|SEGA_ID),
-  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
-anova(lmm)
-r2_nakagawa(lmm) 
-
-lmm <- lmer(
-  scale(rpd_low) ~ trial * group * block * z_handdynamometer + (1|SEGA_ID),
+  z_rpd_low ~ trial * group * block * z_handdynamometer + (1|SEGA_ID),
   data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm) 
 r2_nakagawa(lmm)
 
 # New df et_erp_subject shows same result as df_trial, is valide ####
 lmm <- lmer(
-  scale(rpd) ~ trial * manipulation * block + trial_number_in_block + (1 | id),
+z_rpd ~ trial * manipulation * block + trial_number_in_block + (1 | id),
   data = df_trial[
     df_trial$phase %in% c("oddball_block", "oddball_block_rev"), ])
 anova(lmm)
 
 lmm <- lmer(
-  scale(rpd) ~ trial * manipulation * block + trial_number_in_block + (1 | SEGA_ID),
+  z_rpd ~ trial * manipulation * block + trial_number_in_block + (1 | SEGA_ID),
   data = et_erp_trial)
 anova(lmm)
 
