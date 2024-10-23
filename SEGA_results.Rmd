@@ -131,7 +131,7 @@ hist(et_erp_subject$z_P3b_amplitude,
 ## Sample Characteristics
 ```{r, warning=FALSE}
 fun_return_descriptives <- function(group){
-  group_df <- et_erp_subject[et_erp_subject$group == group, c("gender", "age", "SRS", "SCQ", "CBCL", "YSR", "SP2", "z_handdynamometer", "SEGA_ID")]
+  group_df <- et_erp_subject[et_erp_subject$group == group, c("gender", "age", "SRS", "SCQ", "CBCL", "YSR", "SP2", "z_handdynamometer", "SEGA_ID", "verbal_IQ", "non_verbal_IQ")]
   n <- length(unique(group_df$SEGA_ID))
   male <- (length(which(group_df$gender == "männlich"))/8)
   female <- (length(which(group_df$gender == "weiblich"))/8)
@@ -157,17 +157,34 @@ fun_return_descriptives <- function(group){
   grip_strength_mean <- round(mean(group_df$z_handdynamometer, na.rm = TRUE), digits = 1)
   grip_strength_sd <- round(sd(group_df$z_handdynamometer, na.rm = TRUE), digits = 1)
   grip_strength <- paste(grip_strength_mean, "(", grip_strength_sd, ")")
-  group_characteristics <- data.frame(n, gender_f_m, age, SRS, CBCL, SCQ, YSR, SP2, grip_strength)
-  t(group_characteristics)
+  verbal_IQ_mean <- round(mean(group_df$verbal_IQ, na.rm = TRUE), digits = 1)
+  verbal_IQ_sd <- round(sd(group_df$verbal_IQ, na.rm = TRUE), digits = 1)
+  verbal_IQ <- paste(verbal_IQ_mean, "(", verbal_IQ_sd, ")")
+  non_verbal_IQ_mean <- round(mean(group_df$non_verbal_IQ, na.rm = TRUE), digits = 1)
+  non_verbal_IQ_sd <- round(sd(group_df$non_verbal_IQ, na.rm = TRUE), digits = 1)
+  non_verbal_IQ <- paste(non_verbal_IQ_mean, "(", non_verbal_IQ_sd, ")")
+  group_description <- data.frame(
+    n,
+    gender_f_m,
+    age,
+    SRS,
+    CBCL,
+    SCQ,
+    YSR,
+    SP2,
+    grip_strength,
+    verbal_IQ,
+    non_verbal_IQ)
+  t(group_description)
 }
 
 ## Descriptive statistics
-asd_characteristics <- fun_return_descriptives(group = "ASD")
-colnames(asd_characteristics) <- "ASD"
-con_characteristics <- fun_return_descriptives(group = "CON")
-colnames(con_characteristics) <- "CON"
-mhc_characteristics <- fun_return_descriptives(group = "MHC")
-colnames(mhc_characteristics) <- "MHC"
+asd_description <- fun_return_descriptives(group = "ASD")
+colnames(asd_description) <- "ASD"
+con_description <- fun_return_descriptives(group = "CON")
+colnames(con_description) <- "CON"
+mhc_description <- fun_return_descriptives(group = "MHC")
+colnames(mhc_description) <- "MHC"
 
 SCQ_anova <- aov(SCQ ~ group, data = et_erp_subject)
 SCQ_anova_p <- summary(SCQ_anova)[[1]][["Pr(>F)"]][[1]]
@@ -184,15 +201,39 @@ SP2_anova <- aov(SP2 ~ group, data = et_erp_subject)
 SP2_anova_p <- summary(SP2_anova)[[1]][["Pr(>F)"]][[1]]
 grip_strength_anova <- aov(z_handdynamometer ~ group, data = et_erp_subject)
 grip_strength_anova_p <- summary(grip_strength_anova)[[1]][["Pr(>F)"]][[1]]
+verbal_IQ_anova <- aov(verbal_IQ ~ group, data = et_erp_subject)
+verbal_IQ_anova_p <- summary(verbal_IQ_anova)[[1]][["Pr(>F)"]][[1]]
+non_verbal_IQ_anova <- aov(non_verbal_IQ ~ group, data = et_erp_subject)
+non_verbal_IQ_anova_p <- summary(non_verbal_IQ_anova)[[1]][["Pr(>F)"]][[1]]
 gender_chi2 <- chisq.test(et_erp_subject$gender, et_erp_subject$group)
+gender_chi2_p <- gender_chi2$p.value
 p_values <- c(
-  NA, "< 0.001", age_anova_p, SRS_anova_p, CBCL_anova_p, SCQ_anova_p, SP2_anova_p, YSR_anova_p, grip_strength_anova_p)
-sample_table <- cbind(asd_characteristics, con_characteristics, mhc_characteristics, p_values)
-sample_characteristics_table <- kable(sample_table, caption = "Sample characteristics", digits = 4) %>%
-  kable_classic(full_width = F, html_font = "Cambria") %>% kable_styling
-sample_characteristics_table
+  NA,
+  gender_chi2_p,
+  age_anova_p,
+  SRS_anova_p,
+  CBCL_anova_p,
+  SCQ_anova_p,
+  SP2_anova_p,
+  YSR_anova_p,
+  grip_strength_anova_p,
+  verbal_IQ_anova_p,
+  non_verbal_IQ_anova_p)
 
-## Plot: SCQ
+p_value <- c()
+for (p in p_values){
+  ifelse (p < 0.001, p <- "< 0.001",
+          ifelse(p < 0.01, p <- "< 0.01",
+                 ifelse(p < 0.05, p <- "< 0.05", p <- p )))
+  p_value <- c(p_value, p)
+}
+
+sample_table <- cbind(asd_description, con_description, mhc_description, p_value)
+sample_description_table <- kable(sample_table, caption = "Sample description", digits = 4) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% kable_styling
+sample_description_table
+
+## Plot SCQ
 ggplot(et_erp_subject, aes(x = group, y = SCQ), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
@@ -201,9 +242,9 @@ ggplot(et_erp_subject, aes(x = group, y = SCQ), col = "group") +
   theme_bw() + 
   theme_classic() +
   ggtitle("SCQ") +
-  theme(plot.title = element_text(face="bold"))
+  theme(plot.title = element_text(face = "bold"))
 
-## Plot: SRS
+## Plot SRS
 ggplot(et_erp_subject, aes(x = group, y = SRS), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
@@ -212,9 +253,9 @@ ggplot(et_erp_subject, aes(x = group, y = SRS), col = "group") +
   theme_bw() + 
   theme_classic() +
   ggtitle("SRS") +
-  theme(plot.title = element_text(face="bold"))
+  theme(plot.title = element_text(face = "bold"))
 
-## Plot: CBCL
+## Plot CBCL
 ggplot(et_erp_subject, aes(x = group, y = CBCL), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
@@ -223,7 +264,7 @@ ggplot(et_erp_subject, aes(x = group, y = CBCL), col = "group") +
   theme_bw() + 
   theme_classic() +
   ggtitle("CBCL") +
-  theme(plot.title = element_text(face="bold"))
+  theme(plot.title = element_text(face = "bold"))
 
 ## Plot: YSR
 ggplot(et_erp_subject, aes(x = group, y = YSR), col = "group") + 
@@ -248,13 +289,7 @@ ggplot(et_erp_subject, aes(x = group, y = SP2), col = "group") +
   theme(plot.title = element_text(face="bold"))
 
 ## Plot: Age
-age_df <- data.frame()
-for (id in unique(et_erp_subject$SEGA_ID)) {
-  SEGA_ID_df <- et_erp_subject[et_erp_subject$SEGA_ID == id, c("SEGA_ID", "group", "age")]
-  age_df <- rbind(age_df, SEGA_ID_df)
-}
-age_df <- age_df[!duplicated(age_df), ]
-
+age_df <- et_erp_subject[!duplicated(et_erp_subject$SEGA_ID), c("SEGA_ID", "group", "age")]
 ggplot(age_df, aes(x = group, y = age), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_jitter() +
@@ -264,6 +299,33 @@ ggplot(age_df, aes(x = group, y = age), col = "group") +
   theme_bw() + 
   theme_classic() +
   ggtitle("Age") +
+  theme(plot.title = element_text(face="bold"))
+
+## Plot: IQ-verbal
+IQ_df <- et_erp_subject[!duplicated(et_erp_subject$SEGA_ID), c("SEGA_ID", "group", "verbal_IQ", "non_verbal_IQ")]
+# IQ_df <- reshape::melt(IQ_df, value.name = "IQ", id = c("SEGA_ID", "group"))
+# names(IQ_df)[names(IQ_df) == 'variable'] <- 'domain'
+# names(IQ_df)[names(IQ_df) == 'value'] <- 'IQ'
+
+ggplot(IQ_df, aes(x = group, y = verbal_IQ), col = "group") + 
+  geom_boxplot(fill = "grey") +
+  geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
+              map_signif_level=TRUE,
+              y_position = c(135, 140, 130)) +
+  theme_bw() + 
+  theme_classic() +
+  ggtitle("IQ-verbal") +
+  theme(plot.title = element_text(face="bold"))
+
+## Plot: IQ-non-verbal
+ggplot(IQ_df, aes(x = group, y = non_verbal_IQ), col = "group") + 
+  geom_boxplot(fill = "grey") +
+  geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
+              map_signif_level=TRUE,
+              y_position = c(135, 140, 130)) +
+  theme_bw() + 
+  theme_classic() +
+  ggtitle("IQ-non-verbal") +
   theme(plot.title = element_text(face="bold"))
 ```
 
@@ -279,13 +341,15 @@ r2_nakagawa(lmm)
 
 ### Post-hoc: trial
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ trial))
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
 ```
 
 ### Post-hoc: manipulation x block
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ manipulation|block))
-emmip(lmm, ~ manipulation |block, CI = T)
+contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
+emmip(lmm, ~ manipulation | block, CIs = T)
 ```
 
 ## MMN Latency
@@ -310,15 +374,15 @@ r2_nakagawa(lmm)
 
 ### Post-hoc: trial x group
 ```{r, warning=FALSE}
-emmeans(lmm, ~ trial|group)
-contrast(emmeans(lmm, ~ trial|group))
+contrast(emmeans(lmm, ~ trial|group), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial|group), "pairwise"))
 emmip(lmm, ~ trial|group, CI = T)
 ```
 
 ### Post-hoc: manipulation x block
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ manipulation|block))
-#contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
+emmeans(lmm, ~ manipulation|block)
+contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
 emmip(lmm, ~ manipulation|block, CI = T)
 ```
 
@@ -334,7 +398,8 @@ r2_nakagawa(lmm)
 
 ### Post-hoc: trial
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ trial))
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
 ```
 
 ## P3b Amplitude
@@ -349,12 +414,16 @@ r2_nakagawa(lmm)
 
 #### Post-hoc: trial
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ trial))
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
+emmip(lmm, ~ trial, CI = T)
 ```
 
 #### Post-hoc: manipulation
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ manipulation))
+contrast(emmeans(lmm, ~ manipulation), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation), "pairwise"))
+emmip(lmm, ~ manipulation, CI = T)
 ```
 
 ## P3b Latency
@@ -367,15 +436,11 @@ anova(lmm)
 r2_nakagawa(lmm) 
 ```
 
-#### Post-hoc: trial
-```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ trial))
-```
-
 #### Post-hoc: trial x manipulation x group
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ group|trial * manipulation), adjust = "tukey")
-emmip(lmm, ~ group | trial * manipulation, CI = T)
+contrast(emmeans(lmm, ~ group|manipulation*trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ group|manipulation*trial), "pairwise"))
+emmip(lmm, ~ manipulation|group*trial, CI = T)
 ```
 
 ## SEPR
@@ -390,7 +455,8 @@ r2_nakagawa(lmm)
 
 ### Post-hoc: trial
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ trial))
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
 ```
 
 ## BPS
@@ -403,16 +469,22 @@ anova(lmm)
 r2_nakagawa(lmm) 
 ```
 
+### Post-hoc: trial
+```{r, warning=FALSE}
+emmeans(lmm, list(pairwise ~ trial))
+```
+
 ### Post-hoc: manipulation x group
 ```{r, warning=FALSE}
-
-emmeans(lmm, list(pairwise ~ manipulation|group))
+contrast(emmeans(lmm, ~ manipulation|group), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|group), "pairwise"))
 emmip(lmm, ~ manipulation | group, CIs = T)
 ```
 
 ### Post-hoc: manipulation x block
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ manipulation|block))
+contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
 emmip(lmm, ~ manipulation | block, CIs = T)
 ```
 
@@ -429,11 +501,7 @@ r2_nakagawa(lmm)
 ```{r, warning=FALSE}
 emtrends(lmm, ~ group, var = "z_rpd_low")
 contrast(emtrends(lmm, ~ group, var = "z_rpd_low"))
-```
-
-### Post-hoc: BPS x trial x manipulation x block
-```{r, warning=FALSE}
-emtrends(lmm, ~ trial * manipulation * block, var = "z_rpd_low")
+confint(contrast(emtrends(lmm, ~ group, var = "z_rpd_low")))
 ```
 
 ## Does pupil data predict ERPs?
@@ -448,8 +516,8 @@ r2_nakagawa(lmm)
 
 #### Post-hoc: SEPR x BPS x trial
 ```{r, warning=FALSE}
-emtrends(lmm, ~ z_rpd_low * trial * z_rpd, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
-contrast(emtrends(lmm, ~ z_rpd_low * trial * z_rpd, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2))))
+emtrends(lmm, ~ z_rpd_low * z_rpd | trial, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
+contrast(emtrends(lmm, ~ z_rpd_low * z_rpd | trial, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2))))
 ```
 
 ### Does SEPR/BPS predict P3a amplitude?
@@ -461,9 +529,17 @@ anova(lmm)
 r2_nakagawa(lmm)
 ```
 
+#### Post-hoc: BPS x trial x group
+```{r, warning=FALSE}
+emtrends(lmm, ~ z_rpd_low * trial * group, var = 'z_rpd_low')
+contrast(emtrends(lmm, ~ z_rpd_low * trial * group, var = 'z_rpd_low'))
+confint(contrast(emtrends(lmm, ~ z_rpd_low * trial * group, var = 'z_rpd_low')))
+```
+
 #### Post-hoc: SEPR x trial x manipulation x group
 ```{r, warning=FALSE}
-emtrends(lmm, ~ z_rpd * trial * manipulation * group, var = 'z_rpd')
+emtrends(lmm, ~ z_rpd  * manipulation | group * trial, var = 'z_rpd')
+contrast(emtrends(lmm, ~ z_rpd  * manipulation | group * trial, var = 'z_rpd'))
 ```
 
 # **Trial Level**
@@ -626,14 +702,22 @@ r2_nakagawa(lmm)
 
 ### Post-hoc: BPS x manipulation x block
 ```{r, warning=FALSE}
-emtrends(lmm, ~ manipulation|block, var = "z_rpd_low")
-contrast(emtrends(lmm, ~ manipulation|block, var = "z_rpd_low"))
+emtrends(lmm, ~ manipulation * block, var = "z_rpd_low")
+contrast(emtrends(lmm, ~ manipulation * block, var = "z_rpd_low"))
+confint(contrast(emtrends(lmm, ~ manipulation * block, var = "z_rpd_low")))
+plot(emtrends(lmm, ~ manipulation * block, var = "z_rpd_low"))
+
+emtrends(lmm, ~ block|manipulation, var = "z_rpd_low")
+contrast(emtrends(lmm, ~ block|manipulation, var = "z_rpd_low"))
+confint(contrast(emtrends(lmm, ~ block|manipulation, var = "z_rpd_low")))
 ```
 
 ### Post-hoc: BPS x manipulation x group
 ```{r, warning=FALSE}
 emtrends(lmm, ~ group|manipulation, var = "z_rpd_low")
 contrast(emtrends(lmm, ~ group|manipulation, var = "z_rpd_low"))
+confint(contrast(emtrends(lmm, ~ group|manipulation, var = "z_rpd_low")))
+plot(emtrends(lmm, ~ group|manipulation, var = "z_rpd_low"))
 ```
 
 ## Does pupil data predict ERPs?
@@ -648,7 +732,9 @@ r2_nakagawa(lmm)
 
 #### Post-hoc: BPS x SEPR x group
 ```{r, warning=FALSE}
-emtrends(lmm, ~ z_rpd_low * group * z_rpd, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
+emtrends(lmm, ~ z_rpd_low * z_rpd | group, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
+contrast(emtrends(lmm, ~ z_rpd_low * z_rpd | group, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2))))
+confint(contrast(emtrends(lmm, ~ z_rpd_low * z_rpd | group, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))))
 ```
 
 ### Does SEPR/BPS predict P3a amplitude?
@@ -663,13 +749,14 @@ r2_nakagawa(lmm)
 #### Post-hoc: BPS x manipulation x group
 ```{r, warning=FALSE}
 emtrends(lmm, ~ manipulation | group, var = c("z_rpd_low"))
-contrast(emtrends(lmm, ~ manipulation | group, var = "z_rpd_low"), "pairwise")
-plot(emtrends(lmm, ~ manipulation|group, var = c("z_rpd_low")))
+contrast(emtrends(lmm, ~ manipulation | group, var = c("z_rpd_low")))
+confint(contrast(emtrends(lmm, ~ manipulation | group, var = c("z_rpd_low"))))
 ```
 
 #### Post-hoc: SEPR x BPS x manipulation
 ```{r, warning=FALSE}
-emtrends(lmm, ~ z_rpd_low * manipulation * z_rpd, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
+emtrends(lmm, ~ z_rpd_low * z_rpd | manipulation, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
+contrast(emtrends(lmm, ~ z_rpd_low * z_rpd | manipulation, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2))))
 ```
 
 # **Exploratory Analyses**

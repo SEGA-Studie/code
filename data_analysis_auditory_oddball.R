@@ -111,7 +111,7 @@ hist(et_erp_subject$z_P3b_amplitude,
      breaks = 200)
 
 fun_return_descriptives <- function(group){
-  group_df <- et_erp_subject[et_erp_subject$group == group, c("gender", "age", "SRS", "SCQ", "CBCL", "YSR", "SP2", "z_handdynamometer", "SEGA_ID")]
+  group_df <- et_erp_subject[et_erp_subject$group == group, c("gender", "age", "SRS", "SCQ", "CBCL", "YSR", "SP2", "z_handdynamometer", "SEGA_ID", "verbal_IQ", "non_verbal_IQ")]
   n <- length(unique(group_df$SEGA_ID))
   male <- (length(which(group_df$gender == "männlich"))/8)
   female <- (length(which(group_df$gender == "weiblich"))/8)
@@ -137,7 +137,24 @@ fun_return_descriptives <- function(group){
   grip_strength_mean <- round(mean(group_df$z_handdynamometer, na.rm = TRUE), digits = 1)
   grip_strength_sd <- round(sd(group_df$z_handdynamometer, na.rm = TRUE), digits = 1)
   grip_strength <- paste(grip_strength_mean, "(", grip_strength_sd, ")")
-  group_description <- data.frame(n, gender_f_m, age, SRS, CBCL, SCQ, YSR, SP2, grip_strength)
+  verbal_IQ_mean <- round(mean(group_df$verbal_IQ, na.rm = TRUE), digits = 1)
+  verbal_IQ_sd <- round(sd(group_df$verbal_IQ, na.rm = TRUE), digits = 1)
+  verbal_IQ <- paste(verbal_IQ_mean, "(", verbal_IQ_sd, ")")
+  non_verbal_IQ_mean <- round(mean(group_df$non_verbal_IQ, na.rm = TRUE), digits = 1)
+  non_verbal_IQ_sd <- round(sd(group_df$non_verbal_IQ, na.rm = TRUE), digits = 1)
+  non_verbal_IQ <- paste(non_verbal_IQ_mean, "(", non_verbal_IQ_sd, ")")
+  group_description <- data.frame(
+    n,
+    gender_f_m,
+    age,
+    SRS,
+    CBCL,
+    SCQ,
+    YSR,
+    SP2,
+    grip_strength,
+    verbal_IQ,
+    non_verbal_IQ)
   t(group_description)
 }
 
@@ -164,13 +181,34 @@ SP2_anova <- aov(SP2 ~ group, data = et_erp_subject)
 SP2_anova_p <- summary(SP2_anova)[[1]][["Pr(>F)"]][[1]]
 grip_strength_anova <- aov(z_handdynamometer ~ group, data = et_erp_subject)
 grip_strength_anova_p <- summary(grip_strength_anova)[[1]][["Pr(>F)"]][[1]]
-# don't know how to extract p-value from chi2-test -> inserted manually
+verbal_IQ_anova <- aov(verbal_IQ ~ group, data = et_erp_subject)
+verbal_IQ_anova_p <- summary(verbal_IQ_anova)[[1]][["Pr(>F)"]][[1]]
+non_verbal_IQ_anova <- aov(non_verbal_IQ ~ group, data = et_erp_subject)
+non_verbal_IQ_anova_p <- summary(non_verbal_IQ_anova)[[1]][["Pr(>F)"]][[1]]
 gender_chi2 <- chisq.test(et_erp_subject$gender, et_erp_subject$group)
+gender_chi2_p <- gender_chi2$p.value
 p_values <- c(
-  NA, "< 0.001", age_anova_p, SRS_anova_p, CBCL_anova_p, SCQ_anova_p, SP2_anova_p, YSR_anova_p, grip_strength_anova_p)
+  NA,
+  gender_chi2_p,
+  age_anova_p,
+  SRS_anova_p,
+  CBCL_anova_p,
+  SCQ_anova_p,
+  SP2_anova_p,
+  YSR_anova_p,
+  grip_strength_anova_p,
+  verbal_IQ_anova_p,
+  non_verbal_IQ_anova_p)
 
-sample_table <- cbind(asd_description, con_description, mhc_description, p_values)
+p_value <- c()
+for (p in p_values){
+  ifelse (p < 0.001, p <- "< 0.001",
+          ifelse(p < 0.01, p <- "< 0.01",
+                 ifelse(p < 0.05, p <- "< 0.05", p <- p )))
+  p_value <- c(p_value, p)
+}
 
+sample_table <- cbind(asd_description, con_description, mhc_description, p_value)
 sample_description_table <- kable(sample_table, caption = "Sample description", digits = 4) %>%
   kable_classic(full_width = F, html_font = "Cambria") %>% kable_styling
 sample_description_table
@@ -187,7 +225,7 @@ ggplot(et_erp_subject, aes(x = group, y = SCQ), col = "group") +
   theme(plot.title = element_text(face = "bold"))
 
 ## Plot SRS
-ggplot(et_erp_subject, aes(x = group, y = srs), col = "group") + 
+ggplot(et_erp_subject, aes(x = group, y = SRS), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
@@ -198,7 +236,7 @@ ggplot(et_erp_subject, aes(x = group, y = srs), col = "group") +
   theme(plot.title = element_text(face = "bold"))
 
 ## Plot CBCL
-ggplot(et_erp_subject, aes(x = group, y = cbcl), col = "group") + 
+ggplot(et_erp_subject, aes(x = group, y = CBCL), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
@@ -209,7 +247,7 @@ ggplot(et_erp_subject, aes(x = group, y = cbcl), col = "group") +
   theme(plot.title = element_text(face = "bold"))
 
 ## Plot: YSR
-ggplot(et_erp_subject, aes(x = group, y = ysr), col = "group") + 
+ggplot(et_erp_subject, aes(x = group, y = YSR), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
@@ -220,7 +258,7 @@ ggplot(et_erp_subject, aes(x = group, y = ysr), col = "group") +
   theme(plot.title = element_text(face="bold"))
 
 ## Plot: SP2-Auditiv
-ggplot(et_erp_subject, aes(x = group, y = sp2), col = "group") + 
+ggplot(et_erp_subject, aes(x = group, y = SP2), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
@@ -230,14 +268,8 @@ ggplot(et_erp_subject, aes(x = group, y = sp2), col = "group") +
   ggtitle("SP2-Auditiv") +
   theme(plot.title = element_text(face="bold"))
 
-## Age
-age_df <- data.frame()
-for (id in unique(et_erp_subject$SEGA_ID)) {
-  SEGA_ID_df <- et_erp_subject[et_erp_subject$SEGA_ID == id, c("SEGA_ID", "group", "age")]
-  age_df <- rbind(age_df, SEGA_ID_df)
-}
-age_df <- age_df[!duplicated(age_df), ]
-
+## Plot: Age
+age_df <- et_erp_subject[!duplicated(et_erp_subject$SEGA_ID), c("SEGA_ID", "group", "age")]
 ggplot(age_df, aes(x = group, y = age), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_jitter() +
@@ -247,7 +279,29 @@ ggplot(age_df, aes(x = group, y = age), col = "group") +
   theme_bw() + 
   theme_classic() +
   ggtitle("Age") +
-  #scale_y_continuous(limits = )
+  theme(plot.title = element_text(face="bold"))
+
+## Plot: IQ-verbal
+IQ_df <- et_erp_subject[!duplicated(et_erp_subject$SEGA_ID), c("SEGA_ID", "group", "verbal_IQ", "non_verbal_IQ")]
+ggplot(IQ_df, aes(x = group, y = verbal_IQ), col = "group") + 
+  geom_boxplot(fill = "grey") +
+  geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
+              map_signif_level=TRUE,
+              y_position = c(135, 140, 130)) +
+  theme_bw() + 
+  theme_classic() +
+  ggtitle("IQ-verbal") +
+  theme(plot.title = element_text(face="bold"))
+
+## Plot: IQ-non-verbal
+ggplot(IQ_df, aes(x = group, y = non_verbal_IQ), col = "group") + 
+  geom_boxplot(fill = "grey") +
+  geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
+              map_signif_level=TRUE,
+              y_position = c(135, 140, 130)) +
+  theme_bw() + 
+  theme_classic() +
+  ggtitle("IQ-non-verbal") +
   theme(plot.title = element_text(face="bold"))
 
 # RESULT 1: MMN AMPLITUDE ON SUBJECT LEVEL
@@ -257,9 +311,12 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm)
 
-emmeans(lmm, list(pairwise ~ trial))
-emmeans(lmm, list(pairwise ~ manipulation|block))
-emmip(lmm, ~ manipulation |block, CI = T)
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
+
+contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
+emmip(lmm, ~ manipulation | block, CIs = T)
 
 # RESULT 2: MMN LATENCY ON SUBJECT LEVEL
 lmm <- lmer(
@@ -275,17 +332,13 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emmeans(lmm, ~ trial|group)
-contrast(emmeans(lmm, ~ trial|group))
+contrast(emmeans(lmm, ~ trial|group), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial|group), "pairwise"))
 emmip(lmm, ~ trial|group, CI = T)
 
 emmeans(lmm, ~ manipulation|block)
 contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
 emmip(lmm, ~ manipulation|block, CI = T)
-
-emmeans(lmm, ~ group * trial|block)
-contrast(emmeans(lmm, ~ group * trial|block), "pairwise")
-emmip(lmm, ~ trial|group * block, CI = T)
 
 # RESULT 4: P3A LATENCY ON SUBJECT LEVEL
 lmm <- lmer(
@@ -294,7 +347,8 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emmeans(lmm, list(pairwise ~ trial))
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
 
 # RESULT 5: P3B AMPLITUDE ON SUBJECT LEVEL
 lmm <- lmer(
@@ -303,8 +357,13 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emmeans(lmm, list(pairwise ~ trial))
-emmeans(lmm, list(pairwise ~ manipulation))
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
+emmip(lmm, ~ trial, CI = T)
+
+contrast(emmeans(lmm, ~ manipulation), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation), "pairwise"))
+emmip(lmm, ~ manipulation, CI = T)
 
 # RESULT 6: P3B LATENCY ON SUBJECT LEVEL
 lmm <- lmer(
@@ -313,9 +372,9 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emmeans(lmm, list(pairwise ~ trial))
-emmeans(lmm, list(pairwise ~ group|trial * manipulation), adjust = "tukey")
-emmip(lmm, ~ group | trial * manipulation, CI = T)
+contrast(emmeans(lmm, ~ group|manipulation*trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ group|manipulation*trial), "pairwise"))
+emmip(lmm, ~ manipulation|group*trial, CI = T)
 
 # RESULT 7: SEPR ON SUBJECT LEVEL
 lmm <- lmer(
@@ -324,7 +383,8 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emmeans(lmm, list(pairwise ~ trial))
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
 
 # RESULT 6: BPS ON SUBJECT LEVEL
 lmm <- lmer(
@@ -333,9 +393,12 @@ lmm <- lmer(
 anova(lmm) 
 r2_nakagawa(lmm) 
 
-emmeans(lmm, list(pairwise ~ manipulation|group))
+contrast(emmeans(lmm, ~ manipulation|group), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|group), "pairwise"))
 emmip(lmm, ~ manipulation | group, CIs = T)
-emmeans(lmm, list(pairwise ~ manipulation|block))
+
+contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
 emmip(lmm, ~ manipulation | block, CIs = T)
 
 # Does BPS predict SEPR?
@@ -347,8 +410,7 @@ r2_nakagawa(lmm)
 
 emtrends(lmm, ~ group, var = "z_rpd_low")
 contrast(emtrends(lmm, ~ group, var = "z_rpd_low"))
-emtrends(lmm, ~ trial * manipulation * block, var = "z_rpd_low")
-contrast(emtrends(lmm, ~ trial * manipulation * block, var = "z_rpd_low"))
+confint(contrast(emtrends(lmm, ~ group, var = "z_rpd_low")))
 
 # RESULT 8: CORRELATION: PUPIL DATA AND ERPs ON SUBJECT LEVEL
 crl <- cor(et_erp_subject[et_erp_subject$trial == "Oddball", c(
@@ -388,7 +450,8 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm)
 
-emtrends(lmm, ~ z_rpd_low * trial * z_rpd, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
+emtrends(lmm, ~ z_rpd_low * z_rpd | trial, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
+contrast(emtrends(lmm, ~ z_rpd_low * z_rpd | trial, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2))))
 
 lmm <- lmer(
   z_P3a_amplitude ~ z_rpd * z_rpd_low * trial *  manipulation * group + (1|SEGA_ID) + age + gender,
@@ -396,7 +459,14 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm)
 
-emtrends(lmm, ~ z_rpd * trial * group * manipulation, var = 'z_rpd')
+### post-hoc: SEPR x manipulation x group
+emtrends(lmm, ~ z_rpd  * manipulation | group * trial, var = 'z_rpd')
+contrast(emtrends(lmm, ~ z_rpd  * manipulation | group * trial, var = 'z_rpd'))
+
+### post-hoc: BPS x trial x group
+emtrends(lmm, ~ z_rpd_low * trial * group, var = 'z_rpd_low')
+contrast(emtrends(lmm, ~ z_rpd_low * trial * group, var = 'z_rpd_low'))
+confint(contrast(emtrends(lmm, ~ z_rpd_low * trial * group, var = 'z_rpd_low')))
 
 lmm <- lmer(
   z_P3b_amplitude ~ z_rpd * z_rpd_low * trial *  manipulation * group + (1|SEGA_ID) + age + gender,
@@ -434,9 +504,13 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emmeans(lmm, list(pairwise ~ trial))
-emmeans(lmm, list(pairwise ~ manipulation|block))
-emmip(lmm, ~ manipulation|block, CI = T)
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
+emmip(lmm, ~ trial, CIs = T)
+
+contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
+emmip(lmm, ~ manipulation | block, CIs = T)
 
 # RESULT 9: MMN LATENCY ON TRIAL LEVEL
 lmm <- lmer(
@@ -445,9 +519,8 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emmeans(lmm, list(pairwise ~ trial))
-emmeans(lmm, list(pairwise ~ manipulation|block))
-emmip(lmm, ~ manipulation|block, CI = T)
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
 
 # RESULT 10: P3A AMPLITUDE ON TRIAL LEVEL
 lmm <- lmer(
@@ -458,8 +531,9 @@ r2_nakagawa(lmm)
 
 contrast(emmeans(lmm, ~ trial | group))
 emmeans(lmm, ~ trial | group)
-emmeans(lmm, list(pairwise ~ manipulation|block))
-emmip(lmm, ~ manipulation|block, CI = T)
+contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
+emmip(lmm, ~ manipulation | block, CIs = T)
 
 # RESULT 11: P3A LATENCY ON TRIAL LEVEL
 lmm <- lmer(
@@ -468,7 +542,8 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm)
 
-emmeans(lmm, list(pairwise ~ trial))
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
 emmip(lmm, ~block|group * manipulation|trial, CIs = T)
 
 # RESULT 12: SEPR ON TRIAL LEVEL
@@ -537,12 +612,16 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emmeans(lmm, list(pairwise ~ manipulation|group))
-emmip(lmm, ~ manipulation|group, CIs = T)
-emmeans(lmm, list(pairwise ~ block|group))
-emmip(lmm, ~ block|group, CIs = T)
-emmeans(lmm, list(pairwise ~ manipulation|block))
-emmip(lmm, ~ manipulation|block, CIs = T)
+contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
+emmip(lmm, ~ manipulation | block, CIs = T)
+
+contrast(emmeans(lmm, ~ manipulation|group), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|group), "pairwise"))
+emmip(lmm, ~ manipulation | group, CIs = T)
+
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
 
 # EXPLORATORY: BPS OVER TASK
 lmm <- lmer(
@@ -608,14 +687,28 @@ ggscatter(et_erp_trial[et_erp_trial$trial == "standard", ],
           ylab = "scaled SEPR (rpd)",
           title = "Association between SEPR + BPS in standard trials")
 
+## Does BPS predict SEPR?
 lmm <- lmer(
-  z_rpd ~ z_rpd_low * trial * manipulation * group * block + (1|SEGA_ID),
+  z_rpd ~ z_rpd_low * trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emtrends(lmm, ~ manipulation|block, var = "z_rpd_low")
+### post-hoc: BPS x manipulation x block
+emtrends(lmm, ~ manipulation * block, var = "z_rpd_low")
+contrast(emtrends(lmm, ~ manipulation * block, var = "z_rpd_low"))
+confint(contrast(emtrends(lmm, ~ manipulation * block, var = "z_rpd_low")))
+plot(emtrends(lmm, ~ manipulation * block, var = "z_rpd_low"))
+
+emtrends(lmm, ~ block|manipulation, var = "z_rpd_low")
+contrast(emtrends(lmm, ~ block|manipulation, var = "z_rpd_low"))
+confint(contrast(emtrends(lmm, ~ block|manipulation, var = "z_rpd_low")))
+
+### post-hoc: BPS x manipulation x group
 emtrends(lmm, ~ group|manipulation, var = "z_rpd_low")
+contrast(emtrends(lmm, ~ group|manipulation, var = "z_rpd_low"))
+confint(contrast(emtrends(lmm, ~ group|manipulation, var = "z_rpd_low")))
+plot(emtrends(lmm, ~ group|manipulation, var = "z_rpd_low"))
 
 # RESULT 15: Correlation: Pupil-ERP
 crl <- cor(et_erp_trial[et_erp_trial$trial == "oddball", c(
@@ -654,7 +747,9 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm)
 
-emtrends(lmm, ~ z_rpd_low * group * z_rpd, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
+emtrends(lmm, ~ z_rpd_low * z_rpd | group, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
+contrast(emtrends(lmm, ~ z_rpd_low * z_rpd | group, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2))))
+confint(contrast(emtrends(lmm, ~ z_rpd_low * z_rpd | group, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))))
 
 ## P3a amplitude
 lmm <- lmer(
@@ -664,12 +759,11 @@ anova(lmm)
 r2_nakagawa(lmm)
 
 emtrends(lmm, ~ manipulation | group, var = c("z_rpd_low"))
-plot(emtrends(lmm, ~ manipulation | group, var = c("z_rpd_low")))
-emtrends(lmm, ~ manipulation, var = c("z_rpd_low"))
-emmeans(
-  lmm, list(pairwise ~ group), adjust = "tukey")
-emmeans(
-  lmm, list(pairwise ~ manipulation), adjust = "tukey")
+contrast(emtrends(lmm, ~ manipulation | group, var = c("z_rpd_low")))
+confint(contrast(emtrends(lmm, ~ manipulation | group, var = c("z_rpd_low"))))
+
+emtrends(lmm, ~ z_rpd_low * z_rpd | manipulation, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
+contrast(emtrends(lmm, ~ z_rpd_low * z_rpd | manipulation, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2))))
 
 # RESULT 17: EXPLORATORY ANALYSIS OF MODEL FIT FOR "trial_number_in_block" ON BPS
 linear_fit <- lmer(

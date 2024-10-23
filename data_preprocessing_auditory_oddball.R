@@ -1595,6 +1595,22 @@ for (row in 1:length(ET_df$SEGA_ID)) {
 }
 ET_df$group <- as.factor(ET_df$group)
 
+# Include IQ from .csv file
+for (row in 1:length(ET_df$SEGA_ID)) {
+  SEGA_ID_df <- ET_df[row, "SEGA_ID"]
+  print(paste("id", SEGA_ID_df))
+  row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
+  MT <- exp_groups[row_number, "MT"]
+  GF <- exp_groups[row_number, "GF"]
+  MZ <- exp_groups[row_number, "MZ"]
+  WT <- exp_groups[row_number, "WT"]
+  GF_WT <- c(GF, WT)
+  MT_MZ <- c(MT, MZ)
+  verbal_IQ <- mean(GF_WT, na.rm = T)
+  non_verbal_IQ <- mean(MT_MZ, na.rm = T)
+  ET_df[row, "verbal_IQ"] <- verbal_IQ
+  ET_df[row, "non_verbal_IQ"] <- non_verbal_IQ}
+
 ET_ERP_subject <- merge(ET_df, ERP_df, by = c("SEGA_ID", "block", "trial", "manipulation", 'group'), all = T)
 
 # Add sample characteristics to ET_ERP_subject
