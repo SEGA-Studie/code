@@ -812,16 +812,19 @@ sample_characteristics$age <- as.numeric(
            units = "weeks"))/52.25
 
 # Add sample characteristics to ET_ERP_trial
-for (row in 1:length(ET_ERP_trial$SEGA_ID)) {
+as.numeric(sample_characteristics$SEGA_ID)
+for (row in 1:nrow(ET_ERP_trial)) {
   SEGA_ID_df <- ET_ERP_trial[row, "SEGA_ID"]
+  if (!(SEGA_ID_df %in% sample_characteristics$SEGA_ID)) {
+    next}
   row_number <- which(sample_characteristics$SEGA_ID == SEGA_ID_df)
-  gender <- sample_characteristics[row_number, "Geschlecht_Index"]
-  age <- sample_characteristics[row_number, "age"]
-  SCQ <- sample_characteristics[row_number, "FSK_ges"]
-  SRS <- sample_characteristics[row_number, "SRS_Gesamtwert_N_k_RW"]
-  CBCL <- sample_characteristics[row_number, "CBCL_T_GES"]
-  YSR <- sample_characteristics[row_number, "YSR_T_GES"]
-  SP2 <- sample_characteristics[row_number, "SP2_Eltern_RW_Auditiv"]
+  gender <- sample_characteristics[[row_number, "Geschlecht_Index"]]
+  age <- sample_characteristics[[row_number, "age"]]
+  SCQ <- sample_characteristics[[row_number, "FSK_ges"]]
+  SRS <- sample_characteristics[[row_number, "SRS_Gesamtwert_N_k_RW"]]
+  CBCL <- sample_characteristics[[row_number, "CBCL_T_GES"]]
+  YSR <- sample_characteristics[[row_number, "YSR_T_GES"]]
+  SP2 <- sample_characteristics[[row_number, "SP2_Eltern_RW_Auditiv"]]
   ET_ERP_trial[row, "gender"] <- gender
   ET_ERP_trial[row, "age"] <- age
   ET_ERP_trial[row, "SCQ"] <- SCQ
@@ -1598,7 +1601,6 @@ ET_df$group <- as.factor(ET_df$group)
 # Include IQ from .csv file
 for (row in 1:length(ET_df$SEGA_ID)) {
   SEGA_ID_df <- ET_df[row, "SEGA_ID"]
-  print(paste("id", SEGA_ID_df))
   row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
   MT <- exp_groups[row_number, "MT"]
   GF <- exp_groups[row_number, "GF"]
@@ -1616,14 +1618,16 @@ ET_ERP_subject <- merge(ET_df, ERP_df, by = c("SEGA_ID", "block", "trial", "mani
 # Add sample characteristics to ET_ERP_subject
 for (row in 1:length(ET_ERP_subject$SEGA_ID)) {
   SEGA_ID_df <- ET_ERP_subject[row, "SEGA_ID"]
+  if (!(SEGA_ID_df %in% sample_characteristics$SEGA_ID)) {
+    next}
   row_number <- which(sample_characteristics$SEGA_ID == SEGA_ID_df)
-  gender <- sample_characteristics[row_number, "Geschlecht_Index"]
-  age <- sample_characteristics[row_number, "age"]
-  SCQ <- sample_characteristics[row_number, "FSK_ges"]
-  SRS <- sample_characteristics[row_number, "SRS_Gesamtwert_N_k_RW"]
-  CBCL <- sample_characteristics[row_number, "CBCL_T_GES"]
-  YSR <- sample_characteristics[row_number, "YSR_T_GES"]
-  SP2 <- sample_characteristics[row_number, "SP2_Eltern_RW_Auditiv"]
+  gender <- sample_characteristics[[row_number, "Geschlecht_Index"]]
+  age <- sample_characteristics[[row_number, "age"]]
+  SCQ <- sample_characteristics[[row_number, "FSK_ges"]]
+  SRS <- sample_characteristics[[row_number, "SRS_Gesamtwert_N_k_RW"]]
+  CBCL <- sample_characteristics[[row_number, "CBCL_T_GES"]]
+  YSR <- sample_characteristics[[row_number, "YSR_T_GES"]]
+  SP2 <- sample_characteristics[[row_number, "SP2_Eltern_RW_Auditiv"]]
   ET_ERP_subject[row, "gender"] <- gender
   ET_ERP_subject[row, "age"] <- age
   ET_ERP_subject[row, "SCQ"] <- SCQ
@@ -1658,3 +1662,193 @@ saveRDS(ET_ERP_subject,file=paste0(home_path,project_path,'/data/preprocessed_au
 
 
 saveRDS(df, file = paste0(home_path, project_path, '/data/preprocessed_auditory_df.rds'))
+
+### MMN Difference Wave
+list_diff_MMN <- lapply(
+  data_files_diff_MMN,
+  read.table,
+  header = TRUE,
+  fill = TRUE,
+  skip = 2)
+
+df_MMN_500oddball_diff <- list_diff_MMN[[1]]
+df_MMN_750oddball_diff <- list_diff_MMN[[2]]
+
+# Change column names for 500Hz-MMN_diff data frame
+names(df_MMN_500oddball_diff) <- c(
+  "id",
+  "L-Peak_MMN_Oddball_500_Hz_before_diff",
+  "L-Peak_MMN_Oddball_rev_750_Hz_before_diff",
+  "L-Peak_MMN_Oddball_500_Hz_after_diff",
+  "L-Peak_MMN_Oddball_rev_750_Hz_after_diff",
+  "MMN-Peak_MMN_Oddball_500_Hz_before_diff",
+  "MMN-Peak_MMN_Oddball_rev_750_Hz_before_diff",
+  "MMN-Peak_MMN_Oddball_500_Hz_after_diff",
+  "MMN-Peak_MMN_Oddball_rev_750_Hz_after_diff"
+)
+
+# Change column names for 750Hz-MMN_diff data frame
+names(df_MMN_750oddball_diff) <- c(
+  "id",
+  "L-Peak Detection_MMN_Oddball_750_Hz_before_diff",
+  "L-Peak Detection_MMN_Oddball_rev_500_Hz_before_diff",
+  "L-Peak Detection_MMN_Oddball_750_Hz_after_diff",
+  "L-Peak Detection_MMN_Oddball_rev_500_Hz_after_diff",
+  "MMN-Peak Detection_MMN_Oddball_750_Hz_before_diff",
+  "MMN-Peak Detection_MMN_Oddball_rev_500_Hz_before_diff",
+  "MMN-Peak Detection_MMN_Oddball_750_Hz_after_diff",
+  "MMN-Peak Detection_MMN_Oddball_rev_500_Hz_after_diff"
+)
+
+# Remove empty columns + rows from MMN diff data
+df_MMN_500oddball_diff <- Filter(function(x)!all(is.na(x)), df_MMN_500oddball_diff)
+df_MMN_500oddball_diff <- df_MMN_500oddball_diff[!(df_MMN_500oddball_diff$`L-Peak_MMN_Oddball_500_Hz_before_diff` == "???"), ]
+df_MMN_750oddball_diff <- Filter(function(x)!all(is.na(x)), df_MMN_750oddball_diff)
+df_MMN_750oddball_diff <- df_MMN_750oddball_diff[!(df_MMN_750oddball_diff$`L-Peak Detection_MMN_Oddball_750_Hz_before_diff` == "???"), ]
+
+# Replace commas with point decimals
+for (i in 2:ncol(df_MMN_500oddball_diff)) {
+  df_MMN_500oddball_diff[, i] <- as.numeric(gsub(",", ".", df_MMN_500oddball_diff[, i]))
+}
+for (i in 2:ncol(df_MMN_750oddball_diff)) {
+  df_MMN_750oddball_diff[, i] <- as.numeric(gsub(",", ".", df_MMN_750oddball_diff[, i]))
+}
+
+# MMN_DIFF AMPLITUDE
+MMN_amplitude_500_diff <- df_MMN_500oddball_diff[c(
+  "id",
+  "MMN-Peak_MMN_Oddball_500_Hz_before_diff",
+  "MMN-Peak_MMN_Oddball_rev_750_Hz_before_diff",
+  "MMN-Peak_MMN_Oddball_500_Hz_after_diff",
+  "MMN-Peak_MMN_Oddball_rev_750_Hz_after_diff"
+)]
+reshaped_MMN_amplitude_500_diff <- reshape::melt(MMN_amplitude_500_diff, id = "id")
+
+# Additional variables and correct 3 SEGA-IDs
+reshaped_MMN_amplitude_500_diff$block <- as.factor(ifelse(grepl("rev", reshaped_MMN_amplitude_500_diff$variable), "reverse", "forward"))
+reshaped_MMN_amplitude_500_diff$manipulation <- as.factor(str_extract(reshaped_MMN_amplitude_500_diff$variable, "before|after"))
+reshaped_MMN_amplitude_500_diff$pitch <- as.factor(str_extract(reshaped_MMN_amplitude_500_diff$variable, "500|750"))
+reshaped_MMN_amplitude_500_diff$id <- str_replace(
+  reshaped_MMN_amplitude_500_diff$id, "SEGA_AuditoryOddball_022_24102022", "SEGA_022_AuditoryOddball_24102022")
+reshaped_MMN_amplitude_500_diff$SEGA_ID <- as.factor(substr(reshaped_MMN_amplitude_500_diff$id, 6, 8))
+reshaped_MMN_amplitude_500_diff$SEGA_ID <- sub("^0+", "", reshaped_MMN_amplitude_500_diff$SEGA_ID)
+
+# Delete unnecessary 2 columns
+reshaped_MMN_amplitude_500_diff <- subset(reshaped_MMN_amplitude_500_diff, select = -c(variable, id))
+
+# Rename column with MMN amplitude values
+colnames(reshaped_MMN_amplitude_500_diff)[colnames(reshaped_MMN_amplitude_500_diff) == "value"] <- "MMN_amplitude_diff"
+
+MMN_amplitude_750_diff <- df_MMN_750oddball_diff[c(
+  "id",
+  "MMN-Peak Detection_MMN_Oddball_750_Hz_before_diff",
+  "MMN-Peak Detection_MMN_Oddball_rev_500_Hz_before_diff",
+  "MMN-Peak Detection_MMN_Oddball_750_Hz_after_diff",
+  "MMN-Peak Detection_MMN_Oddball_rev_500_Hz_after_diff"
+)]
+reshaped_MMN_amplitude_750_diff <- reshape::melt(MMN_amplitude_750_diff, id = "id")
+
+# Additional variables an correct 3 SEGA-IDs
+reshaped_MMN_amplitude_750_diff$block <- as.factor(ifelse(grepl("rev", reshaped_MMN_amplitude_750_diff$variable), "reverse", "forward"))
+reshaped_MMN_amplitude_750_diff$manipulation <- as.factor(str_extract(reshaped_MMN_amplitude_750_diff$variable, "before|after"))
+reshaped_MMN_amplitude_750_diff$pitch <- as.factor(str_extract(reshaped_MMN_amplitude_750_diff$variable, "500|750"))
+reshaped_MMN_amplitude_750_diff$id <- str_replace(
+  reshaped_MMN_amplitude_750_diff$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
+reshaped_MMN_amplitude_750_diff$id <- str_replace(
+  reshaped_MMN_amplitude_750_diff$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
+reshaped_MMN_amplitude_750_diff$SEGA_ID <- as.factor(substr(reshaped_MMN_amplitude_750_diff$id, 6, 8))
+reshaped_MMN_amplitude_750_diff$SEGA_ID <- sub("^0+", "", reshaped_MMN_amplitude_750_diff$SEGA_ID)
+
+# Delete unnecessary 2 columns
+reshaped_MMN_amplitude_750_diff <- subset(reshaped_MMN_amplitude_750_diff, select = -c(variable, id))
+
+# Rename column with MMN amplitude values
+colnames(reshaped_MMN_amplitude_750_diff)[colnames(reshaped_MMN_amplitude_750_diff) == "value"] <- "MMN_amplitude_diff"
+
+# combine 500 + 750 MMN amplitude diff in MMN_amplitude_diff_df
+MMN_amplitude_diff_df <- rbind(reshaped_MMN_amplitude_500_diff, reshaped_MMN_amplitude_750_diff)
+
+# MMN_DIFF LATENCY
+MMN_latency_500_diff <- df_MMN_500oddball_diff[c(
+  "id",
+  "L-Peak_MMN_Oddball_500_Hz_before_diff",
+  "L-Peak_MMN_Oddball_rev_750_Hz_before_diff",
+  "L-Peak_MMN_Oddball_500_Hz_after_diff",
+  "L-Peak_MMN_Oddball_rev_750_Hz_after_diff"
+)]
+reshaped_MMN_latency_500_diff <- reshape::melt(MMN_latency_500_diff, id = "id")
+
+# Additional variables and correct 3 SEGA-IDs
+reshaped_MMN_latency_500_diff$block <- as.factor(ifelse(grepl("rev", reshaped_MMN_latency_500_diff$variable), "reverse", "forward"))
+reshaped_MMN_latency_500_diff$manipulation <- as.factor(str_extract(reshaped_MMN_latency_500_diff$variable, "before|after"))
+reshaped_MMN_latency_500_diff$pitch <- as.factor(str_extract(reshaped_MMN_latency_500_diff$variable, "500|750"))
+reshaped_MMN_latency_500_diff$id <- str_replace(
+  reshaped_MMN_latency_500_diff$id, "SEGA_AuditoryOddball_022_24102022", "SEGA_022_AuditoryOddball_24102022")
+reshaped_MMN_latency_500_diff$SEGA_ID <- as.factor(substr(reshaped_MMN_latency_500_diff$id, 6, 8))
+reshaped_MMN_latency_500_diff$SEGA_ID <- sub("^0+", "", reshaped_MMN_latency_500_diff$SEGA_ID)
+
+# Delete unnecessary 2 columns
+reshaped_MMN_latency_500_diff <- subset(reshaped_MMN_latency_500_diff, select = -c(variable, id))
+
+# Rename column with MMN amplitude values
+colnames(reshaped_MMN_latency_500_diff)[colnames(reshaped_MMN_latency_500_diff) == "value"] <- "MMN_latency_diff"
+
+MMN_latency_750_diff <- df_MMN_750oddball_diff[c(
+  "id",
+  "L-Peak Detection_MMN_Oddball_750_Hz_before_diff",
+  "L-Peak Detection_MMN_Oddball_rev_500_Hz_before_diff",
+  "L-Peak Detection_MMN_Oddball_750_Hz_after_diff",
+  "L-Peak Detection_MMN_Oddball_rev_500_Hz_after_diff"
+)]
+reshaped_MMN_latency_750_diff <- reshape::melt(MMN_latency_750_diff, id = "id")
+
+# Additional variables and correct 3 SEGA-IDs
+reshaped_MMN_latency_750_diff$block <- as.factor(ifelse(grepl("rev", reshaped_MMN_latency_750_diff$variable), "reverse", "forward"))
+reshaped_MMN_latency_750_diff$manipulation <- as.factor(str_extract(reshaped_MMN_latency_750_diff$variable, "before|after"))
+reshaped_MMN_latency_750_diff$pitch <- as.factor(str_extract(reshaped_MMN_latency_750_diff$variable, "500|750"))
+reshaped_MMN_latency_750_diff$id <- str_replace(
+  reshaped_MMN_latency_750_diff$id, "SEGA_AuditoryOddball_022_24102022", "SEGA_022_AuditoryOddball_24102022")
+reshaped_MMN_latency_750_diff$SEGA_ID <- as.factor(substr(reshaped_MMN_latency_750_diff$id, 6, 8))
+reshaped_MMN_latency_750_diff$SEGA_ID <- sub("^0+", "", reshaped_MMN_latency_750_diff$SEGA_ID)
+
+# Delete unnecessary 2 columns
+reshaped_MMN_latency_750_diff <- subset(reshaped_MMN_latency_750_diff, select = -c(variable, id))
+
+# Rename column with MMN amplitude values
+colnames(reshaped_MMN_latency_750_diff)[colnames(reshaped_MMN_latency_750_diff) == "value"] <- "MMN_latency_diff"
+
+# combine 500 + 750 MMN latency diff in MMN_amplitude_diff_df
+MMN_latency_diff_df <- rbind(reshaped_MMN_latency_500_diff, reshaped_MMN_latency_750_diff)
+
+MMN_diff_df <- merge(MMN_amplitude_diff_df, MMN_latency_diff_df, by = c("SEGA_ID", "block", "manipulation", "pitch"))
+
+
+# Include experimental group from .csv file in MMN_amplitude_diff_df
+for (row in 1:length(MMN_diff_df$SEGA_ID)) {
+  SEGA_ID_df <- MMN_diff_df[row, "SEGA_ID"]
+  row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
+  group <- exp_groups[row_number, "group"]
+  MMN_diff_df[row, "group"] <- group
+}
+
+# Add age + gender to MMN_amplitude_diff_df
+for (row in 1:length(MMN_diff_df$SEGA_ID)) {
+  SEGA_ID_df <- MMN_diff_df[row, "SEGA_ID"]
+  row_number <- which(sample_characteristics$SEGA_ID == SEGA_ID_df)
+  gender <- sample_characteristics[row_number, "Geschlecht_Index"]
+  age <- sample_characteristics[row_number, "age"]
+  MMN_diff_df[row, "gender"] <- gender
+  MMN_diff_df[row, "age"] <- age
+}
+
+# Correct data types for analysis
+MMN_diff_df$gender <- as.factor(MMN_diff_df$gender)
+MMN_diff_df$group <- as.factor(MMN_diff_df$group)
+MMN_diff_df$SEGA_ID <- as.factor(MMN_diff_df$SEGA_ID)
+
+# Scaled values for correlation plots of dependent variables
+MMN_diff_df$z_MMN_diff_amplitude <- as.numeric(scale(MMN_diff_df$MMN_amplitude_diff))
+MMN_diff_df$z_MMN_diff_latency <- as.numeric(scale(MMN_diff_df$MMN_latency_diff))
+
+# Save .Rds file for MMN difference waves analysis
+saveRDS(MMN_diff_df,file=paste0(home_path,project_path,'/data/preprocessed_auditory_MMN_diff.rds'))
