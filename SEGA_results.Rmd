@@ -75,6 +75,7 @@ if (Sys.info()["sysname"] == "Darwin") {
 et_erp_subject <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_subject.rds'))
 et_erp_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_trial.rds'))
 df_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
+MMN_diff <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_MMN_diff.rds'))
 ```
 
 # **Subject Level**
@@ -343,13 +344,30 @@ r2_nakagawa(lmm)
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
+emmip(lmm, ~ trial, linearg = list(linetype = "blank"),  CIs = T)
 ```
 
 ### Post-hoc: manipulation x block
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
 confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
-emmip(lmm, ~ manipulation | block, CIs = T)
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+```
+
+### Post-hoc: for.rev vs. aft.for
+```{r, warning=FALSE}
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
+```
+
+### Post-hoc: for.rev. vs. aft.rev.
+```{r, warning=FALSE}
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
 ```
 
 ## MMN Latency
@@ -358,6 +376,26 @@ emmip(lmm, ~ manipulation | block, CIs = T)
 lmm <- lmer(
   z_MMN_latency ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
   data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+```
+
+## MMN Diff Amplitude
+### Main Model
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_MMN_diff_amplitude ~  manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = MMN_diff)
+anova(lmm)
+r2_nakagawa(lmm)
+```
+
+## MMN Diff Latency
+### Main Model
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_MMN_diff_latency ~  manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = MMN_diff)
 anova(lmm)
 r2_nakagawa(lmm)
 ```
@@ -376,14 +414,30 @@ r2_nakagawa(lmm)
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ trial|group), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial|group), "pairwise"))
-emmip(lmm, ~ trial|group, CI = T)
+emmip(lmm, ~ trial|group, linearg = list(linetype = "blank"), CI = T)
 ```
 
 ### Post-hoc: manipulation x block
 ```{r, warning=FALSE}
 emmeans(lmm, ~ manipulation|block)
 contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
-emmip(lmm, ~ manipulation|block, CI = T)
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+```
+
+### Post-hoc: bef.rev. vs. aft.for.
+```{r, warning=FALSE}
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, -1, 1, 0)), infer = T)
+```
+
+### Post-hoc: bef.rev. vs. aft.rev.
+```{r, warning=FALSE}
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
 ```
 
 ## P3a Latency
@@ -400,6 +454,7 @@ r2_nakagawa(lmm)
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
+emmip(lmm, ~ trial|group, linearg = list(linetype = "blank"), CI = T)
 ```
 
 ## P3b Amplitude
@@ -416,14 +471,14 @@ r2_nakagawa(lmm)
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
-emmip(lmm, ~ trial, CI = T)
+emmip(lmm, ~ trial, linearg = list(linetype = "blank"), CI = T)
 ```
 
 #### Post-hoc: manipulation
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ manipulation), "pairwise")
 confint(contrast(emmeans(lmm, ~ manipulation), "pairwise"))
-emmip(lmm, ~ manipulation, CI = T)
+emmip(lmm, ~ manipulation,  linearg = list(linetype = "blank"), CI = T)
 ```
 
 ## P3b Latency
@@ -440,7 +495,14 @@ r2_nakagawa(lmm)
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ group|manipulation*trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ group|manipulation*trial), "pairwise"))
-emmip(lmm, ~ manipulation|group*trial, CI = T)
+emmip(lmm, ~ manipulation|group*trial, linearg = list(linetype = "blank"), CI = T)
+```
+
+#### Post-hoc: trial x manipulation x block
+```{r, warning=FALSE}
+contrast(emmeans(lmm, ~ manipulation*trial|block), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation*trial|block), "pairwise"))
+emmip(lmm, ~ manipulation|trial*block, CI = T)
 ```
 
 ## SEPR
@@ -486,6 +548,25 @@ emmip(lmm, ~ manipulation | group, CIs = T)
 contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
 confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
 emmip(lmm, ~ manipulation | block, CIs = T)
+```
+
+### Post-hoc: bef.rev. vs. aft.for.
+```{r, warning=FALSE}
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+```
+
+### Post-hoc: bef.rev. vs. aft.rev.
+```{r, warning=FALSE}
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 ```
 
 ## Does BPS predict SEPR?
@@ -586,6 +667,24 @@ emmeans(lmm, list(pairwise ~ manipulation|block))
 emmip(lmm, ~ manipulation|block, CI = T)
 ```
 
+### Post-hoc: bef.rev. vs. aft.for.
+```{r, warning=FALSE}
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+```
+
+### Post-hoc: bef.rev. vs. aft.rev.
+```{r, warning=FALSE}
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+```
+
 ## MMN Latency
 ### Main model
 ```{r, warning=FALSE}
@@ -605,13 +704,28 @@ emmeans(lmm, list(pairwise ~ trial))
 ```{r, warning=FALSE}
 emmeans(lmm, list(pairwise ~ manipulation|block))
 emmip(lmm, ~ manipulation|block, CI = T)
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 ```
 
+### Post-hoc: bef.rev. vs. aft.for.
+```{r, warning=FALSE}
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
+```
+
+### Post-hoc: bef.rev. vs. aft.rev.
+```{r, warning=FALSE}
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
+```
+ 
 ## P3a Amplitude
 ### Main model
 ```{r, warning=FALSE}
 lmm <- lmer(
-  z_P3a_amplitude ~ trial * manipulation * group * block + (1|SEGA_ID),
+  z_P3a_amplitude ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm) 
@@ -619,22 +733,38 @@ r2_nakagawa(lmm)
 
 ### Post-hoc: trial x group
 ```{r, warning=FALSE}
-contrast(emmeans(lmm, ~ trial | group))
-emmeans(lmm, ~ trial | group)
+contrast(emmeans(lmm, ~ trial|group), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial|group), "pairwise"))
+emm <- emmeans(lmm, ~ trial * group)
+emmip(lmm, ~ trial * group, linearg = list(linetype = "blank"), CIs = T)
 ```
 
 ### Post-hoc: manipulation x block
 ```{r, warning=FALSE}
-contrast(emmeans(lmm, ~ manipulation | block), "pairwise")
-emmeans(lmm, ~ manipulation | block)
-emmip(lmm, ~ manipulation | block, CIs = T)
+contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+```
+
+### Post-hoc: bef.rev. vs. aft.for.
+```{r, warning=FALSE}
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
+```
+
+### Post-hoc: bef.rev. vs. aft.rev.
+```{r, warning=FALSE}
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
 ```
 
 ## P3a Latency
 ### Main model
 ```{r, warning=FALSE}
 lmm <- lmer(
-  z_P3a_latency ~ trial * manipulation * group * block + (1|SEGA_ID),
+  z_P3a_latency ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm)
@@ -642,12 +772,13 @@ r2_nakagawa(lmm)
 
 ### Post-hoc: trial
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ trial))
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
 ```
 
 ### Plot: trial x manipulation x group x block
 ```{r, warning=FALSE}
-emmip(lmm, ~block|group * manipulation|trial, CIs = T)
+emmip(lmm, ~block|group * manipulation|trial, linearg = list(linetype = "blank"), CIs = T)
 ```
  
 ## SEPR
@@ -661,7 +792,9 @@ r2_nakagawa(lmm)
 
 ### post-hoc: trial
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ trial))
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
+emmip(lmm, ~ trial, linearg = list(linetype = "blank"), CIs = T)
 ```
 
 ## BPS
@@ -675,20 +808,44 @@ r2_nakagawa(lmm)
 
 ### Post-hoc: manipulation x group
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ manipulation|group))
-emmip(lmm, ~ manipulation|group, CIs = T)
+contrast(emmeans(lmm, ~ manipulation|group), "pairwise")
+emmip(emm, ~  manipulation|group, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+confint(contrast(emmeans(lmm, ~ manipulation|group), "pairwise"))
+emm <- emmeans(lmm, ~ group * manipulation)
+emmip(emm, ~  manipulation|group, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 ```
 
 ### Post-hoc: block x group
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ block|group))
-emmip(lmm, ~ block|group, CIs = T)
+contrast(emmeans(lmm, ~ block|group), "pairwise")
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 ```
 
 ### Post-hoc: manipulation x block
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ manipulation|block))
-emmip(lmm, ~ manipulation|block, CIs = T)
+contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+```
+
+### ### Post-hoc: bef.rev. vs. aft.for.
+```{r, warning=FALSE}
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
+```
+
+### ### Post-hoc: bef.rev. vs. aft.rev.
+```{r, warning=FALSE}
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
 ```
 
 ## Does BPS predict SEPR?
@@ -702,22 +859,18 @@ r2_nakagawa(lmm)
 
 ### Post-hoc: BPS x manipulation x block
 ```{r, warning=FALSE}
-emtrends(lmm, ~ manipulation * block, var = "z_rpd_low")
-contrast(emtrends(lmm, ~ manipulation * block, var = "z_rpd_low"))
-confint(contrast(emtrends(lmm, ~ manipulation * block, var = "z_rpd_low")))
-plot(emtrends(lmm, ~ manipulation * block, var = "z_rpd_low"))
-
-emtrends(lmm, ~ block|manipulation, var = "z_rpd_low")
-contrast(emtrends(lmm, ~ block|manipulation, var = "z_rpd_low"))
-confint(contrast(emtrends(lmm, ~ block|manipulation, var = "z_rpd_low")))
+emt <- emtrends(lmm, pairwise ~ manipulation * block, var = "z_rpd_low")
+summary(emt, infer = T)
+emmip(emt, ~  block * manipulation, var = "z_rpd_low", linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "z_rpd_low.trend")
 ```
 
 ### Post-hoc: BPS x manipulation x group
 ```{r, warning=FALSE}
-emtrends(lmm, ~ group|manipulation, var = "z_rpd_low")
-contrast(emtrends(lmm, ~ group|manipulation, var = "z_rpd_low"))
-confint(contrast(emtrends(lmm, ~ group|manipulation, var = "z_rpd_low")))
-plot(emtrends(lmm, ~ group|manipulation, var = "z_rpd_low"))
+emt <- emtrends(lmm, pairwise ~ manipulation * group, var = "z_rpd_low")
+summary(emt, infer = T)
+emmip(emt, ~  manipulation|group, var = "z_rpd_low", linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "group", y = "z_rpd_low.trend")
 ```
 
 ## Does pupil data predict ERPs?
@@ -827,7 +980,14 @@ r2_nakagawa(lmm)
 
 ### Post-hoc: manipulation x oddball_trial_counter
 ```{r, warning=FALSE}
-emtrends(lmm,~ manipulation, var = 'oddball_trial_counter')
+emt <- emtrends(lmm, pairwise ~ manipulation, var = "oddball_trial_counter")
+summary(emt, infer = T)
+```
+
+### Post-hoc: trial x group x block
+```{r, warning=FALSE}
+emt <- emtrends(lmm,~ trial * group * block, var = 'oddball_trial_counter')
+summary(emt, infer = T)
 ```
 
 ### Plot: SEPR over task by group
@@ -853,7 +1013,14 @@ r2_nakagawa(lmm)
 
 ### Post-hoc: manipulation x trial_number_in_block
 ```{r, warning=FALSE}
-emtrends(lmm,~ manipulation, var = 'trial_number_in_block')
+emt <- emtrends(lmm, pairwise ~ manipulation, var = "trial_number_in_block")
+summary(emt, infer = T)
+```
+
+### post-hoc: trial x group x block
+```{r, warning=FALSE}
+emt <- emtrends(lmm,~ trial * group * block, var = 'trial_number_in_block')
+summary(emt, infer = T)
 ```
 
 ### Plot: SEPR progression for each block
@@ -895,16 +1062,11 @@ anova(lmm)
 r2_nakagawa(lmm)
 ```
 
-### Post-hoc: manipulation x block x oddball_trial_counter
+### Post-hoc: manipulation x group x block x oddball_trial_counter
 ```{r, warning=FALSE}
-emtrends(lmm,~ manipulation * block, var = 'oddball_trial_counter')
+emt <- emtrends(lmm,~ manipulation * group * block, var = 'oddball_trial_counter')
+summary(emt, infer = T)
 ```
-
-### Post-hoc: group x block x oddball_trial_counter
-```{r, warning=FALSE}
-emtrends(lmm,~ group * block, var = 'oddball_trial_counter')
-```
-
 
 ### Plot: BPS over the task
 ```{r, warning=FALSE}
@@ -929,7 +1091,8 @@ r2_nakagawa(lmm)
 
 ### Post-hoc: manipulation x group x block x trial_number_in_block
 ```{r, warning=FALSE}
-emtrends(lmm,~ manipulation * group|block, var = 'trial_number_in_block')
+emt <- emtrends(lmm,~ manipulation * group * block, var = 'trial_number_in_block')
+summary(emt, infer = T)
 ```
 
 ### Plot: BPS block progression by group

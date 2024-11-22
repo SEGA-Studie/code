@@ -64,7 +64,8 @@ df_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_E
 df <- readRDS(paste0(home_path, project_path,'/data/preprocessed_auditory_df.rds')) # pupil data (all data points for visualizing)
 et_erp_subject <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_subject.rds')) # eeg + pupil (subject level, only oddball(rev) blocks)
 et_erp_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_trial.rds')) # eeg + pupil(single-trial, only oddball(rev) blocks)
-
+MMN_diff <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_MMN_diff.rds'))
+  
 # DATA ANALYSIS ON SUBJECT LEVEL ####
 # Sample size
 length(unique(et_erp_subject$SEGA_ID))
@@ -311,17 +312,60 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm)
 
+## Post-hoc: trial
 contrast(emmeans(lmm, ~ trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
+emmip(lmm, ~ trial, linearg = list(linetype = "blank"),  CIs = T)
 
+## Post-hoc: manipulation * block
 contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
 confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
-emmip(lmm, ~ manipulation | block, CIs = T)
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+## Custom contrast: Manipulation effect in block 3?  (block 2 vs. 3).
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
+
+## Custom contrast: Manipulation effect in block 4? (block 2 vs 4).
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
+
+## Correlation with age
+corr_by_group <- et_erp_subject %>%
+  group_by(group) %>%
+  summarise(cor = cor(age, z_MMN_latency, use = "complete.obs"),
+            p_value = cor.test(age, z_MMN_latency)$p.value)
+print(corr_by_group)
 
 # RESULT 2: MMN LATENCY ON SUBJECT LEVEL
 lmm <- lmer(
   z_MMN_latency ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
   data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+
+## Correlation. with age
+corr_by_group <- et_erp_subject %>%
+  group_by(group) %>%
+  summarise(cor = cor(age, z_MMN_amplitude, use = "complete.obs"),
+            p_value = cor.test(age, z_MMN_latency)$p.value)
+print(corr_by_group)
+
+# RESULT 3: MMN DIFF AMPLITUDE ON SUBJECT LEVEL
+lmm <- lmer(
+  z_MMN_diff_amplitude ~  manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = MMN_diff)
+anova(lmm)
+r2_nakagawa(lmm)
+
+# RESULT 3: MMN DIFF LATENCY ON SUBJECT LEVEL
+lmm <- lmer(
+  z_MMN_diff_latency ~  manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = MMN_diff)
 anova(lmm)
 r2_nakagawa(lmm)
 
@@ -332,13 +376,27 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
+## Post-hoc: trial * group
 contrast(emmeans(lmm, ~ trial|group), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial|group), "pairwise"))
-emmip(lmm, ~ trial|group, CI = T)
+emmip(lmm, ~ trial|group, linearg = list(linetype = "blank"), CI = T)
 
+## Post-hoc: manipulation * block
 emmeans(lmm, ~ manipulation|block)
 contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
-emmip(lmm, ~ manipulation|block, CI = T)
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+## custom contrast: Manipulation effect in block 3? (before.reverse vs. after.forward)
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, -1, 1, 0)), infer = T)
+
+## custom contrast: Manipulation effect in block 4? (before.reverse vs. after.reverse)
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
 
 # RESULT 4: P3A LATENCY ON SUBJECT LEVEL
 lmm <- lmer(
@@ -349,6 +407,7 @@ r2_nakagawa(lmm)
 
 contrast(emmeans(lmm, ~ trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
+emmip(lmm, ~ trial, linearg = list(linetype = "blank"), CI = T)
 
 # RESULT 5: P3B AMPLITUDE ON SUBJECT LEVEL
 lmm <- lmer(
@@ -359,11 +418,11 @@ r2_nakagawa(lmm)
 
 contrast(emmeans(lmm, ~ trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
-emmip(lmm, ~ trial, CI = T)
+emmip(lmm, ~ trial, linearg = list(linetype = "blank"), CI = T)
 
 contrast(emmeans(lmm, ~ manipulation), "pairwise")
 confint(contrast(emmeans(lmm, ~ manipulation), "pairwise"))
-emmip(lmm, ~ manipulation, CI = T)
+emmip(lmm, ~ manipulation, linearg = list(linetype = "blank"), CI = T)
 
 # RESULT 6: P3B LATENCY ON SUBJECT LEVEL
 lmm <- lmer(
@@ -376,12 +435,16 @@ contrast(emmeans(lmm, ~ group|manipulation*trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ group|manipulation*trial), "pairwise"))
 emmip(lmm, ~ manipulation|group*trial, CI = T)
 
+contrast(emmeans(lmm, ~ manipulation*trial|block), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation*trial|block), "pairwise"))
+emmip(lmm, ~ manipulation|trial*block, CI = T)
+
 # RESULT 7: SEPR ON SUBJECT LEVEL
 lmm <- lmer(
   z_rpd ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_subject)
 anova(lmm)
-r2_nakagawa(lmm) 
+r2_nakagawa(lmm)
 
 contrast(emmeans(lmm, ~ trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
@@ -395,11 +458,25 @@ r2_nakagawa(lmm)
 
 contrast(emmeans(lmm, ~ manipulation|group), "pairwise")
 confint(contrast(emmeans(lmm, ~ manipulation|group), "pairwise"))
-emmip(lmm, ~ manipulation | group, CIs = T)
+emmip(lmm, ~ manipulation | group, linearg = list(linetype = "blank"), CIs = T)
 
 contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
 confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
-emmip(lmm, ~ manipulation | block, CIs = T)
+emmip(lmm, ~ manipulation | block, linearg = list(linetype = "blank"), CIs = T)
+
+## custom contrast: Manipulation effect in block 3? (before.reverse vs. after.forward)
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+## custom contrast: Manipulation effect in block 4? (before.reverse vs. after.reverse)
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 
 # Does BPS predict SEPR?
 lmm <- lmer(
@@ -506,11 +583,23 @@ r2_nakagawa(lmm)
 
 contrast(emmeans(lmm, ~ trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
-emmip(lmm, ~ trial, CIs = T)
+emmip(lmm, ~ trial, linearg = list(linetype = "blank"), CIs = T)
 
-contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
-confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
-emmip(lmm, ~ manipulation | block, CIs = T)
+contrast(emmeans(lmm, ~ block|manipulation), "pairwise")
+
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+## custom contrast: Manipulation effect in block 3?  (block 2 vs. 3).
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
+
+## custom contrast: Manipulation effect in block 4? (block 2 vs 4).
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
 
 # RESULT 9: MMN LATENCY ON TRIAL LEVEL
 lmm <- lmer(
@@ -521,6 +610,22 @@ r2_nakagawa(lmm)
 
 contrast(emmeans(lmm, ~ trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
+emm <- emmeans(lmm, ~ trial)
+emmip(lmm, ~ trial, linearg = list(linetype = "blank"), CIs = T)
+
+contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+## custom contrast: Manipulation effect in block 3?  (block 2 vs. 3).
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
+
+## custom contrast: Manipulation effect in block 4? (block 2 vs 4).
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
 
 # RESULT 10: P3A AMPLITUDE ON TRIAL LEVEL
 lmm <- lmer(
@@ -529,11 +634,24 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
-contrast(emmeans(lmm, ~ trial | group))
-emmeans(lmm, ~ trial | group)
+contrast(emmeans(lmm, ~ trial|group), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial|group), "pairwise"))
+emm <- emmeans(lmm, ~ trial * group)
+emmip(lmm, ~ trial * group, linearg = list(linetype = "blank"), CIs = T)
+
 contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
 confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
-emmip(lmm, ~ manipulation | block, CIs = T)
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+## custom contrast: Manipulation effect in block 3?  (block 2 vs. 3).
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
+
+## custom contrast: Manipulation effect in block 4? (block 2 vs 4).
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
 
 # RESULT 11: P3A LATENCY ON TRIAL LEVEL
 lmm <- lmer(
@@ -544,7 +662,7 @@ r2_nakagawa(lmm)
 
 contrast(emmeans(lmm, ~ trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
-emmip(lmm, ~block|group * manipulation|trial, CIs = T)
+emmip(lmm, ~block|group * manipulation|trial, linearg = list(linetype = "blank"), CIs = T)
 
 # RESULT 12: SEPR ON TRIAL LEVEL
 lmm <- lmer(
@@ -553,7 +671,9 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emmeans(lmm, list(pairwise ~ trial))
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
+emmip(lmm, ~ trial, linearg = list(linetype = "blank"), CIs = T)
 
 # EXPLORATORY: SEPR OVER TASK
 lmm <- lmer(
@@ -562,8 +682,11 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm)
 
-emtrends(lmm,~ manipulation, var = 'oddball_trial_counter')
-emtrends(lmm,~ group * group * block, var = 'oddball_trial_counter')
+emt <- emtrends(lmm, pairwise ~ manipulation, var = "oddball_trial_counter")
+summary(emt, infer = T)
+
+emt <- emtrends(lmm,~ trial * group * block, var = 'oddball_trial_counter')
+summary(emt, infer = T)
 
 et_erp_trial$binned_trial_number <- cut(
   et_erp_trial$oddball_trial_counter, c(
@@ -580,7 +703,11 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm)
 
-emtrends(lmm,~ manipulation, var = 'trial_number_in_block')
+emt <- emtrends(lmm, pairwise ~ manipulation, var = "trial_number_in_block")
+summary(emt, infer = T)
+
+emt <- emtrends(lmm,~ trial * group * block, var = 'trial_number_in_block')
+summary(emt, infer = T)
 
 bin_size <- 20
 df_trial <- df_trial %>%
@@ -612,16 +739,51 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
+## Post-hoc: manipulation * block
 contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
 confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
-emmip(lmm, ~ manipulation | block, CIs = T)
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 
+## custom contrast: Manipulation effect in block 3?  (block 2 vs. 3).
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
+
+## custom contrast: Manipulation effect in block 4? (block 2 vs 4).
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
+
+## Post-hoc: Manipulation * group
 contrast(emmeans(lmm, ~ manipulation|group), "pairwise")
+emmip(emm, ~  manipulation|group, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 confint(contrast(emmeans(lmm, ~ manipulation|group), "pairwise"))
-emmip(lmm, ~ manipulation | group, CIs = T)
+emm <- emmeans(lmm, ~ group * manipulation)
+emmip(emm, ~  manipulation|group, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 
-contrast(emmeans(lmm, ~ trial), "pairwise")
-confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
+## Post-hoc: Group * block
+contrast(emmeans(lmm, ~ block|group), "pairwise")
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+## custom contrast: Manipulation effect in block 3?  (block 2 vs. 3).
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+## custom contrast: Manipulation effect in block 4? (block 2 vs 4).
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 
 # EXPLORATORY: BPS OVER TASK
 lmm <- lmer(
@@ -630,7 +792,8 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm)
 
-emtrends(lmm,~ manipulation * group|block, var = 'oddball_trial_counter')
+emt <- emtrends(lmm,~ manipulation * group * block, var = 'oddball_trial_counter')
+summary(emt, infer = T)
 
 et_erp_trial$binned_trial_number <- cut(
   et_erp_trial$oddball_trial_counter, c(
@@ -647,7 +810,8 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm)
 
-emtrends(lmm,~ manipulation * group|block, var = 'trial_number_in_block')
+emt <- emtrends(lmm,~ manipulation * group * block, var = 'trial_number_in_block')
+summary(emt, infer = T)
 
 bin_size <- 20
 df_trial <- df_trial %>%
@@ -695,20 +859,26 @@ anova(lmm)
 r2_nakagawa(lmm) 
 
 ### post-hoc: BPS x manipulation x block
-emtrends(lmm, ~ manipulation * block, var = "z_rpd_low")
-contrast(emtrends(lmm, ~ manipulation * block, var = "z_rpd_low"))
-confint(contrast(emtrends(lmm, ~ manipulation * block, var = "z_rpd_low")))
-plot(emtrends(lmm, ~ manipulation * block, var = "z_rpd_low"))
-
-emtrends(lmm, ~ block|manipulation, var = "z_rpd_low")
-contrast(emtrends(lmm, ~ block|manipulation, var = "z_rpd_low"))
-confint(contrast(emtrends(lmm, ~ block|manipulation, var = "z_rpd_low")))
+emt <- emtrends(lmm, pairwise ~ manipulation * block, var = "z_rpd_low")
+summary(emt, infer = T)
+emmip(emt, ~  block * manipulation, var = "z_rpd_low", linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "z_rpd_low.trend")
 
 ### post-hoc: BPS x manipulation x group
-emtrends(lmm, ~ group|manipulation, var = "z_rpd_low")
-contrast(emtrends(lmm, ~ group|manipulation, var = "z_rpd_low"))
-confint(contrast(emtrends(lmm, ~ group|manipulation, var = "z_rpd_low")))
-plot(emtrends(lmm, ~ group|manipulation, var = "z_rpd_low"))
+emt <- emtrends(lmm, pairwise ~ manipulation * group, var = "z_rpd_low")
+summary(emt, infer = T)
+emmip(emt, ~  manipulation|group, var = "z_rpd_low", linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "group", y = "z_rpd_low.trend")
+
+## custom contrast: BPS-SEPR association after manipulation between groups
+emt <- emtrends(lmm, ~ manipulation * group, var = "z_rpd_low")
+contrast(emt, method = list(
+  "after.ASD vs after.CON" = c(0, 1, 0, -1, 0, 0)), infer = T)
+contrast(emt, method = list(
+  "after.ASD vs after.MHC" = c(0, 1, 0, 0, 0, -1)), infer = T)
+contrast(emt, method = list(
+  "after.CON vs after.MHC" = c(0, 0, 0, -1, 0, 1)), infer = T)
+
 
 # RESULT 15: Correlation: Pupil-ERP
 crl <- cor(et_erp_trial[et_erp_trial$trial == "oddball", c(
