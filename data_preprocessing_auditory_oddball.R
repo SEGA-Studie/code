@@ -1640,7 +1640,6 @@ for (row in 1:length(ET_ERP_subject$SEGA_ID)) {
 # Correct data types for analysis
 ET_ERP_subject$trial <- as.factor(ET_ERP_subject$trial)
 ET_ERP_subject$gender <- as.factor(ET_ERP_subject$gender)
-ET_ERP_subject$SEGA_ID <- as.factor(ET_ERP_subject$SEGA_ID)
 ET_ERP_subject$block <- as.factor(ET_ERP_subject$block)
 
 # Scaled values for correlation plots of dependent variables
@@ -1653,6 +1652,28 @@ ET_ERP_subject$z_P3a_latency <- as.numeric(scale(ET_ERP_subject$P3a_latency))
 ET_ERP_subject$z_P3b_amplitude <- as.numeric(scale(ET_ERP_subject$P3b_amplitude))
 ET_ERP_subject$z_P3b_latency <- as.numeric(scale(ET_ERP_subject$P3b_latency))
 ET_ERP_subject$z_rpd_block <- as.numeric(scale(ET_ERP_subject$rpd_block))
+
+# Calculate and add number of included trials to ET_ERP_subject
+ET_ERP_subject$included_trials_et <- NA
+ET_ERP_subject$included_trials_eeg <- NA
+
+# factor -> character data type because no of factor levels for SEGA_ID differ
+# between both df
+ET_ERP_subject$SEGA_ID <- as.character(ET_ERP_subject$SEGA_ID) 
+ET_ERP_trial$SEGA_ID <- as.character(ET_ERP_trial$SEGA_ID)
+
+for (row in 1:length(ET_ERP_subject$SEGA_ID)){
+  id <- ET_ERP_subject[row, "SEGA_ID"]
+  if (!(id %in% ET_ERP_trial$SEGA_ID)) {
+  }
+  id_df <- ET_ERP_trial[ET_ERP_trial$SEGA_ID == id, c("SEGA_ID", "z_rpd", "z_MMN_amplitude")]
+  sum_trials_et <- sum(!is.na(id_df$z_rpd), na.rm = T)
+  sum_trials_eeg <- sum(!is.na(id_df$z_MMN_amplitude), na.rm = T)
+  ET_ERP_subject[row, "included_trials_et"] <- sum_trials_et
+  ET_ERP_subject[row, "included_trials_eeg"] <- sum_trials_eeg}
+
+# Set SEGA_ID as factor again
+ET_ERP_subject$SEGA_ID <- as.factor(ET_ERP_subject$SEGA_ID)
 
 # Remove unused factor level
 ET_ERP_subject$manipulation <- droplevels(ET_ERP_subject$manipulation)
@@ -1834,6 +1855,8 @@ for (row in 1:length(MMN_diff_df$SEGA_ID)) {
 # Add age + gender to MMN_amplitude_diff_df
 for (row in 1:length(MMN_diff_df$SEGA_ID)) {
   SEGA_ID_df <- MMN_diff_df[row, "SEGA_ID"]
+  if (!(SEGA_ID_df %in% sample_characteristics$SEGA_ID)) {
+    next}
   row_number <- which(sample_characteristics$SEGA_ID == SEGA_ID_df)
   gender <- sample_characteristics[row_number, "Geschlecht_Index"]
   age <- sample_characteristics[row_number, "age"]

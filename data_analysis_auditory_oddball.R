@@ -111,8 +111,10 @@ hist(et_erp_subject$z_P3b_amplitude,
      xlim = c(-6, 8),
      breaks = 200)
 
+## mean + sd for each group
 fun_return_descriptives <- function(group){
-  group_df <- et_erp_subject[et_erp_subject$group == group, c("gender", "age", "SRS", "SCQ", "CBCL", "YSR", "SP2", "z_handdynamometer", "SEGA_ID", "verbal_IQ", "non_verbal_IQ")]
+  group_df <- et_erp_subject[et_erp_subject$group == group, c("gender", "age", "SRS", "SCQ", "CBCL", "YSR", "SP2","z_handdynamometer", "SEGA_ID", "verbal_IQ", "non_verbal_IQ")]
+  group_df_trial <- et_erp_trial[et_erp_trial$group == group, c("z_MMN_amplitude", "z_rpd")]
   n <- length(unique(group_df$SEGA_ID))
   male <- (length(which(group_df$gender == "männlich"))/8)
   female <- (length(which(group_df$gender == "weiblich"))/8)
@@ -144,6 +146,8 @@ fun_return_descriptives <- function(group){
   non_verbal_IQ_mean <- round(mean(group_df$non_verbal_IQ, na.rm = TRUE), digits = 1)
   non_verbal_IQ_sd <- round(sd(group_df$non_verbal_IQ, na.rm = TRUE), digits = 1)
   non_verbal_IQ <- paste(non_verbal_IQ_mean, "(", non_verbal_IQ_sd, ")")
+  included_trials_eeg <- sum(!is.na(group_df_trial$z_MMN_amplitude))
+  included_trials_et <- sum(!is.na(group_df_trial$z_rpd))
   group_description <- data.frame(
     n,
     gender_f_m,
@@ -155,11 +159,13 @@ fun_return_descriptives <- function(group){
     SP2,
     grip_strength,
     verbal_IQ,
-    non_verbal_IQ)
+    non_verbal_IQ,
+    included_trials_eeg,
+    included_trials_et)
   t(group_description)
 }
 
-## Descriptive statistics
+## p-values for descriptive statistics
 asd_description <- fun_return_descriptives(group = "ASD")
 colnames(asd_description) <- "ASD"
 con_description <- fun_return_descriptives(group = "CON")
@@ -171,7 +177,6 @@ SCQ_anova <- aov(SCQ ~ group, data = et_erp_subject)
 SCQ_anova_p <- summary(SCQ_anova)[[1]][["Pr(>F)"]][[1]]
 age_anova <- aov(age ~ group, data = et_erp_subject)
 age_anova_p <- summary(age_anova)[[1]][["Pr(>F)"]][[1]]
-age_anova_p <- age_anova_p
 CBCL_anova <- aov(CBCL ~ group, data = et_erp_subject)
 CBCL_anova_p <- summary(CBCL_anova)[[1]][["Pr(>F)"]][[1]]
 SRS_anova <- aov(SRS ~ group, data = et_erp_subject)
@@ -188,6 +193,11 @@ non_verbal_IQ_anova <- aov(non_verbal_IQ ~ group, data = et_erp_subject)
 non_verbal_IQ_anova_p <- summary(non_verbal_IQ_anova)[[1]][["Pr(>F)"]][[1]]
 gender_chi2 <- chisq.test(et_erp_subject$gender, et_erp_subject$group)
 gender_chi2_p <- gender_chi2$p.value
+included_trials_et_anova <- aov(included_trials_et ~ group, data = et_erp_subject)
+included_trials_et_p <- summary(included_trials_et_anova)[[1]][["Pr(>F)"]][[1]]
+included_trials_eeg_anova <- aov(included_trials_eeg ~ group, data = et_erp_subject)
+included_trials_eeg_p <- summary(included_trials_eeg_anova)[[1]][["Pr(>F)"]][[1]]
+
 p_values <- c(
   NA,
   gender_chi2_p,
@@ -199,7 +209,11 @@ p_values <- c(
   YSR_anova_p,
   grip_strength_anova_p,
   verbal_IQ_anova_p,
-  non_verbal_IQ_anova_p)
+  non_verbal_IQ_anova_p,
+  included_trials_et_p,
+  included_trials_eeg_p,
+  NA,
+  NA)
 
 p_value <- c()
 for (p in p_values){
