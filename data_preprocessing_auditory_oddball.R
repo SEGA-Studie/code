@@ -593,8 +593,11 @@ df_trial$manipulation <- factor(
   levels = c("before", "after", "during"))
 
 # distinguish pitch: oddball or standard frequency
-df_trial$pitch <- ifelse(df_trial$trial == "oddball",
-df_trial$oddball_frequency, df_trial$standard_frequency)
+df_trial$pitch <- ifelse(df_trial$trial == "oddball", df_trial$oddball_frequency,
+                             ifelse(df_trial$trial == "standard", df_trial$standard_frequency,
+                                    ifelse(df_trial$trial == "oddball_rev", df_trial$standard_frequency,
+                                           ifelse(df_trial$trial == "standard_rev", df_trial$oddball_frequency, NA)))
+)
 # distinguish between (forward) oddball blocks and reverse oddball blocks
 df_trial$block <- ifelse(
   df_trial$phase == "oddball_block_rev", "reverse", "forward")
@@ -1164,6 +1167,8 @@ reshaped_MMN_latency_750$id <- str_replace(
   reshaped_MMN_latency_750$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
 reshaped_MMN_latency_750$id <- str_replace(
   reshaped_MMN_latency_750$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
+reshaped_MMN_latency_750$id <- str_replace(
+  reshaped_MMN_latency_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 reshaped_MMN_latency_750$SEGA_ID <- as.factor(substr(reshaped_MMN_latency_750$id, 6, 8))
 reshaped_MMN_latency_750$SEGA_ID <- sub("^0+", "", reshaped_MMN_latency_750$SEGA_ID)
 
@@ -1202,6 +1207,8 @@ reshaped_P3a_amplitude_500$id <- str_replace(
   reshaped_P3a_amplitude_500$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
 reshaped_P3a_amplitude_500$id <- str_replace(
   reshaped_P3a_amplitude_500$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
+reshaped_P3a_amplitude_500$id <- str_replace(
+  reshaped_P3a_amplitude_500$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 reshaped_P3a_amplitude_500$SEGA_ID <- as.factor(substr(reshaped_P3a_amplitude_500$id, 6, 8))
 reshaped_P3a_amplitude_500$SEGA_ID <- sub("^0+", "", reshaped_P3a_amplitude_500$SEGA_ID)
 
@@ -1233,6 +1240,8 @@ reshaped_P3a_amplitude_750$id <- str_replace(
   reshaped_P3a_amplitude_750$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
 reshaped_P3a_amplitude_750$id <- str_replace(
   reshaped_P3a_amplitude_750$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
+reshaped_P3a_amplitude_750$id <- str_replace(
+  reshaped_P3a_amplitude_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 reshaped_P3a_amplitude_750$SEGA_ID <- as.factor(substr(reshaped_P3a_amplitude_750$id, 6, 8))
 reshaped_P3a_amplitude_750$SEGA_ID <- sub("^0+", "", reshaped_P3a_amplitude_750$SEGA_ID)
 
@@ -1303,6 +1312,8 @@ reshaped_P3a_latency_750$id <- str_replace(
   reshaped_P3a_latency_750$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
 reshaped_P3a_latency_750$id <- str_replace(
   reshaped_P3a_latency_750$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
+reshaped_P3a_latency_750$id <- str_replace(
+  reshaped_P3a_latency_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 reshaped_P3a_latency_750$SEGA_ID <- as.factor(substr(reshaped_P3a_latency_750$id, 6, 8))
 reshaped_P3a_latency_750$SEGA_ID <- sub("^0+", "", reshaped_P3a_latency_750$SEGA_ID)
 
@@ -1376,6 +1387,9 @@ reshaped_P3b_amplitude_750$id <- str_replace(
 reshaped_P3b_amplitude_750$SEGA_ID <- as.factor(substr(reshaped_P3b_amplitude_750$id, 6, 8))
 reshaped_P3b_amplitude_750$SEGA_ID <- sub("^0+", "", reshaped_P3b_amplitude_750$SEGA_ID)
 
+reshaped_P3b_amplitude_750$id <- str_replace(
+  reshaped_P3b_amplitude_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
+
 # Delete unnecessary 2 columns
 reshaped_P3b_amplitude_750 <- subset(reshaped_P3b_amplitude_750, select = -c(variable, id))
 
@@ -1442,6 +1456,8 @@ reshaped_P3b_latency_750$id <- str_replace(
   reshaped_P3b_latency_750$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
 reshaped_P3b_latency_750$id <- str_replace(
   reshaped_P3b_latency_750$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
+reshaped_P3b_latency_750$id <- str_replace(
+  reshaped_P3b_latency_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 reshaped_P3b_latency_750$SEGA_ID <- as.factor(substr(reshaped_P3b_latency_750$id, 6, 8))
 reshaped_P3b_latency_750$SEGA_ID <- sub("^0+", "", reshaped_P3b_latency_750$SEGA_ID)
 
@@ -1669,8 +1685,10 @@ for (row in 1:length(ET_ERP_subject$SEGA_ID)){
   id_df <- ET_ERP_trial[ET_ERP_trial$SEGA_ID == id, c("SEGA_ID", "z_rpd", "z_MMN_amplitude")]
   sum_trials_et <- sum(!is.na(id_df$z_rpd), na.rm = T)
   sum_trials_eeg <- sum(!is.na(id_df$z_MMN_amplitude), na.rm = T)
-  ET_ERP_subject[row, "included_trials_et"] <- sum_trials_et
-  ET_ERP_subject[row, "included_trials_eeg"] <- sum_trials_eeg}
+  relative_trial_no_et <- sum_trials_et/400 # total number of trials
+  relative_trial_no_eeg <- sum_trials_eeg/400 # total number of trials
+  ET_ERP_subject[row, "included_trials_et"] <- relative_trial_no_et
+  ET_ERP_subject[row, "included_trials_eeg"] <- relative_trial_no_eeg}
 
 # Set SEGA_ID as factor again
 ET_ERP_subject$SEGA_ID <- as.factor(ET_ERP_subject$SEGA_ID)
@@ -1777,6 +1795,8 @@ reshaped_MMN_amplitude_750_diff$id <- str_replace(
   reshaped_MMN_amplitude_750_diff$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
 reshaped_MMN_amplitude_750_diff$id <- str_replace(
   reshaped_MMN_amplitude_750_diff$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
+reshaped_MMN_amplitude_750_diff$id <- str_replace(
+  reshaped_MMN_amplitude_750_diff$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 reshaped_MMN_amplitude_750_diff$SEGA_ID <- as.factor(substr(reshaped_MMN_amplitude_750_diff$id, 6, 8))
 reshaped_MMN_amplitude_750_diff$SEGA_ID <- sub("^0+", "", reshaped_MMN_amplitude_750_diff$SEGA_ID)
 
@@ -1828,7 +1848,11 @@ reshaped_MMN_latency_750_diff$block <- as.factor(ifelse(grepl("rev", reshaped_MM
 reshaped_MMN_latency_750_diff$manipulation <- as.factor(str_extract(reshaped_MMN_latency_750_diff$variable, "before|after"))
 reshaped_MMN_latency_750_diff$pitch <- as.factor(str_extract(reshaped_MMN_latency_750_diff$variable, "500|750"))
 reshaped_MMN_latency_750_diff$id <- str_replace(
-  reshaped_MMN_latency_750_diff$id, "SEGA_AuditoryOddball_022_24102022", "SEGA_022_AuditoryOddball_24102022")
+  reshaped_MMN_latency_750_diff$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
+reshaped_MMN_latency_750_diff$id <- str_replace(
+  reshaped_MMN_latency_750_diff$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
+reshaped_MMN_latency_750_diff$id <- str_replace(
+  reshaped_MMN_latency_750_diff$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
 reshaped_MMN_latency_750_diff$SEGA_ID <- as.factor(substr(reshaped_MMN_latency_750_diff$id, 6, 8))
 reshaped_MMN_latency_750_diff$SEGA_ID <- sub("^0+", "", reshaped_MMN_latency_750_diff$SEGA_ID)
 

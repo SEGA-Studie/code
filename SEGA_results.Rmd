@@ -5,7 +5,7 @@ output:
   html_document:
     toc: yes
     toc_float: yes
-    number_sections: true
+    number_sections: yes
     theme: cerulean
     code_folding: hide
 editor_options:
@@ -27,6 +27,9 @@ library(knitr) # dynamic report generation
 library(kableExtra) # table formatting
 library(stringr) # for string modifications
 library(tidyverse)
+library(simr)
+library(gridExtra) # arrange ggplots
+library(ggpubr) # get legend of ggplots
 
 # PATHS
 if (Sys.info()["sysname"] == "Linux") {
@@ -88,7 +91,7 @@ table(et_erp_subject$group)/8
 ## Exclude subjects
 *to balance age in groups, 1 subject per groups excluded*
 ```{r, warning=FALSE}
-excluded_ids <- c("117", "152", "36") # to balance age between groups
+excluded_ids <- c("117", "152", "36", "77") # to balance age between groups
 et_erp_subject <- subset(et_erp_subject, ! (SEGA_ID %in% excluded_ids))
 et_erp_trial <- subset(et_erp_trial, ! (SEGA_ID %in% excluded_ids))
 
@@ -131,8 +134,12 @@ hist(et_erp_subject$z_P3b_amplitude,
 
 ## Sample Characteristics
 ```{r, warning=FALSE}
+## mean + sd for each group
 fun_return_descriptives <- function(group){
-  group_df <- et_erp_subject[et_erp_subject$group == group, c("gender", "age", "SRS", "SCQ", "CBCL", "YSR", "SP2", "z_handdynamometer", "SEGA_ID", "verbal_IQ", "non_verbal_IQ")]
+  group_df <- et_erp_subject[
+    et_erp_subject$group == group,
+    c("gender", "age", "SRS", "SCQ", "CBCL", "YSR", "SP2","z_handdynamometer", "SEGA_ID",
+      "verbal_IQ", "non_verbal_IQ","included_trials_et", "included_trials_eeg")]
   n <- length(unique(group_df$SEGA_ID))
   male <- (length(which(group_df$gender == "männlich"))/8)
   female <- (length(which(group_df$gender == "weiblich"))/8)
@@ -164,6 +171,8 @@ fun_return_descriptives <- function(group){
   non_verbal_IQ_mean <- round(mean(group_df$non_verbal_IQ, na.rm = TRUE), digits = 1)
   non_verbal_IQ_sd <- round(sd(group_df$non_verbal_IQ, na.rm = TRUE), digits = 1)
   non_verbal_IQ <- paste(non_verbal_IQ_mean, "(", non_verbal_IQ_sd, ")")
+  included_trials_eeg <- paste(round((mean(group_df$included_trials_eeg))*100, 1), "%")
+  included_trials_et <- paste(round((mean(group_df$included_trials_et))*100, 1), "%")
   group_description <- data.frame(
     n,
     gender_f_m,
@@ -175,11 +184,13 @@ fun_return_descriptives <- function(group){
     SP2,
     grip_strength,
     verbal_IQ,
-    non_verbal_IQ)
+    non_verbal_IQ,
+    included_trials_eeg,
+    included_trials_et)
   t(group_description)
 }
 
-## Descriptive statistics
+## p-values for descriptive statistics
 asd_description <- fun_return_descriptives(group = "ASD")
 colnames(asd_description) <- "ASD"
 con_description <- fun_return_descriptives(group = "CON")
@@ -191,7 +202,6 @@ SCQ_anova <- aov(SCQ ~ group, data = et_erp_subject)
 SCQ_anova_p <- summary(SCQ_anova)[[1]][["Pr(>F)"]][[1]]
 age_anova <- aov(age ~ group, data = et_erp_subject)
 age_anova_p <- summary(age_anova)[[1]][["Pr(>F)"]][[1]]
-age_anova_p <- age_anova_p
 CBCL_anova <- aov(CBCL ~ group, data = et_erp_subject)
 CBCL_anova_p <- summary(CBCL_anova)[[1]][["Pr(>F)"]][[1]]
 SRS_anova <- aov(SRS ~ group, data = et_erp_subject)
@@ -208,6 +218,11 @@ non_verbal_IQ_anova <- aov(non_verbal_IQ ~ group, data = et_erp_subject)
 non_verbal_IQ_anova_p <- summary(non_verbal_IQ_anova)[[1]][["Pr(>F)"]][[1]]
 gender_chi2 <- chisq.test(et_erp_subject$gender, et_erp_subject$group)
 gender_chi2_p <- gender_chi2$p.value
+included_trials_et_anova <- aov(included_trials_et ~ group, data = et_erp_subject)
+included_trials_et_p <- summary(included_trials_et_anova)[[1]][["Pr(>F)"]][[1]]
+included_trials_eeg_anova <- aov(included_trials_eeg ~ group, data = et_erp_subject)
+included_trials_eeg_p <- summary(included_trials_eeg_anova)[[1]][["Pr(>F)"]][[1]]
+
 p_values <- c(
   NA,
   gender_chi2_p,
@@ -219,7 +234,9 @@ p_values <- c(
   YSR_anova_p,
   grip_strength_anova_p,
   verbal_IQ_anova_p,
-  non_verbal_IQ_anova_p)
+  non_verbal_IQ_anova_p,
+  round(included_trials_et_p, 2),
+  included_trials_eeg_p)
 
 p_value <- c()
 for (p in p_values){
@@ -233,6 +250,94 @@ sample_table <- cbind(asd_description, con_description, mhc_description, p_value
 sample_description_table <- kable(sample_table, caption = "Sample description", digits = 4) %>%
   kable_classic(full_width = F, html_font = "Cambria") %>% kable_styling
 sample_description_table
+
+# Supplements: No of trials per condition
+fun_trials_per_cond <- function(group, variable){
+  group_df <- droplevels(et_erp_trial[et_erp_trial$group == group, ])
+  # subjects starting with 500 Hz oddball
+  ## block 1
+  df_before_forward_O500_S750 <- group_df %>% filter(
+    (manipulation == "before" & phase == "oddball_block" & trial == "oddball" & pitch == "500") |
+      (manipulation == "before" & phase == "oddball_block" & trial == "standard" & pitch == "750"))
+  sample_size <- length(unique(df_before_forward_O500_S750$SEGA_ID))
+  max_trials <- sample_size *100
+  before_forward_O500_S750 <- paste(round(((sum(!is.na(df_before_forward_O500_S750[variable]), na.rm = T))/max_trials)*100, 2), "%")
+  ## block 2
+  df_before_reverse_O750_S500 <- group_df %>% filter(
+    (manipulation == "before" & phase == "oddball_block_rev" & trial == "oddball" & pitch == "750") |
+      (manipulation == "before" & phase == "oddball_block_rev" & trial == "standard" & pitch == "500"))
+  before_reverse_O750_S500 <- paste(round(((sum(!is.na(df_before_reverse_O750_S500[variable]), na.rm = T))/max_trials)*100, 2), "%")
+  ## block 3
+  df_after_forward_O500S750 <- group_df %>% filter(
+    (manipulation == "after" & phase == "oddball_block" & trial == "oddball" & pitch == "500") |
+      (manipulation == "after" & phase == "oddball_block" & trial == "standard" & pitch == "750"))
+  after_forward_O500S750 <- paste(round(((sum(!is.na(df_after_forward_O500S750[variable]), na.rm = T))/max_trials)*100, 2), "%")
+  # block 4
+  df_after_reverse_O750S500 <- group_df %>% filter(
+    (manipulation == "after" & phase == "oddball_block_rev" & trial == "oddball" & pitch == "750") |
+      (manipulation == "after" & phase == "oddball_block_rev" & trial == "standard" & pitch == "500"))
+  after_reverse_O750S500 <- paste(round(((sum(!is.na(df_after_reverse_O750S500[variable]), na.rm = T))/max_trials)*100, 2), "%")
+  # subjects starting with 750 Hz oddball
+  ## block 1
+  df_before_forward_O750_S500 <- group_df %>% filter(
+    (manipulation == "before" & phase == "oddball_block" & trial == "oddball" & pitch == "750") |
+      (manipulation == "before" & phase == "oddball_block" & trial == "standard" & pitch == "500"))
+  sample_size <- length(unique(df_before_forward_O750_S500$SEGA_ID))
+  max_trials <- sample_size *100
+  before_forward_O750_S500 <- paste(round(((sum(!is.na(df_before_forward_O750_S500[variable]), na.rm = T))/max_trials)*100, 2), "%")
+  ## block 2
+  df_before_reverse_O500S750 <- group_df %>% filter(
+    (manipulation == "before" & phase == "oddball_block_rev" & trial == "oddball" & pitch == "500") |
+      (manipulation == "before" & phase == "oddball_block_rev" & trial == "standard" & pitch == "750"))
+  before_reverse_O500S750 <- paste(round(((sum(!is.na(df_before_reverse_O500S750[variable]), na.rm = T))/max_trials)*100, 2), "%")
+  ## block 3
+  df_after_forward_O750_S500 <- group_df %>% filter(
+    (manipulation == "after" & phase == "oddball_block" & trial == "oddball" & pitch == "750") |
+      (manipulation == "after" & phase == "oddball_block" & trial == "standard" & pitch == "500"))
+  after_forward_O750_S500 <- paste(round(((sum(!is.na(df_after_forward_O750_S500[variable]), na.rm = T))/max_trials)*100, 2), "%")
+  ## block 4
+  df_after_reverse_O500S750 <- group_df %>% filter(
+    (manipulation == "after" & phase == "oddball_block_rev" & trial == "oddball" & pitch == "500") |
+      (manipulation == "after" & phase == "oddball_block_rev" & trial == "standard" & pitch == "750"))
+  after_reverse_O500S750 <- paste(round(((sum(!is.na(df_after_reverse_O500S750[variable]), na.rm = T))/max_trials)*100, 2), "%")
+  
+   trial_per_condition <- data.frame(
+     before_forward_O500_S750,
+     before_reverse_O750_S500,
+     after_forward_O500S750,
+     after_reverse_O750S500,
+     before_forward_O750_S500,
+     before_reverse_O500S750,
+     after_forward_O750_S500,
+     after_reverse_O500S750)
+   t(trial_per_condition)
+   }
+
+# Call function for each group for EEG
+asd_trials_per_cond_eeg <- fun_trials_per_cond(group = "ASD", variable = "z_MMN_amplitude")
+colnames(asd_trials_per_cond_eeg) <- "ASD"
+con_trials_per_cond_eeg <- fun_trials_per_cond(group = "CON", variable = "z_MMN_amplitude")
+colnames(con_trials_per_cond_eeg) <- "CON"
+mhc_trials_per_cond_eeg <- fun_trials_per_cond(group = "MHC", variable = "z_MMN_amplitude")
+colnames(mhc_trials_per_cond_eeg) <- "MHC"
+# Call function for each group for ET
+asd_trials_per_cond_et <- fun_trials_per_cond(group = "ASD", variable = "z_rpd")
+colnames(asd_trials_per_cond_et) <- "ASD"
+con_trials_per_cond_et <- fun_trials_per_cond(group = "CON", variable = "z_rpd")
+colnames(con_trials_per_cond_et) <- "CON"
+mhc_trials_per_cond_et <- fun_trials_per_cond(group = "MHC", variable = "z_rpd")
+colnames(mhc_trials_per_cond_et) <- "MHC"
+
+condition_table <- cbind(
+  asd_trials_per_cond_eeg, con_trials_per_cond_eeg, mhc_trials_per_cond_eeg,
+  asd_trials_per_cond_et, con_trials_per_cond_et, mhc_trials_per_cond_et)
+
+condition_trials_table <- kable(
+  condition_table, align = "c", caption = "Number of included trials per condition") %>% 
+  kable_classic() %>%
+  kable_styling(full_width = FALSE) %>%
+  add_header_above(c(" " = 1, "Eye Tracking" = 3, "EEG" = 3))
+condition_trials_table
 
 ## Plot SCQ
 ggplot(et_erp_subject, aes(x = group, y = SCQ), col = "group") + 
@@ -304,10 +409,6 @@ ggplot(age_df, aes(x = group, y = age), col = "group") +
 
 ## Plot: IQ-verbal
 IQ_df <- et_erp_subject[!duplicated(et_erp_subject$SEGA_ID), c("SEGA_ID", "group", "verbal_IQ", "non_verbal_IQ")]
-# IQ_df <- reshape::melt(IQ_df, value.name = "IQ", id = c("SEGA_ID", "group"))
-# names(IQ_df)[names(IQ_df) == 'variable'] <- 'domain'
-# names(IQ_df)[names(IQ_df) == 'value'] <- 'IQ'
-
 ggplot(IQ_df, aes(x = group, y = verbal_IQ), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
@@ -330,6 +431,33 @@ ggplot(IQ_df, aes(x = group, y = non_verbal_IQ), col = "group") +
   theme(plot.title = element_text(face="bold"))
 ```
 
+## Power Analysis
+```{r, warning=FALSE, message = FALSE}
+#n_size<- 135
+#k_size<-4*100
+#subj <- factor(1:n_size)
+#trial_id <- 1:k_size
+#condition <- c("before", "after")
+#group <- c("ASD", "MHC", "CON")
+
+#subj_full <- rep(subj, k_size)
+#trial_full <- rep(trial_id, each=n_size)
+#condition_full <- rep(condition, each=k_size*n_size/2)
+#group_full <- rep(group, k_size*n_size/3)
+
+#covars <- data.frame(id=subj_full, trial=trial_full, condition=condition_full, group=group_full)
+#fixed <- c(0.1, 0.2, 0.2, 0.2, 0.1, 0.1)
+#rand <- list(0.05)
+#res <- 1.2 
+
+#model <- makeLmer(
+#  y ~ group*condition + (1|id), fixef=fixed, VarCorr=rand, sigma=res, data=covars) # create model
+
+#power_interaction <- powerSim(model, nsim=1000, test = fcompare(y ~ group + condition))
+#power_curve_interaction <- powerCurve(model, test = fcompare(y ~ group + condition), along = "id")
+#plot(power_curve_interaction)
+```
+
 ## MMN Amplitude
 ### Main Model
 ```{r, warning=FALSE}
@@ -344,30 +472,46 @@ r2_nakagawa(lmm)
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
-emmip(lmm, ~ trial, linearg = list(linetype = "blank"),  CIs = T)
 ```
 
 ### Post-hoc: manipulation x block
 ```{r, warning=FALSE}
-contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
-confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
+contrast(emmeans(lmm, ~ manipulation|block), "revpairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "revpairwise"))
 emm <- emmeans(lmm, ~ block * manipulation)
-emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+plot_data <- as.data.frame(emmeans(lmm, ~ block * manipulation))
+plot_data <- na.omit(plot_data)
+interaction_plot_MMN <- ggplot(plot_data, aes(x = manipulation, y = emmean, group = block, color = block, fill = block)) +
+  geom_crossbar(aes(ymin = emmean - 1 * SE, ymax = emmean + 1 * SE), 
+                alpha = 0.8, 
+                position = position_dodge(width = 0.7),  
+                width = 0.3) +  
+  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), 
+                position = position_dodge(width = 0.7), 
+                width = 0.2) +  
+  scale_color_manual(values = c("blue", "orange")) +  
+  scale_fill_manual(values = c("blue", "orange")) +   
+  theme_bw() +
+  labs(title = "Manipulation x block interaction on MMN amplitude",
+       x = "Manipulation",
+       y = "z_MMN_amplitude (emm)") +
+  theme(plot.title = element_text(face = "bold"))
+print(interaction_plot_MMN)
 ```
 
-### Post-hoc: for.rev vs. aft.for
+### Post-hoc: bef.rev vs. aft.for
 ```{r, warning=FALSE}
 emm <- emmeans(lmm, ~ block * manipulation)
 contrast(emm, method = list(
-  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
+  "reverse.before vs forward.after" = c(0, -1, 1, 0)), infer = T)
 ```
 
-### Post-hoc: for.rev. vs. aft.rev.
+### Post-hoc: bef.rev. vs. aft.rev.
 ```{r, warning=FALSE}
 emm <- emmeans(lmm, ~ block * manipulation)
 contrast(emm, method = list(
-  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
+  "reverse.before vs reverse.after" = c(0, -1, 0, 1)), infer = T)
 ```
 
 ## MMN Latency
@@ -420,10 +564,28 @@ emmip(lmm, ~ trial|group, linearg = list(linetype = "blank"), CI = T)
 ### Post-hoc: manipulation x block
 ```{r, warning=FALSE}
 emmeans(lmm, ~ manipulation|block)
-contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
+contrast(emmeans(lmm, ~ manipulation|block), "revpairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "revpairwise"))
 emm <- emmeans(lmm, ~ block * manipulation)
-emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+plot_data <- as.data.frame(emmeans(lmm, ~ block * manipulation))
+plot_data <- na.omit(plot_data)
+interaction_plot_P3a <- ggplot(plot_data, aes(x = manipulation, y = emmean, group = block, color = block, fill = block)) +
+  geom_crossbar(aes(ymin = emmean - 1 * SE, ymax = emmean + 1 * SE), 
+                alpha = 0.8, 
+                position = position_dodge(width = 0.7),  
+                width = 0.3) +  
+  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), 
+                position = position_dodge(width = 0.7), 
+                width = 0.2) +  
+  scale_color_manual(values = c("blue", "orange")) +  
+  scale_fill_manual(values = c("blue", "orange")) +   
+  theme_bw() +
+  labs(title = "Manipulation x block interaction on P3a amplitude",
+       x = "Manipulation",
+       y = "z_P3a_amplitude (emm)") +
+  theme(plot.title = element_text(face = "bold"))
+print(interaction_plot_P3a)
 ```
 
 ### Post-hoc: bef.rev. vs. aft.for.
@@ -454,7 +616,6 @@ r2_nakagawa(lmm)
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
-emmip(lmm, ~ trial|group, linearg = list(linetype = "blank"), CI = T)
 ```
 
 ## P3b Amplitude
@@ -478,7 +639,7 @@ emmip(lmm, ~ trial, linearg = list(linetype = "blank"), CI = T)
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ manipulation), "pairwise")
 confint(contrast(emmeans(lmm, ~ manipulation), "pairwise"))
-emmip(lmm, ~ manipulation,  linearg = list(linetype = "blank"), CI = T)
+emmip(lmm, ~ manipulation, linearg = list(linetype = "blank"), CI = T)
 ```
 
 ## P3b Latency
@@ -495,14 +656,13 @@ r2_nakagawa(lmm)
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ group|manipulation*trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ group|manipulation*trial), "pairwise"))
-emmip(lmm, ~ manipulation|group*trial, linearg = list(linetype = "blank"), CI = T)
+contrast(emmeans(lmm, ~ manipulation|group*trial), "pairwise")
 ```
 
 #### Post-hoc: trial x manipulation x block
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ manipulation*trial|block), "pairwise")
 confint(contrast(emmeans(lmm, ~ manipulation*trial|block), "pairwise"))
-emmip(lmm, ~ manipulation|trial*block, CI = T)
 ```
 
 ## SEPR
@@ -531,45 +691,39 @@ anova(lmm)
 r2_nakagawa(lmm) 
 ```
 
-### Post-hoc: trial
-```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ trial))
-```
-
 ### Post-hoc: manipulation x group
 ```{r, warning=FALSE}
-contrast(emmeans(lmm, ~ manipulation|group), "pairwise")
-confint(contrast(emmeans(lmm, ~ manipulation|group), "pairwise"))
-emmip(lmm, ~ manipulation | group, CIs = T)
+contrast(emmeans(lmm, ~ manipulation|group), method = "revpairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|group), method = "revpairwise"))
+emmip(lmm, ~ manipulation | group, linearg = list(linetype = "blank"), CIs = T)
 ```
 
 ### Post-hoc: manipulation x block
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
 confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
-emmip(lmm, ~ manipulation | block, CIs = T)
+emmip(lmm, ~ manipulation | block, linearg = list(linetype = "blank"), CIs = T)
 ```
 
 ### Post-hoc: bef.rev. vs. aft.for.
 ```{r, warning=FALSE}
 emm <- emmeans(lmm, ~ block * manipulation)
 contrast(emm, method = list(
-  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
+  "reverse.before vs forward.after" = c(0, -1, 1, 0)), infer = T)
 emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
   theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
-
 ```
 
 ### Post-hoc: bef.rev. vs. aft.rev.
 ```{r, warning=FALSE}
 emm <- emmeans(lmm, ~ block * manipulation)
 contrast(emm, method = list(
-  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
+  "reverse.before vs reverse.after" = c(0, -1, 0, 1)), infer = T)
 emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
   theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 ```
 
-## Does BPS predict SEPR?
+## Associations of the pupillometric measures
 ```{r, warning=FALSE}
 lmm <- lmer(
   z_rpd ~ z_rpd_low * trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
@@ -578,14 +732,21 @@ anova(lmm)
 r2_nakagawa(lmm) 
 ```
 
-### Post-hoc: BPS x group
+### Post-hoc: BPS
 ```{r, warning=FALSE}
-emtrends(lmm, ~ group, var = "z_rpd_low")
-contrast(emtrends(lmm, ~ group, var = "z_rpd_low"))
-confint(contrast(emtrends(lmm, ~ group, var = "z_rpd_low")))
+emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low")
+summary(emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low"), infer = T)
 ```
 
-## Does pupil data predict ERPs?
+### Post-hoc: BPS x group
+```{r, warning=FALSE}
+emt <- emtrends(lmm, ~ group, var = "z_rpd_low")
+contrast(emtrends(lmm, ~ group, var = "z_rpd_low"))
+confint(contrast(emt))
+contrast(emt, "pairwise")
+```
+
+## Association between pupillometric indices and ERPs
 ### Does SEPR/BPS predict MMN amplitude?
 ```{r, warning=FALSE}
 lmm <- lmer(
@@ -598,7 +759,8 @@ r2_nakagawa(lmm)
 #### Post-hoc: SEPR x BPS x trial
 ```{r, warning=FALSE}
 emtrends(lmm, ~ z_rpd_low * z_rpd | trial, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
-contrast(emtrends(lmm, ~ z_rpd_low * z_rpd | trial, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2))))
+contrast(emt)
+contrast((emt), "pairwise")
 ```
 
 ### Does SEPR/BPS predict P3a amplitude?
@@ -658,13 +820,16 @@ r2_nakagawa(lmm)
 
 ### Post-hoc: trial
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ trial))
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
 ```
 
 ### Post-hoc: manipulation x block
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ manipulation|block))
-emmip(lmm, ~ manipulation|block, CI = T)
+contrast(emmeans(lmm, ~ block|manipulation), "pairwise")
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 ```
 
 ### Post-hoc: bef.rev. vs. aft.for.
@@ -672,8 +837,6 @@ emmip(lmm, ~ manipulation|block, CI = T)
 emm <- emmeans(lmm, ~ block * manipulation)
 contrast(emm, method = list(
   "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
-emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 ```
 
 ### Post-hoc: bef.rev. vs. aft.rev.
@@ -681,8 +844,6 @@ emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRU
 emm <- emmeans(lmm, ~ block * manipulation)
 contrast(emm, method = list(
   "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
-emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 ```
 
 ## MMN Latency
@@ -697,28 +858,16 @@ r2_nakagawa(lmm)
 
 ### Post-hoc: trial
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ trial))
+contrast(emmeans(lmm, ~ trial), "pairwise")
+confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
+emmip(lmm, ~ trial, linearg = list(linetype = "blank"), CIs = T)
 ```
 
-### Post-hoc: manipulation x block
+### Post-hoc: manipulation
 ```{r, warning=FALSE}
-emmeans(lmm, list(pairwise ~ manipulation|block))
-emmip(lmm, ~ manipulation|block, CI = T)
-emm <- emmeans(lmm, ~ block * manipulation)
-emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
-```
-
-### Post-hoc: bef.rev. vs. aft.for.
-```{r, warning=FALSE}
-contrast(emm, method = list(
-  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
-```
-
-### Post-hoc: bef.rev. vs. aft.rev.
-```{r, warning=FALSE}
-contrast(emm, method = list(
-  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
+contrast(emmeans(lmm, ~ manipulation), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation), "pairwise"))
+emmip(lmm, ~ manipulation, linearg = list(linetype = "blank"), CIs = T)
 ```
  
 ## P3a Amplitude
@@ -735,8 +884,7 @@ r2_nakagawa(lmm)
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ trial|group), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial|group), "pairwise"))
-emm <- emmeans(lmm, ~ trial * group)
-emmip(lmm, ~ trial * group, linearg = list(linetype = "blank"), CIs = T)
+emmip(lmm, ~ trial | group, linearg = list(linetype = "blank"), CIs = T)
 ```
 
 ### Post-hoc: manipulation x block
@@ -758,6 +906,13 @@ contrast(emm, method = list(
 ```{r, warning=FALSE}
 contrast(emm, method = list(
   "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
+```
+
+### post-hoc: trial x group x block
+```{r, warning=FALSE}
+contrast(emmeans(lmm, ~ block|trial * group), "pairwise")
+confint(contrast(emmeans(lmm, ~ block|trial * group), "pairwise"))
+emmip(lmm, ~ trial | group * block, linearg = list(linetype = "blank"), CIs = T)
 ```
 
 ## P3a Latency
@@ -775,11 +930,6 @@ r2_nakagawa(lmm)
 contrast(emmeans(lmm, ~ trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
 ```
-
-### Plot: trial x manipulation x group x block
-```{r, warning=FALSE}
-emmip(lmm, ~block|group * manipulation|trial, linearg = list(linetype = "blank"), CIs = T)
-```
  
 ## SEPR
 ```{r, warning=FALSE}
@@ -794,7 +944,6 @@ r2_nakagawa(lmm)
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ trial), "pairwise")
 confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
-emmip(lmm, ~ trial, linearg = list(linetype = "blank"), CIs = T)
 ```
 
 ## BPS
@@ -809,10 +958,8 @@ r2_nakagawa(lmm)
 ### Post-hoc: manipulation x group
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ manipulation|group), "pairwise")
-emmip(emm, ~  manipulation|group, linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 confint(contrast(emmeans(lmm, ~ manipulation|group), "pairwise"))
-emm <- emmeans(lmm, ~ group * manipulation)
+emm <- emmeans(lmm, ~ manipulation * group)
 emmip(emm, ~  manipulation|group, linearg = list(linetype = "blank"), CI = TRUE) +
   theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 ```
@@ -820,8 +967,8 @@ emmip(emm, ~  manipulation|group, linearg = list(linetype = "blank"), CI = TRUE)
 ### Post-hoc: block x group
 ```{r, warning=FALSE}
 contrast(emmeans(lmm, ~ block|group), "pairwise")
-emm <- emmeans(lmm, ~ block * manipulation)
-emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+emm <- emmeans(lmm, ~ block * group)
+emmip(emm, ~  block | group, linearg = list(linetype = "blank"), CI = TRUE) +
   theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 ```
 
@@ -834,21 +981,21 @@ emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRU
   theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 ```
 
-### ### Post-hoc: bef.rev. vs. aft.for.
+### Post-hoc: bef.rev. vs. aft.for.
 ```{r, warning=FALSE}
 emm <- emmeans(lmm, ~ block * manipulation)
 contrast(emm, method = list(
   "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
 ```
 
-### ### Post-hoc: bef.rev. vs. aft.rev.
+### Post-hoc: bef.rev. vs. aft.rev.
 ```{r, warning=FALSE}
 emm <- emmeans(lmm, ~ block * manipulation)
 contrast(emm, method = list(
   "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
 ```
 
-## Does BPS predict SEPR?
+## Associations of the pupillometric measures
 ```{r, warning=FALSE}
 lmm <- lmer(
   z_rpd ~ z_rpd_low * trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
@@ -857,23 +1004,25 @@ anova(lmm)
 r2_nakagawa(lmm) 
 ```
 
+### Post-hoc: BPS
+```{r, warning=FALSE}
+emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low")
+summary(emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low"), infer = T)
+```
+
 ### Post-hoc: BPS x manipulation x block
 ```{r, warning=FALSE}
-emt <- emtrends(lmm, pairwise ~ manipulation * block, var = "z_rpd_low")
-summary(emt, infer = T)
-emmip(emt, ~  block * manipulation, var = "z_rpd_low", linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "z_rpd_low.trend")
+emt <- emtrends(lmm, ~ block|manipulation, var = "z_rpd_low")
+contrast(emt)
 ```
 
 ### Post-hoc: BPS x manipulation x group
 ```{r, warning=FALSE}
-emt <- emtrends(lmm, pairwise ~ manipulation * group, var = "z_rpd_low")
-summary(emt, infer = T)
-emmip(emt, ~  manipulation|group, var = "z_rpd_low", linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "group", y = "z_rpd_low.trend")
+emt <- emtrends(lmm, ~ group|manipulation, var = "z_rpd_low")
+contrast(emt)
 ```
 
-## Does pupil data predict ERPs?
+## Association between pupillometric indices and ERPs
 ### Does SEPR/BPS predict MMN amplitude?
 ```{r, warning=FALSE}
 lmm <- lmer(
@@ -883,11 +1032,16 @@ anova(lmm)
 r2_nakagawa(lmm)
 ```
 
+### Post-hoc: SEPR
+```{r, warning=FALSE}
+emt <- emtrends(lmm, ~ z_rpd, var = "z_rpd")
+summary(emt, infer = T)
+```
+
 #### Post-hoc: BPS x SEPR x group
 ```{r, warning=FALSE}
-emtrends(lmm, ~ z_rpd_low * z_rpd | group, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
-contrast(emtrends(lmm, ~ z_rpd_low * z_rpd | group, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2))))
-confint(contrast(emtrends(lmm, ~ z_rpd_low * z_rpd | group, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))))
+emt <- emtrends(lmm, ~  z_rpd * z_rpd_low|group,  var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
+contrast(emt)
 ```
 
 ### Does SEPR/BPS predict P3a amplitude?
@@ -901,15 +1055,8 @@ r2_nakagawa(lmm)
 
 #### Post-hoc: BPS x manipulation x group
 ```{r, warning=FALSE}
-emtrends(lmm, ~ manipulation | group, var = c("z_rpd_low"))
-contrast(emtrends(lmm, ~ manipulation | group, var = c("z_rpd_low")))
-confint(contrast(emtrends(lmm, ~ manipulation | group, var = c("z_rpd_low"))))
-```
-
-#### Post-hoc: SEPR x BPS x manipulation
-```{r, warning=FALSE}
-emtrends(lmm, ~ z_rpd_low * z_rpd | manipulation, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
-contrast(emtrends(lmm, ~ z_rpd_low * z_rpd | manipulation, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2))))
+emt <- emtrends(lmm, "revpairwise" ~ manipulation | group, var = c("z_rpd_low"))
+confint(emt)
 ```
 
 # **Exploratory Analyses**
