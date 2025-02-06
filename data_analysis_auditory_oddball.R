@@ -14,7 +14,7 @@ library(kableExtra) # table formatting
 library(stringr) # for string modifications
 library(tidyverse)
 library(cowplot, warn.conflicts = FALSE) # get only legend from plot
-library(simr)
+library(simr) # power analysis
 library(gridExtra) # arrange ggplots
 
 # PATHS
@@ -66,21 +66,20 @@ df <- readRDS(paste0(home_path, project_path,'/data/preprocessed_auditory_df.rds
 et_erp_subject <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_subject.rds')) # eeg + pupil (subject level, only oddball(rev) blocks)
 et_erp_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_trial.rds')) # eeg + pupil(single-trial, only oddball(rev) blocks)
 MMN_diff <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_MMN_diff.rds'))
-  
+
+# Renaming the variable "trial" into "stimulus" to match terminology in the paper
+names(et_erp_subject)[names(et_erp_subject) == "trial"] <- "stimulus"
+names(et_erp_trial)[names(et_erp_trial) == "trial"] <- "stimulus"
+names(df_trial)[names(df_trial) == "trial"] <- "stimulus"
+names(df)[names(df) == "trial"] <- "stimulus"
+
 # DATA ANALYSIS ON SUBJECT LEVEL ####
 # Sample size
 length(unique(et_erp_subject$SEGA_ID))
 table(et_erp_subject$group)/8
 
-excluded_ids <- c("117", "152", "36", "77") # to balance age between groups
-et_erp_subject <- subset(et_erp_subject, ! (SEGA_ID %in% excluded_ids))
-et_erp_trial <- subset(et_erp_trial, ! (SEGA_ID %in% excluded_ids))
-
-# Sample Size after removing subjects (age balance)
-length(unique(et_erp_subject$SEGA_ID))
-table(et_erp_subject$group)/8
-
 # Distributions of dependent variables
+par(mfrow = c(3,2), mar = c(4, 4, 2, 1))
 hist(et_erp_subject$z_rpd,
      main = "Distribution of rpd (500-1500 ms)",
      xlab = "rpd",
@@ -111,12 +110,13 @@ hist(et_erp_subject$z_P3b_amplitude,
      xlab = "P3b amplitude (Pz)",
      xlim = c(-6, 8),
      breaks = 200)
+par(mfrow = c(1, 1))
 
 ## mean + sd for each group
 fun_return_descriptives <- function(group){
   group_df <- et_erp_subject[
     et_erp_subject$group == group,
-    c("gender", "age", "SRS", "SCQ", "CBCL", "YSR", "SP2","z_handdynamometer", "SEGA_ID",
+    c("gender", "age", "SRS", "SCQ", "CBCL", "YSR", "SP2","z_grip_strength", "SEGA_ID",
       "verbal_IQ", "non_verbal_IQ","included_trials_et", "included_trials_eeg")]
   n <- length(unique(group_df$SEGA_ID))
   male <- (length(which(group_df$gender == "männlich"))/8)
@@ -140,8 +140,8 @@ fun_return_descriptives <- function(group){
   SP2_mean <- round(mean(group_df$SP2, na.rm = TRUE), digits = 1)
   SP2_sd <- round(sd(group_df$SP2, na.rm = TRUE), digits = 1)
   SP2 <- paste(SCQ_mean, "(", SP2_sd, ")")
-  grip_strength_mean <- round(mean(group_df$z_handdynamometer, na.rm = TRUE), digits = 1)
-  grip_strength_sd <- round(sd(group_df$z_handdynamometer, na.rm = TRUE), digits = 1)
+  grip_strength_mean <- round(mean(group_df$z_grip_strength, na.rm = TRUE), digits = 1)
+  grip_strength_sd <- round(sd(group_df$z_grip_strength, na.rm = TRUE), digits = 1)
   grip_strength <- paste(grip_strength_mean, "(", grip_strength_sd, ")")
   verbal_IQ_mean <- round(mean(group_df$verbal_IQ, na.rm = TRUE), digits = 1)
   verbal_IQ_sd <- round(sd(group_df$verbal_IQ, na.rm = TRUE), digits = 1)
@@ -149,8 +149,8 @@ fun_return_descriptives <- function(group){
   non_verbal_IQ_mean <- round(mean(group_df$non_verbal_IQ, na.rm = TRUE), digits = 1)
   non_verbal_IQ_sd <- round(sd(group_df$non_verbal_IQ, na.rm = TRUE), digits = 1)
   non_verbal_IQ <- paste(non_verbal_IQ_mean, "(", non_verbal_IQ_sd, ")")
-  included_trials_eeg <- paste(round((mean(group_df$included_trials_eeg))*100, 1), "%")
-  included_trials_et <- paste(round((mean(group_df$included_trials_et))*100, 1), "%")
+  included_trials_eeg <- round((mean(group_df$included_trials_eeg))*100, 1)
+  included_trials_et <- round((mean(group_df$included_trials_et))*100, 1)
   group_description <- data.frame(
     n,
     gender_f_m,
@@ -188,7 +188,7 @@ YSR_anova <- aov(YSR ~ group, data = et_erp_subject)
 YSR_anova_p <- summary(YSR_anova)[[1]][["Pr(>F)"]][[1]]
 SP2_anova <- aov(SP2 ~ group, data = et_erp_subject)
 SP2_anova_p <- summary(SP2_anova)[[1]][["Pr(>F)"]][[1]]
-grip_strength_anova <- aov(z_handdynamometer ~ group, data = et_erp_subject)
+grip_strength_anova <- aov(z_grip_strength ~ group, data = et_erp_subject)
 grip_strength_anova_p <- summary(grip_strength_anova)[[1]][["Pr(>F)"]][[1]]
 verbal_IQ_anova <- aov(verbal_IQ ~ group, data = et_erp_subject)
 verbal_IQ_anova_p <- summary(verbal_IQ_anova)[[1]][["Pr(>F)"]][[1]]
@@ -225,6 +225,15 @@ for (p in p_values){
 }
 
 sample_table <- cbind(asd_description, con_description, mhc_description, p_value)
+# Redo table row and column names
+rownames(sample_table)[rownames(sample_table) == "grip_strength"] <- "grip strength [z]"
+rownames(sample_table)[rownames(sample_table) == "gender_f_m"] <- "gender (f/m)"
+rownames(sample_table)[rownames(sample_table) == "verbal_IQ"] <- "verbal IQ"
+rownames(sample_table)[rownames(sample_table) == "non_verbal_IQ"] <- "non verbal IQ"
+rownames(sample_table)[rownames(sample_table) == "included_trials_eeg"] <- "included eeg trials [%]"
+rownames(sample_table)[rownames(sample_table) == "included_trials_et"] <- "included et trials [%]"
+colnames(sample_table)[colnames(sample_table) == "p_value"] <- "p value"
+
 sample_description_table <- kable(sample_table, caption = "Sample description", digits = 4) %>%
   kable_classic(full_width = F, html_font = "Cambria") %>% kable_styling
 sample_description_table
@@ -235,48 +244,48 @@ fun_trials_per_cond <- function(group, variable){
   # subjects starting with 500 Hz oddball
   ## block 1
   df_before_forward_O500_S750 <- group_df %>% filter(
-    (manipulation == "before" & phase == "oddball_block" & trial == "oddball" & pitch == "500") |
-      (manipulation == "before" & phase == "oddball_block" & trial == "standard" & pitch == "750"))
+    (manipulation == "before" & phase == "oddball_block" & stimulus == "oddball" & pitch == "500") |
+      (manipulation == "before" & phase == "oddball_block" & stimulus == "standard" & pitch == "750"))
   sample_size <- length(unique(df_before_forward_O500_S750$SEGA_ID))
   max_trials <- sample_size *100
   before_forward_O500_S750 <- paste(round(((sum(!is.na(df_before_forward_O500_S750[variable]), na.rm = T))/max_trials)*100, 2), "%")
   ## block 2
   df_before_reverse_O750_S500 <- group_df %>% filter(
-    (manipulation == "before" & phase == "oddball_block_rev" & trial == "oddball" & pitch == "750") |
-      (manipulation == "before" & phase == "oddball_block_rev" & trial == "standard" & pitch == "500"))
+    (manipulation == "before" & phase == "oddball_block_rev" & stimulus == "oddball" & pitch == "750") |
+      (manipulation == "before" & phase == "oddball_block_rev" & stimulus == "standard" & pitch == "500"))
   before_reverse_O750_S500 <- paste(round(((sum(!is.na(df_before_reverse_O750_S500[variable]), na.rm = T))/max_trials)*100, 2), "%")
   ## block 3
   df_after_forward_O500S750 <- group_df %>% filter(
-    (manipulation == "after" & phase == "oddball_block" & trial == "oddball" & pitch == "500") |
-      (manipulation == "after" & phase == "oddball_block" & trial == "standard" & pitch == "750"))
+    (manipulation == "after" & phase == "oddball_block" & stimulus == "oddball" & pitch == "500") |
+      (manipulation == "after" & phase == "oddball_block" & stimulus == "standard" & pitch == "750"))
   after_forward_O500S750 <- paste(round(((sum(!is.na(df_after_forward_O500S750[variable]), na.rm = T))/max_trials)*100, 2), "%")
   # block 4
   df_after_reverse_O750S500 <- group_df %>% filter(
-    (manipulation == "after" & phase == "oddball_block_rev" & trial == "oddball" & pitch == "750") |
-      (manipulation == "after" & phase == "oddball_block_rev" & trial == "standard" & pitch == "500"))
+    (manipulation == "after" & phase == "oddball_block_rev" & stimulus == "oddball" & pitch == "750") |
+      (manipulation == "after" & phase == "oddball_block_rev" & stimulus == "standard" & pitch == "500"))
   after_reverse_O750S500 <- paste(round(((sum(!is.na(df_after_reverse_O750S500[variable]), na.rm = T))/max_trials)*100, 2), "%")
   # subjects starting with 750 Hz oddball
   ## block 1
   df_before_forward_O750_S500 <- group_df %>% filter(
-    (manipulation == "before" & phase == "oddball_block" & trial == "oddball" & pitch == "750") |
-      (manipulation == "before" & phase == "oddball_block" & trial == "standard" & pitch == "500"))
+    (manipulation == "before" & phase == "oddball_block" & stimulus == "oddball" & pitch == "750") |
+      (manipulation == "before" & phase == "oddball_block" & stimulus == "standard" & pitch == "500"))
   sample_size <- length(unique(df_before_forward_O750_S500$SEGA_ID))
   max_trials <- sample_size *100
   before_forward_O750_S500 <- paste(round(((sum(!is.na(df_before_forward_O750_S500[variable]), na.rm = T))/max_trials)*100, 2), "%")
   ## block 2
   df_before_reverse_O500S750 <- group_df %>% filter(
-    (manipulation == "before" & phase == "oddball_block_rev" & trial == "oddball" & pitch == "500") |
-      (manipulation == "before" & phase == "oddball_block_rev" & trial == "standard" & pitch == "750"))
+    (manipulation == "before" & phase == "oddball_block_rev" & stimulus == "oddball" & pitch == "500") |
+      (manipulation == "before" & phase == "oddball_block_rev" & stimulus == "standard" & pitch == "750"))
   before_reverse_O500S750 <- paste(round(((sum(!is.na(df_before_reverse_O500S750[variable]), na.rm = T))/max_trials)*100, 2), "%")
   ## block 3
   df_after_forward_O750_S500 <- group_df %>% filter(
-    (manipulation == "after" & phase == "oddball_block" & trial == "oddball" & pitch == "750") |
-      (manipulation == "after" & phase == "oddball_block" & trial == "standard" & pitch == "500"))
+    (manipulation == "after" & phase == "oddball_block" & stimulus == "oddball" & pitch == "750") |
+      (manipulation == "after" & phase == "oddball_block" & stimulus == "standard" & pitch == "500"))
   after_forward_O750_S500 <- paste(round(((sum(!is.na(df_after_forward_O750_S500[variable]), na.rm = T))/max_trials)*100, 2), "%")
   ## block 4
   df_after_reverse_O500S750 <- group_df %>% filter(
-    (manipulation == "after" & phase == "oddball_block_rev" & trial == "oddball" & pitch == "500") |
-      (manipulation == "after" & phase == "oddball_block_rev" & trial == "standard" & pitch == "750"))
+    (manipulation == "after" & phase == "oddball_block_rev" & stimulus == "oddball" & pitch == "500") |
+      (manipulation == "after" & phase == "oddball_block_rev" & stimulus == "standard" & pitch == "750"))
   after_reverse_O500S750 <- paste(round(((sum(!is.na(df_after_reverse_O500S750[variable]), na.rm = T))/max_trials)*100, 2), "%")
   
    trial_per_condition <- data.frame(
@@ -387,7 +396,7 @@ ggplot(age_df, aes(x = group, y = age), col = "group") +
 
 ## Plot: IQ-verbal
 IQ_df <- et_erp_subject[!duplicated(et_erp_subject$SEGA_ID), c("SEGA_ID", "group", "verbal_IQ", "non_verbal_IQ")]
-ggplot(IQ_df, aes(x = group, y = verbal_IQ), col = "group") + 
+plot_verbal_iq <- ggplot(IQ_df, aes(x = group, y = verbal_IQ), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
@@ -395,10 +404,11 @@ ggplot(IQ_df, aes(x = group, y = verbal_IQ), col = "group") +
   theme_bw() + 
   theme_classic() +
   ggtitle("IQ-verbal") +
-  theme(plot.title = element_text(face="bold"))
+  theme(plot.title = element_text(face="bold")) +
+  theme(plot.margin = unit(c(1, 0.5, 0.5, 0.5), "cm"))
 
 ## Plot: IQ-non-verbal
-ggplot(IQ_df, aes(x = group, y = non_verbal_IQ), col = "group") + 
+plot_non_verbal_iq <- ggplot(IQ_df, aes(x = group, y = non_verbal_IQ), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
@@ -406,10 +416,14 @@ ggplot(IQ_df, aes(x = group, y = non_verbal_IQ), col = "group") +
   theme_bw() + 
   theme_classic() +
   ggtitle("IQ-non-verbal") +
-  theme(plot.title = element_text(face="bold"))
+  theme(plot.title = element_text(face="bold")) +
+  theme(plot.margin = unit(c(1, 0.5, 0.5, 0.5), "cm"))
+  
+
+grid.arrange(plot_verbal_iq, plot_non_verbal_iq, ncol = 2)
 
 # Power Analysis
-n_size<- 135 # sample size
+n_size<- 141 # sample size
 k_size<-4*100 # number of trials --> auditory oddball: 
 subj <- factor(1:n_size) 
 trial_id <- 1:k_size # remains integer variable
@@ -445,16 +459,93 @@ print(power_interaction)
 power_curve_interaction <- powerCurve(model, test = fcompare(y ~ group + condition), along = "id")
 plot(power_curve_interaction)
 
-# RESULT 1: MMN AMPLITUDE ON SUBJECT LEVEL
+# RESULT 1: SEPR ON SUBJECT LEVEL
 lmm <- lmer(
-  z_MMN_amplitude ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  z_rpd ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_subject)
 anova(lmm)
 r2_nakagawa(lmm)
 
-## Post-hoc: trial
-contrast(emmeans(lmm, ~ trial), "pairwise")
-confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
+## Post-hoc: stimulus
+contrast(emmeans(lmm, ~ stimulus), "pairwise")
+confint(contrast(emmeans(lmm, ~ stimulus), "pairwise"))
+
+## Post-hoc: manipulation * block
+emmeans(lmm, ~ manipulation|block)
+contrast(emmeans(lmm, ~ manipulation|block), "revpairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "revpairwise"))
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+## custom contrast: block 1 vs. block 2
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "forward.before vs reverse.before" = c(1, -1, 0, 0)), infer = T)
+
+## custom contrast: block 1 vs. block 3
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "forward.before vs forward.after" = c(1, 0, -1, 0)), infer = T)
+
+## custom contrast: block 1 vs. block 4
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "forward.before vs reverse.after" = c(1, 0, 0, -1)), infer = T)
+
+# RESULT 2: BPS ON SUBJECT LEVEL
+lmm <- lmer(
+  z_rpd_low ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject)
+anova(lmm) 
+r2_nakagawa(lmm) 
+
+## Post-hoc: age
+emtrends(lmm, ~ age, var = "age")
+
+## post-hoc: manipulation * group
+contrast(emmeans(lmm, ~ manipulation|group), method = "revpairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|group), method = "revpairwise"))
+emmip(lmm, ~ manipulation | group, linearg = list(linetype = "blank"), CIs = T)
+
+### exploratory: custom contrast: group comparisons of BPS before manipulation
+emm <- emmeans(lmm, ~ group * manipulation)
+contrast(emm, method = list(
+  "ASD.before vs CON.before" = c(-1, 1, 0, 0, 0, 0)), infer = T)
+contrast(emm, method = list(
+  "ASD.before vs MHC.before" = c(-1, 0, 1, 0, 0, 0)), infer = T)
+contrast(emm, method = list(
+  "CON.before vs MHC.before" = c(0, 0, 1, 0, 0, 0)), infer = T)
+
+## Post-hoc: manipulation * block
+contrast(emmeans(lmm, ~ manipulation|block), "revpairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "revpairwise"))
+emmip(lmm, ~ manipulation | block, linearg = list(linetype = "blank"), CIs = T)
+
+## custom contrast: Manipulation effect in block 3? (before.reverse vs. after.forward)
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, -1, 1, 0)), infer = T)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+### custom contrast: Manipulation effect in block 4? (before.reverse vs. after.reverse).
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, -1, 0, 1)), infer = T)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+# RESULT 3: MMN AMPLITUDE ON SUBJECT LEVEL
+lmm <- lmer(
+  z_MMN_amplitude ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+
+## Post-hoc: stimulus
+contrast(emmeans(lmm, ~ stimulus), "pairwise")
+confint(contrast(emmeans(lmm, ~ stimulus), "pairwise"))
 
 ## Post-hoc: manipulation * block
 contrast(emmeans(lmm, ~ manipulation|block), "revpairwise")
@@ -469,7 +560,7 @@ plot_data <- na.omit(plot_data)
 
 interaction_plot_MMN <- ggplot(plot_data) +
   geom_crossbar(aes(
-    x = manipulation, y = emmean, color = block, fill = block,
+    x = manipulation, y = emmean, color = block,
     ymin = emmean - 1 * SE, ymax = emmean + 1 * SE), 
                 alpha = 0.8, 
                 position = position_dodge(width = 0.7),  
@@ -484,7 +575,7 @@ interaction_plot_MMN <- ggplot(plot_data) +
   theme_bw() +
   labs(title = "Manipulation x block interaction on MMN amplitude",
        x = "Manipulation",
-       y = "z_MMN_amplitude (emm)") +
+       y = "MMN_amplitude [z]") +
   theme(plot.title = element_text(face = "bold"), legend.position = "none") 
 print(interaction_plot_MMN)
 
@@ -509,12 +600,15 @@ corr_by_group <- et_erp_subject %>%
             p_value = cor.test(age, z_MMN_latency)$p.value)
 print(corr_by_group)
 
-# RESULT 2: MMN LATENCY ON SUBJECT LEVEL
+# RESULT 4: MMN LATENCY ON SUBJECT LEVEL
 lmm <- lmer(
-  z_MMN_latency ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  z_MMN_latency ~ stimulus * manipulation * group * block + (1|SEGA_ID) + gender + age,
   data = et_erp_subject)
 anova(lmm)
 r2_nakagawa(lmm)
+
+## Post-hoc: Age
+emtrends(lmm, ~ age, var = "age")
 
 ## Correlation with age
 corr_by_group <- et_erp_subject %>%
@@ -523,31 +617,34 @@ corr_by_group <- et_erp_subject %>%
             p_value = cor.test(age, z_MMN_latency)$p.value)
 print(corr_by_group)
 
-# RESULT 3: MMN DIFF AMPLITUDE ON SUBJECT LEVEL
+# RESULT 5: MMN DIFF AMPLITUDE ON SUBJECT LEVEL
 lmm <- lmer(
   z_MMN_diff_amplitude ~  manipulation * group * block + (1|SEGA_ID) + gender + age,
   data = MMN_diff)
 anova(lmm)
 r2_nakagawa(lmm)
 
-# RESULT 3: MMN DIFF LATENCY ON SUBJECT LEVEL
+# RESULT 6: MMN DIFF LATENCY ON SUBJECT LEVEL
 lmm <- lmer(
   z_MMN_diff_latency ~  manipulation * group * block + (1|SEGA_ID) + gender + age,
   data = MMN_diff)
 anova(lmm)
 r2_nakagawa(lmm)
 
-# RESULT 3: P3A AMPLITUDE ON SUBJECT LEVEL
+# RESULT 7: P3A AMPLITUDE ON SUBJECT LEVEL
 lmm <- lmer(
-  z_P3a_amplitude ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  z_P3a_amplitude ~ stimulus * manipulation * group * block + (1|SEGA_ID) + gender + age,
   data = et_erp_subject)
 anova(lmm)
-r2_nakagawa(lmm) 
+r2_nakagawa(lmm)
 
-## Post-hoc: trial * group
-contrast(emmeans(lmm, ~ trial|group), "pairwise")
-confint(contrast(emmeans(lmm, ~ trial|group), "pairwise"))
-emmip(lmm, ~ trial|group, linearg = list(linetype = "blank"), CI = T)
+## Post-hoc: age
+emtrends(lmm, ~ age, var = "age")
+
+## Post-hoc: stimulus * group * block
+contrast(emmeans(lmm, ~ stimulus * block|group), "pairwise")
+confint(contrast(emmeans(lmm, ~ stimulus * block|group), "pairwise"))
+emmip(lmm, ~ stimulus | block|group, linearg = list(linetype = "blank"), CI = T)
 
 ## Post-hoc: manipulation * block
 emmeans(lmm, ~ manipulation|block)
@@ -561,7 +658,7 @@ emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRU
 plot_data <- as.data.frame(emmeans(lmm, ~ block * manipulation))
 plot_data <- na.omit(plot_data)
 
-interaction_plot_P3a <- ggplot(plot_data, aes(x = manipulation, y = emmean, group = block, color = block, fill = block)) +
+interaction_plot_P3a <- ggplot(plot_data, aes(x = manipulation, y = emmean, group = block, color = block)) +
   geom_crossbar(aes(ymin = emmean - 1 * SE, ymax = emmean + 1 * SE), 
                 alpha = 0.8, 
                 position = position_dodge(width = 0.7),  
@@ -574,7 +671,7 @@ interaction_plot_P3a <- ggplot(plot_data, aes(x = manipulation, y = emmean, grou
   theme_bw() +
   labs(title = "Manipulation x block interaction on P3a amplitude",
        x = "Manipulation",
-       y = "z_P3a_amplitude (emm)") +
+       y = "P3a_amplitude [z]") +
   theme(plot.title = element_text(face = "bold"), legend.position = "none")
 print(interaction_plot_P3a)
 
@@ -594,103 +691,100 @@ emm <- emmeans(lmm, ~ block * manipulation)
 contrast(emm, method = list(
   "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
 
-# RESULT 4: P3A LATENCY ON SUBJECT LEVEL
+# RESULT 8: P3A LATENCY ON SUBJECT LEVEL
 lmm <- lmer(
-  z_P3a_latency ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  z_P3a_latency ~ stimulus * manipulation * group * block + (1|SEGA_ID) + gender + age,
   data = et_erp_subject)
 anova(lmm)
 r2_nakagawa(lmm) 
 
-contrast(emmeans(lmm, ~ trial), "pairwise")
-confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
+## Post-hoc: stimulus
+contrast(emmeans(lmm, ~ stimulus), "pairwise")
+confint(contrast(emmeans(lmm, ~ stimulus), "pairwise"))
 
-# RESULT 5: P3B AMPLITUDE ON SUBJECT LEVEL
+# RESULT 9: P3B AMPLITUDE ON SUBJECT LEVEL
 lmm <- lmer(
-  z_P3b_amplitude ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  z_P3b_amplitude ~ stimulus * manipulation * group * block + (1|SEGA_ID) + gender + age,
   data = et_erp_subject)
 anova(lmm)
 r2_nakagawa(lmm) 
 
-contrast(emmeans(lmm, ~ trial), "pairwise")
-confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
-emmip(lmm, ~ trial, linearg = list(linetype = "blank"), CI = T)
+## Post-hoc: stimulus
+contrast(emmeans(lmm, ~ stimulus), "pairwise")
+confint(contrast(emmeans(lmm, ~ stimulus), "pairwise"))
 
-contrast(emmeans(lmm, ~ manipulation), "pairwise")
-confint(contrast(emmeans(lmm, ~ manipulation), "pairwise"))
-emmip(lmm, ~ manipulation, linearg = list(linetype = "blank"), CI = T)
+## Post-hoc: group
+contrast(emmeans(lmm, ~ group), "pairwise")
+confint(contrast(emmeans(lmm, ~ group), "pairwise"))
+emmip(lmm, ~ group, linearg = list(linetype = "blank"), CI = T)
 
-# RESULT 6: P3B LATENCY ON SUBJECT LEVEL
+## Post-hoc: Age
+emtrends(lmm, ~ age, var = "age")
+
+# RESULT 10: P3B LATENCY ON SUBJECT LEVEL
 lmm <- lmer(
-  z_P3b_latency ~ trial * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  z_P3b_latency ~ stimulus * manipulation * group * block + (1|SEGA_ID) + gender + age,
   data = et_erp_subject)
 anova(lmm)
 r2_nakagawa(lmm) 
 
-contrast(emmeans(lmm, ~ group|manipulation*trial), "pairwise")
-confint(contrast(emmeans(lmm, ~ group|manipulation*trial), "pairwise"))
-emmip(lmm, ~ group|manipulation*trial, CI = T)
-contrast(emmeans(lmm, ~ manipulation|group*trial), "pairwise")
+# Post-hoc: stimulus * manipulation * group
+contrast(emmeans(lmm, ~ group|manipulation*stimulus), "pairwise")
+confint(contrast(emmeans(lmm, ~ group|manipulation*stimulus), "pairwise"))
+emmip(lmm, ~ group|manipulation*stimulus, CI = T)
+contrast(emmeans(lmm, ~ manipulation|group*stimulus), "pairwise")
 
-contrast(emmeans(lmm, ~ manipulation*trial|block), "pairwise")
-confint(contrast(emmeans(lmm, ~ manipulation*trial|block), "pairwise"))
-emmip(lmm, ~ manipulation|trial*block, CI = T)
-
-# RESULT 7: SEPR ON SUBJECT LEVEL
+# RESULT 11: ASSOCIATIONS OF PUPILLOMETRIC MEASURES
 lmm <- lmer(
-  z_rpd ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  z_rpd ~ z_rpd_low * stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_subject)
 anova(lmm)
 r2_nakagawa(lmm)
 
-contrast(emmeans(lmm, ~ trial), "pairwise")
-confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
-
-# RESULT 6: BPS ON SUBJECT LEVEL
-lmm <- lmer(
-  z_rpd_low ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
-  data = et_erp_subject)
-anova(lmm) 
-r2_nakagawa(lmm) 
-
-contrast(emmeans(lmm, ~ manipulation|group), method = "revpairwise")
-confint(contrast(emmeans(lmm, ~ manipulation|group), method = "revpairwise"))
-emmip(lmm, ~ manipulation | group, linearg = list(linetype = "blank"), CIs = T)
-
-contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
-confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
-emmip(lmm, ~ manipulation | block, linearg = list(linetype = "blank"), CIs = T)
-
-## custom contrast: Manipulation effect in block 3? (before.reverse vs. after.forward)
-emm <- emmeans(lmm, ~ block * manipulation)
-contrast(emm, method = list(
-  "reverse.before vs forward.after" = c(0, -1, 1, 0)), infer = T)
-emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
-
-### Post-hoc: Manipulation effect in block 4? (before.reverse vs. after.reverse).
-emm <- emmeans(lmm, ~ block * manipulation)
-contrast(emm, method = list(
-  "reverse.before vs reverse.after" = c(0, -1, 0, 1)), infer = T)
-emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
-
-# Associations of the pupillometric measures
-lmm <- lmer(
-  z_rpd ~ z_rpd_low * trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
-  data = et_erp_subject)
-anova(lmm)
-r2_nakagawa(lmm)
-
+## Post-hoc: BPS
 emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low")
 summary(emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low"), infer = T)
 
+## Post-hoc: BPS * group
 emt <- emtrends(lmm, ~ group, var = "z_rpd_low")
-contrast(emtrends(lmm, ~ group, var = "z_rpd_low"))
-confint(contrast(emt))
+cont <- contrast(emtrends(lmm, ~ group, var = "z_rpd_low"), "pairwise")
+confint(cont)
 contrast(emt, "pairwise")
 
-# RESULT 8: CORRELATION: PUPIL DATA AND ERPs ON SUBJECT LEVEL
-crl <- cor(et_erp_subject[et_erp_subject$trial == "Oddball", c(
+# RESULT 12: ASSOCIATIONS: PUPIL DATA- ERPs ON SUBJECT LEVEL
+## MMN amplitude
+lmm <- lmer(
+  z_MMN_amplitude ~ z_rpd * z_rpd_low * stimulus *  manipulation * group + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+
+## Post-hoc: SEPR * BPS * stimulus
+emt <- emtrends(lmm, ~ z_rpd_low * z_rpd | stimulus, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
+summary(emt, infer = T)
+
+## P3a amplitude
+lmm <- lmer(
+  z_P3a_amplitude ~ z_rpd * z_rpd_low * stimulus *  manipulation * group + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+
+### post-hoc: SEPR x manipulation x group x stimulus
+emt <- emtrends(lmm, ~ z_rpd  * manipulation | group * stimulus, var = 'z_rpd')
+summary(emt, infer = T)
+
+### post-hoc: BPS x stimulus x group
+emt <- emtrends(lmm, ~ z_rpd_low * group | stimulus, var = 'z_rpd_low', at = list(z_rpd_low = c(-2,-1,0,1,2)))
+summary(emt, infer = T)
+
+lmm <- lmer(
+  z_P3b_amplitude ~ z_rpd * z_rpd_low * stimulus *  manipulation * group + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+
+crl <- cor(et_erp_subject[et_erp_subject$stimulus == "Oddball", c(
   "z_rpd_low",
   "z_rpd",
   "z_MMN_amplitude",
@@ -705,7 +799,7 @@ corrplot::corrplot(
   title = "Association between pupil data and ERPs in oddball trials",
   mar=c(0,0,1,0))
 
-crl <- cor(et_erp_subject[et_erp_subject$trial == "Standard", c(
+crl <- cor(et_erp_subject[et_erp_subject$stimulus == "Standard", c(
   "z_rpd_low",
   "z_rpd",
   "z_MMN_amplitude",
@@ -720,40 +814,9 @@ corrplot::corrplot(
   title = "Association between pupil data and ERPs in standard trials",
   mar=c(0,0,1,0))
 
-# RESULT 7: Association between pupillometric indices and ERPs
-lmm <- lmer(
-  z_MMN_amplitude ~ z_rpd * z_rpd_low * trial *  manipulation * group + (1|SEGA_ID) + age + gender,
-  data = et_erp_subject)
-anova(lmm)
-r2_nakagawa(lmm)
-
-emtrends(lmm, ~ z_rpd_low * z_rpd | trial, var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
-contrast(emt)
-contrast((emt), "pairwise")
-
-lmm <- lmer(
-  z_P3a_amplitude ~ z_rpd * z_rpd_low * trial *  manipulation * group + (1|SEGA_ID) + age + gender,
-  data = et_erp_subject)
-anova(lmm)
-r2_nakagawa(lmm)
-
-### post-hoc: SEPR x manipulation x group x trial
-emtrends(lmm, ~ z_rpd  * manipulation | group * trial, var = 'z_rpd')
-contrast(emtrends(lmm, ~ z_rpd  * manipulation | group * trial, var = 'z_rpd'))
-
-### post-hoc: BPS x trial x group
-emtrends(lmm, ~ z_rpd_low * trial | group, var = 'z_rpd_low')
-contrast(emtrends(lmm, ~ z_rpd_low * trial|group, var = 'z_rpd_low'))
-confint(contrast(emtrends(lmm, ~ z_rpd_low * trial | group, var = 'z_rpd_low')))
-
-lmm <- lmer(
-  z_P3b_amplitude ~ z_rpd * z_rpd_low * trial *  manipulation * group + (1|SEGA_ID) + age + gender,
-  data = et_erp_subject)
-anova(lmm)
-r2_nakagawa(lmm)
-
 # DATA ANALYSIS ON TRIAL LEVEL ####
 # Distributions of dependent variables
+par(mfrow = c(2,2), mar = c(4, 4, 2, 1))
 hist(et_erp_trial$z_rpd,
      main = "Distribution of rpd (500-1500 ms)",
      xlab = "z_rpd",
@@ -774,18 +837,195 @@ hist(et_erp_trial$z_P3a_amplitude,
      xlab = "P3a amplitude (Cz, FCz)",
      xlim = c(-4, 6),
      breaks = 200)
+par(mfrow = c(1, 1))
 
-# RESULT 8: MMN AMPLITUDE ON TRIAL LEVEL
+# RESULT 12: SEPR ON TRIAL LEVEL
 lmm <- lmer(
-  z_MMN_amplitude ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  z_rpd ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm) 
 
-contrast(emmeans(lmm, ~ trial), "pairwise")
-confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
-emmip(lmm, ~ trial, linearg = list(linetype = "blank"), CIs = T)
+## Post-hoc: stimulus
+contrast(emmeans(lmm, ~ stimulus), "pairwise")
+confint(contrast(emmeans(lmm, ~ stimulus), "pairwise"))
 
+## manipulation x block
+emmeans(lmm, ~ manipulation|block)
+contrast(emmeans(lmm, ~ manipulation|block), "revpairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "revpairwise"))
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+### Post-hoc: bef.for. vs. bef.rev.
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "forward.before vs reverse.before" = c(1, -1, 0, 0)), infer = T)
+
+### Post-hoc: bef.for. vs. aft.for
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "forward.before vs forward.after" = c(1, 0, -1, 0)), infer = T)
+
+### Post-hoc: bef.for. vs. aft.rev.
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "forward.before vs reverse.after" = c(1, 0, 0, -1)), infer = T)
+
+# EXPLORATORY: SEPR OVER TASK
+lmm <- lmer(
+  z_rpd ~ stimulus * manipulation * group * block * oddball_trial_counter + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+
+emt <- emtrends(lmm, pairwise ~ manipulation, var = "oddball_trial_counter")
+summary(emt, infer = T)
+
+emt <- emtrends(lmm,~ stimulus * group * block, var = 'oddball_trial_counter')
+summary(emt, infer = T)
+
+et_erp_trial$binned_trial_number <- cut(
+  et_erp_trial$oddball_trial_counter, c(
+    1,  103, 206, 309, 412))
+ggplot(et_erp_trial[et_erp_trial$stimulus == "oddball", ]) + geom_boxplot(aes(binned_trial_number, z_rpd)) + 
+  facet_grid(cols = vars(group)) + 
+  ggtitle("SEPR in oddball trials during the task, \nsplit by group") +
+  theme(plot.title = element_text(face = "bold", size = 14))
+
+# EXPLORATORY: SEPR OVER BLOCK
+lmm <- lmer(
+  z_rpd ~ stimulus * manipulation * group * block * trial_number_in_block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+
+emt <- emtrends(lmm, pairwise ~ manipulation, var = "trial_number_in_block")
+summary(emt, infer = T)
+
+emt <- emtrends(lmm,~ stimulus * group * block, var = 'trial_number_in_block')
+summary(emt, infer = T)
+
+bin_size <- 20
+df_trial <- df_trial %>%
+  mutate(trial_number_in_block_binned = factor(trial_number_in_block%/%bin_size*20))
+ggplot(
+  df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev") & df_trial$stimulus == "oddball", ],
+  aes(x = trial_number_in_block_binned,
+      y = scale(rpd))) + 
+  geom_boxplot() + 
+  facet_grid(
+    rows = vars(block),
+    cols = vars(manipulation)) +
+  theme_bw() +
+  ggtitle("SEPR in oddball trials during blocks, \nsplit by forward + reverse and before + after manipulation") +
+  theme(plot.title = element_text(face = "bold", size = 14))
+
+et_erp_trial$binned_trial_number <- cut(
+  et_erp_trial$trial_number_in_block, c(
+    0,  20, 40, 60, 80, 100))
+ggplot(et_erp_trial[et_erp_trial$stimulus == "oddball", ]) + geom_boxplot(aes(binned_trial_number, z_rpd)) + 
+  facet_grid(cols = vars(group)) + 
+  ggtitle("SEPR in oddball trials during blocks, split by group") +
+  theme(plot.title = element_text(face = "bold", size = 14))
+
+# RESULT 13: BPS ON TRIAL LEVEL
+lmm <- lmer(
+  z_rpd_low ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+
+### Post-hoc: Age
+emtrends(lmm, ~ age, var = "age")
+
+## Post-hoc: manipulation * group
+contrast(emmeans(lmm, ~ manipulation|group), "revpairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|group), "revpairwise"))
+emm <- emmeans(lmm, ~ manipulation * group)
+emmip(emm, ~  manipulation|group, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+## Post-hoc: manipulation * block
+contrast(emmeans(lmm, ~ manipulation|block), "revpairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "revpairwise"))
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+## custom contrast: manipulation effect in block 3?  (block 2 vs. 3).
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, -1, 1, 0)), infer = T)
+
+## custom contrast: manipulation effect in block 4? (block 2 vs 4).
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs reverse.after" = c(0, -1, 0, 1)), infer = T)
+
+## Post-hoc: group * block
+contrast(emmeans(lmm, ~ block|group), "pairwise")
+confint(contrast(emmeans(lmm, ~ block|group), "pairwise"))
+emm <- emmeans(lmm, ~ block | group)
+emmip(emm, ~  block | group, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+# EXPLORATORY: BPS OVER TASK
+lmm <- lmer(
+  z_rpd_low ~ stimulus * manipulation * group * block * oddball_trial_counter + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+
+emt <- emtrends(lmm,~ manipulation * group * block, var = 'oddball_trial_counter')
+summary(emt, infer = T)
+
+et_erp_trial$binned_trial_number <- cut(
+  et_erp_trial$oddball_trial_counter, c(
+    1,  103, 206, 309, 412))
+ggplot(et_erp_trial[et_erp_trial$stimulus == "standard", ]) + geom_boxplot(aes(binned_trial_number, z_rpd_low)) + 
+  facet_grid(cols = vars(group)) + 
+  ggtitle("BPS in standard trials during the task, split by group") +
+  theme(plot.title = element_text(face = "bold", size = 14))
+
+# EXPLORATORY: BPS OVER BLOCK
+lmm <- lmer(
+  z_rpd_low ~ stimulus * manipulation * group * block * trial_number_in_block + (1|SEGA_ID),
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm)
+
+emt <- emtrends(lmm,~ manipulation * group * block, var = 'trial_number_in_block')
+summary(emt, infer = T)
+
+bin_size <- 20
+df_trial <- df_trial %>%
+  mutate(trial_number_in_block_binned = factor(trial_number_in_block%/%bin_size*20))
+ggplot(
+  df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev") & df_trial$stimulus == "standard", ],
+  aes(x = trial_number_in_block_binned,
+      y = scale(rpd_low))) + 
+  geom_boxplot() + 
+  facet_grid(
+    rows = vars(block),
+    cols = vars(manipulation)) +
+  theme_bw() +
+  ggtitle("BPS in standard trials during blocks, \nsplit by forward + reverse and before + after manipulation") +
+  theme(plot.title = element_text(face = "bold", size = 14))
+
+# RESULT 8: MMN AMPLITUDE ON TRIAL LEVEL
+lmm <- lmer(
+  z_MMN_amplitude ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+## Post-hoc: stimulus
+contrast(emmeans(lmm, ~ stimulus), "pairwise")
+confint(contrast(emmeans(lmm, ~ stimulus), "pairwise"))
+
+## Post-hoc: manipulation * block
 contrast(emmeans(lmm, ~ block|manipulation), "pairwise")
 emm <- emmeans(lmm, ~ block * manipulation)
 emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
@@ -805,30 +1045,75 @@ contrast(emm, method = list(
 
 # RESULT 9: MMN LATENCY ON TRIAL LEVEL
 lmm <- lmer(
-  z_MMN_latency ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  z_MMN_latency ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm) 
 
-contrast(emmeans(lmm, ~ trial), "pairwise")
-confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
-emmip(lmm, ~ trial, linearg = list(linetype = "blank"), CIs = T)
+## Post-hoc: Age
+emtrends(lmm, ~ age, var = "age")
 
-contrast(emmeans(lmm, ~ manipulation), "pairwise")
-confint(contrast(emmeans(lmm, ~ manipulation), "pairwise"))
-emmip(lmm, ~ manipulation, linearg = list(linetype = "blank"), CIs = T)
+## Post-hoc: stimulus
+contrast(emmeans(lmm, ~ stimulus), "pairwise")
+confint(contrast(emmeans(lmm, ~ stimulus), "pairwise"))
+
+## Post-hoc: manipulation * block
+contrast(emmeans(lmm, ~ manipulation|block), "revpairwise")
+confint(contrast(emmeans(lmm, ~ manipulation|block), "revpairwise"))
+emm <- emmeans(lmm, ~ block * manipulation)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+## custom contrast: Manipulation effect in block 3?  (block 2 vs. 3).
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs forward.after" = c(0, -1, 1, 0)), infer = T)
+emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
+  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
+
+plot_data <- as.data.frame(emmeans(lmm, ~ block * manipulation))
+plot_data <- na.omit(plot_data)
+
+interaction_plot_MNN_latency <- ggplot(plot_data, aes(x = manipulation, y = emmean, group = block, color = block)) +
+  geom_crossbar(aes(ymin = emmean - 1 * SE, ymax = emmean + 1 * SE), 
+                alpha = 0.8, 
+                position = position_dodge(width = 0.7),  
+                width = 0.3) +  
+  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), 
+                position = position_dodge(width = 0.7), 
+                width = 0.2) +  
+  scale_color_manual(values = c("blue", "orange")) +  
+  scale_fill_manual(values = c("blue", "orange")) +   
+  theme_bw() +
+  labs(title = "Manipulation x block interaction on MMN latency",
+       x = "Manipulation",
+       y = "MMN latency [z]") +
+  theme(plot.title = element_text(face = "bold"), legend.position = "none")
+print(interaction_plot_MNN_latency)
+
+grid.arrange(interaction_plot_MMN, interaction_plot_P3a, interaction_plot_MNN_latency)
 
 # RESULT 10: P3A AMPLITUDE ON TRIAL LEVEL
 lmm <- lmer(
-  z_P3a_amplitude ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  z_P3a_amplitude ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm) 
 
-contrast(emmeans(lmm, ~ trial|group), "pairwise")
-confint(contrast(emmeans(lmm, ~ trial|group), "pairwise"))
-emmip(lmm, ~ trial | group, linearg = list(linetype = "blank"), CIs = T)
+## Post-hoc: Age
+emtrends(lmm, ~ age, var = "age")
 
+## Post-hoc: Gender
+contrast(emmeans(lmm, ~ gender), "pairwise")
+confint(contrast(emmeans(lmm, ~ gender), "pairwise"))
+emmip(lmm, ~ gender, linearg = list(linetype = "blank"), CI = T)
+
+## Post-hoc: stimulus * group * block
+contrast(emmeans(lmm, ~ stimulus * block|group), "pairwise")
+confint(contrast(emmeans(lmm, ~ stimulus * block|group), "pairwise"))
+emmip(lmm, ~ stimulus | block|group, linearg = list(linetype = "blank"), CI = T)
+
+# Post-hoc: manipulation * block
 contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
 confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
 emm <- emmeans(lmm, ~ block * manipulation)
@@ -843,172 +1128,19 @@ contrast(emm, method = list(
 contrast(emm, method = list(
   "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
 
-# trial * group * block
-contrast(emmeans(lmm, ~ block|trial * group), "pairwise")
-confint(contrast(emmeans(lmm, ~ block|trial * group), "pairwise"))
-emmip(lmm, ~ trial | group * block, linearg = list(linetype = "blank"), CIs = T)
-
 # RESULT 11: P3A LATENCY ON TRIAL LEVEL
 lmm <- lmer(
-  z_P3a_latency ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  z_P3a_latency ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm)
 
-# Post-hoc: trial
-contrast(emmeans(lmm, ~ trial), "pairwise")
-confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
-
-# RESULT 12: SEPR ON TRIAL LEVEL
-lmm <- lmer(
-  z_rpd ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
-  data = et_erp_trial)
-anova(lmm)
-r2_nakagawa(lmm) 
-
-contrast(emmeans(lmm, ~ trial), "pairwise")
-confint(contrast(emmeans(lmm, ~ trial), "pairwise"))
-emmip(lmm, ~ trial, linearg = list(linetype = "blank"), CIs = T)
-
-# EXPLORATORY: SEPR OVER TASK
-lmm <- lmer(
-  z_rpd ~ trial * manipulation * group * block * oddball_trial_counter + (1|SEGA_ID),
-  data = et_erp_trial)
-anova(lmm)
-r2_nakagawa(lmm)
-
-emt <- emtrends(lmm, pairwise ~ manipulation, var = "oddball_trial_counter")
-summary(emt, infer = T)
-
-emt <- emtrends(lmm,~ trial * group * block, var = 'oddball_trial_counter')
-summary(emt, infer = T)
-
-et_erp_trial$binned_trial_number <- cut(
-  et_erp_trial$oddball_trial_counter, c(
-    1,  103, 206, 309, 412))
-ggplot(et_erp_trial[et_erp_trial$trial == "oddball", ]) + geom_boxplot(aes(binned_trial_number, z_rpd)) + 
-  facet_grid(cols = vars(group)) + 
-  ggtitle("SEPR in oddball trials during the task, \nsplit by group") +
-  theme(plot.title = element_text(face = "bold", size = 14))
-
-# EXPLORATORY: SEPR OVER BLOCK
-lmm <- lmer(
-  z_rpd ~ trial * manipulation * group * block * trial_number_in_block + (1|SEGA_ID),
-  data = et_erp_trial)
-anova(lmm)
-r2_nakagawa(lmm)
-
-emt <- emtrends(lmm, pairwise ~ manipulation, var = "trial_number_in_block")
-summary(emt, infer = T)
-
-emt <- emtrends(lmm,~ trial * group * block, var = 'trial_number_in_block')
-summary(emt, infer = T)
-
-bin_size <- 20
-df_trial <- df_trial %>%
-  mutate(trial_number_in_block_binned = factor(trial_number_in_block%/%bin_size*20))
-ggplot(
-  df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev") & df_trial$trial == "oddball", ],
-  aes(x = trial_number_in_block_binned,
-      y = scale(rpd))) + 
-  geom_boxplot() + 
-  facet_grid(
-    rows = vars(block),
-    cols = vars(manipulation)) +
-  theme_bw() +
-  ggtitle("SEPR in oddball trials during blocks, \nsplit by forward + reverse and before + after manipulation") +
-  theme(plot.title = element_text(face = "bold", size = 14))
-
-et_erp_trial$binned_trial_number <- cut(
-  et_erp_trial$trial_number_in_block, c(
-    0,  20, 40, 60, 80, 100))
-ggplot(et_erp_trial[et_erp_trial$trial == "oddball", ]) + geom_boxplot(aes(binned_trial_number, z_rpd)) + 
-  facet_grid(cols = vars(group)) + 
-  ggtitle("SEPR in oddball trials during blocks, split by group") +
-  theme(plot.title = element_text(face = "bold", size = 14))
-
-# RESULT 13: BPS ON TRIAL LEVEL
-lmm <- lmer(
-  z_rpd_low ~ trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
-  data = et_erp_trial)
-anova(lmm)
-r2_nakagawa(lmm) 
-
-## Post-hoc: manipulation * block
-contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
-confint(contrast(emmeans(lmm, ~ manipulation|block), "pairwise"))
-emm <- emmeans(lmm, ~ block * manipulation)
-emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
-
-## custom contrast: manipulation effect in block 3?  (block 2 vs. 3).
-emm <- emmeans(lmm, ~ block * manipulation)
-contrast(emm, method = list(
-  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
-
-## custom contrast: manipulation effect in block 4? (block 2 vs 4).
-emm <- emmeans(lmm, ~ block * manipulation)
-contrast(emm, method = list(
-  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
-
-## Post-hoc: manipulation * group
-contrast(emmeans(lmm, ~ manipulation|group), "pairwise")
-confint(contrast(emmeans(lmm, ~ manipulation|group), "pairwise"))
-emm <- emmeans(lmm, ~ manipulation * group)
-emmip(emm, ~  manipulation|group, linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
-
-## Post-hoc: group * block
-contrast(emmeans(lmm, ~ block|group), "pairwise")
-emm <- emmeans(lmm, ~ block * group)
-emmip(emm, ~  block | group, linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
-
-# EXPLORATORY: BPS OVER TASK
-lmm <- lmer(
-  z_rpd_low ~ trial * manipulation * group * block * oddball_trial_counter + (1|SEGA_ID),
-  data = et_erp_trial)
-anova(lmm)
-r2_nakagawa(lmm)
-
-emt <- emtrends(lmm,~ manipulation * group * block, var = 'oddball_trial_counter')
-summary(emt, infer = T)
-
-et_erp_trial$binned_trial_number <- cut(
-  et_erp_trial$oddball_trial_counter, c(
-    1,  103, 206, 309, 412))
-ggplot(et_erp_trial[et_erp_trial$trial == "standard", ]) + geom_boxplot(aes(binned_trial_number, z_rpd_low)) + 
-  facet_grid(cols = vars(group)) + 
-  ggtitle("BPS in standard trials during the task, split by group") +
-  theme(plot.title = element_text(face = "bold", size = 14))
-
-# EXPLORATORY: BPS OVER BLOCK
-lmm <- lmer(
-  z_rpd_low ~ trial * manipulation * group * block * trial_number_in_block + (1|SEGA_ID),
-  data = et_erp_trial)
-anova(lmm)
-r2_nakagawa(lmm)
-
-emt <- emtrends(lmm,~ manipulation * group * block, var = 'trial_number_in_block')
-summary(emt, infer = T)
-
-bin_size <- 20
-df_trial <- df_trial %>%
-  mutate(trial_number_in_block_binned = factor(trial_number_in_block%/%bin_size*20))
-ggplot(
-  df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev") & df_trial$trial == "standard", ],
-  aes(x = trial_number_in_block_binned,
-      y = scale(rpd_low))) + 
-  geom_boxplot() + 
-  facet_grid(
-    rows = vars(block),
-    cols = vars(manipulation)) +
-  theme_bw() +
-  ggtitle("BPS in standard trials during blocks, \nsplit by forward + reverse and before + after manipulation") +
-  theme(plot.title = element_text(face = "bold", size = 14))
+# Post-hoc: stimulus
+contrast(emmeans(lmm, ~ stimulus), "pairwise")
+confint(contrast(emmeans(lmm, ~ stimulus), "pairwise"))
 
 # RESULT 14: ASSOCIATION BETWEEN PUPILLOMETRIC MEASURES
-ggscatter(et_erp_trial[et_erp_trial$trial == "oddball", ], 
+ggscatter(et_erp_trial[et_erp_trial$stimulus == "oddball", ], 
           x = "z_rpd_low",
           y = "z_rpd",
           add = "reg.line",
@@ -1019,7 +1151,7 @@ ggscatter(et_erp_trial[et_erp_trial$trial == "oddball", ],
           ylab = "scaled SEPR (rpd)",
           title = "Association between SEPR + BPS in oddball trials")
 
-ggscatter(et_erp_trial[et_erp_trial$trial == "standard", ], 
+ggscatter(et_erp_trial[et_erp_trial$stimulus == "standard", ], 
           x = "z_rpd_low",
           y = "z_rpd",
           add = "reg.line",
@@ -1032,7 +1164,7 @@ ggscatter(et_erp_trial[et_erp_trial$trial == "standard", ],
 
 # Associations of the pupillometric measures
 lmm <- lmer(
-  z_rpd ~ z_rpd_low * trial * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  z_rpd ~ z_rpd_low * stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm) 
@@ -1042,15 +1174,17 @@ emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low")
 summary(emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low"), infer = T)
 
 ### post-hoc: BPS x manipulation x block
-emt <- emtrends(lmm, ~ block|manipulation, var = "z_rpd_low")
-contrast(emt)
+emt <- emtrends(lmm, ~ manipulation|block, var = "z_rpd_low")
+contrast(emt, "revpairwise")
+confint(contrast(emt, "revpairwise"))
 
 ### post-hoc: BPS x manipulation x group
-emt <- emtrends(lmm, ~ group|manipulation, var = "z_rpd_low")
-contrast(emt)
+emt <- emtrends(lmm, ~ manipulation|group, var = "z_rpd_low")
+contrast(emt, "revpairwise")
+confint(contrast(emt, "revpairwise"))
 
 # RESULT 15: Correlation: Pupil-ERP
-crl <- cor(et_erp_trial[et_erp_trial$trial == "oddball", c(
+crl <- cor(et_erp_trial[et_erp_trial$stimulus == "oddball", c(
   "z_rpd_low",
   "z_rpd",
   "z_MMN_amplitude",
@@ -1064,7 +1198,7 @@ corrplot::corrplot(
   title = "Association between pupil data and ERPs in oddball trials",
   mar=c(0,0,1,0))
 
-crl <- cor(et_erp_trial[et_erp_trial$trial == "standard", c(
+crl <- cor(et_erp_trial[et_erp_trial$stimulus == "standard", c(
   "z_rpd_low",
   "z_rpd",
   "z_MMN_amplitude",
@@ -1081,7 +1215,7 @@ corrplot::corrplot(
 # RESULT 16: Association between pupillometric indices and ERPs
 ## MMN amplitude
 lmm <- lmer(
-  z_MMN_amplitude ~ z_rpd * z_rpd_low * trial *  manipulation * group + (1|SEGA_ID) + age + gender,
+  z_MMN_amplitude ~ z_rpd * z_rpd_low * stimulus *  manipulation * group + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm)
@@ -1090,35 +1224,44 @@ r2_nakagawa(lmm)
 emt <- emtrends(lmm, ~ z_rpd, var = "z_rpd")
 summary(emt, infer = T)
 
+### post-hoc: BPS
+emt <- emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low")
+summary(emt, infer = T)
+
 ### post-hoc: SEPR * BPS *group
-emt <- emtrends(lmm, ~  z_rpd * z_rpd_low|group,  var = 'z_rpd', at = list(z_rpd_low = c(-2,-1,0,1,2)))
+emt <- emtrends(lmm, ~  z_rpd * z_rpd_low|group,  var = 'z_rpd', at = list(z_rpd_low = c(-2,2)))
 contrast(emt)
+confint(contrast(emt))
 
 ## P3a amplitude
 lmm <- lmer(
-  z_P3a_amplitude ~ z_rpd * z_rpd_low * trial *  manipulation * group + (1|SEGA_ID) + age + gender,
+  z_P3a_amplitude ~ z_rpd * z_rpd_low * stimulus *  manipulation * group + (1|SEGA_ID) + age + gender,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm)
 
-## BPS * manipulation * group
-emt <- emtrends(lmm, "revpairwise" ~ manipulation | group, var = c("z_rpd_low"))
-confint(emt)
+### Post-hoc: SEPR
+emt <- emtrends(lmm, ~ z_rpd, var = "z_rpd")
+summary(emt, infer = T)
+
+## BPS * group
+emt <- emtrends(lmm, ~ group, var = c("z_rpd_low"))
+contrast(emt)
 
 # RESULT 17: EXPLORATORY ANALYSIS OF MODEL FIT FOR "trial_number_in_block" ON BPS
 linear_fit <- lmer(
-  z_rpd_low ~ trial * manipulation * group * trial_number_in_block * block + (1|SEGA_ID) + age + gender,
+  z_rpd_low ~ stimulus * manipulation * group * trial_number_in_block * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial, REML = F)
 anova(linear_fit)
 
 quadratic_fit <- lmer(
-  z_rpd_low ~ trial * manipulation * group * poly(trial_number_in_block, 2) * block + (1|SEGA_ID) + age + gender,
+  z_rpd_low ~ stimulus * manipulation * group * poly(trial_number_in_block, 2) * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial, REML = F)
 anova(quadratic_fit)
 r2_nakagawa(quadratic_fit) 
 
 cubic_fit <- lmer(
-  z_rpd_low ~ trial * manipulation * group * poly(trial_number_in_block, 3) * block + (1|SEGA_ID) + age + gender,
+  z_rpd_low ~ stimulus * manipulation * group * poly(trial_number_in_block, 3) * block + (1|SEGA_ID) + age + gender,
   data = et_erp_trial, REML = F)
 anova(cubic_fit)
 r2_nakagawa(cubic_fit) 
@@ -1140,19 +1283,19 @@ table_formatted_BPS
 
 # RESULT 18: EXPLORATIVE ANALYSIS OF MODEL FIT FOR "trial_number_in_block" on SEPR**
 linear_fit <- lmer(
-  z_rpd ~ trial * manipulation * group * trial_number_in_block * block+ (1|SEGA_ID) + pitch + age + gender,
+  z_rpd ~ stimulus * manipulation * group * trial_number_in_block * block+ (1|SEGA_ID) + pitch + age + gender,
   data = et_erp_trial, REML = F)
 anova(linear_fit)
 r2_nakagawa(linear_fit) 
 
 quadratic_fit <- lmer(
-  z_rpd ~ trial * manipulation * group * poly(trial_number_in_block, 2) * block + (1|SEGA_ID) + pitch + age + gender,
+  z_rpd ~ stimulus * manipulation * group * poly(trial_number_in_block, 2) * block + (1|SEGA_ID) + pitch + age + gender,
   data = et_erp_trial, REML = F)
 anova(quadratic_fit)
 r2_nakagawa(quadratic_fit) 
 
 cubic_fit <- lmer(
-  z_rpd ~ trial * manipulation * group * poly(trial_number_in_block, 3) * block + (1|SEGA_ID) + pitch + age + gender,
+  z_rpd ~ stimulus * manipulation * group * poly(trial_number_in_block, 3) * block + (1|SEGA_ID) + pitch + age + gender,
   data = et_erp_trial, REML = F)
 anova(cubic_fit)
 r2_nakagawa(cubic_fit) 
@@ -1172,57 +1315,59 @@ table_formatted_SEPR <- table_model_compare %>%
 
 table_formatted_SEPR
 
-# RESULT 19: EXPLORATORY ANALYSIS OF GRIP STRENGTH EFFECT (Z-VALUES)
+# RESULT 19: ANALYSIS OF GRIP STRENGTH EFFECT
+## MNN amplitude
 lmm <- lmer(
-  z_MMN_amplitude ~ trial * group * block * z_handdynamometer + (1|SEGA_ID) + age + gender,
+  z_MMN_amplitude ~ stimulus * group * block * z_grip_strength + (1|SEGA_ID) + age + gender,
   data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
 r2_nakagawa(lmm)
 
+## MMN latency
 lmm <- lmer(
-  z_MMN_latency ~ trial * group * block * z_handdynamometer+ (1|SEGA_ID) + gender + age,
+  z_MMN_latency ~ stimulus * group * block * z_grip_strength+ (1|SEGA_ID) + age + gender,
   data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
 r2_nakagawa(lmm)
 
+## P3a amplitude
 lmm <- lmer(
-  z_P3a_amplitude ~ trial * group * block * z_handdynamometer + (1|SEGA_ID) + gender + age,
+  z_P3a_amplitude ~ stimulus * group * block * z_grip_strength + (1|SEGA_ID) + age + gender,
   data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
 r2_nakagawa(lmm) 
 
-emtrends(lmm,~ trial * block, var = 'z_handdynamometer')
-
-
+## P3a latency
 lmm <- lmer(
-  z_P3a_latency ~ trial * group * block * z_handdynamometer+ (1|SEGA_ID) + gender + age,
+  z_P3a_latency ~ stimulus * group * block * z_grip_strength+ (1|SEGA_ID) + age + gender,
   data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
 r2_nakagawa(lmm) 
 
+## SEPR
 lmm <- lmer(
-  z_rpd ~ trial * group * block * z_handdynamometer + (1|SEGA_ID),
+  z_rpd ~ stimulus * group * block * z_grip_strength + (1|SEGA_ID) + age + gender,
   data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
 r2_nakagawa(lmm) 
 
+## BPS
 lmm <- lmer(
-  z_rpd_low ~ trial * group * block * z_handdynamometer + (1|SEGA_ID),
+  z_rpd_low ~ stimulus * group * block * z_grip_strength + (1|SEGA_ID) + age + gender,
   data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm) 
 r2_nakagawa(lmm)
 
-# New df et_erp_subject shows same result as df_trial, is valide ####
-lmm <- lmer(
-z_rpd ~ trial * manipulation * block + trial_number_in_block + (1 | id),
-  data = df_trial[
-    df_trial$phase %in% c("oddball_block", "oddball_block_rev"), ])
-anova(lmm)
+## Post-hoc: grip strength
+emtrends(lmm, ~ z_grip_strength, var = "z_grip_strength")
+summary(emtrends(lmm, ~ z_grip_strength, var = "z_grip_strength"), infer = T)
 
-lmm <- lmer(
-  z_rpd ~ trial * manipulation * block + trial_number_in_block + (1 | SEGA_ID),
-  data = et_erp_trial)
-anova(lmm)
+## Post-hoc: group * grip_strength
+emt <- emtrends(lmm, ~ group, var = 'z_grip_strength')
+contrast(emt)
+confint(contrast(emt))
+contrast(emt, "pairwise")
+confint(contrast(emt, "pairwise"))
 
 # ANALYSIS OF df (ONLY PUPIL DATA-ALL DATA POINTS) ####
 # Baseline phase
@@ -1230,9 +1375,9 @@ df_baseline <- df[df$phase %in% c("baseline", "baseline_calibration"), ]
 df_baseline <- df_baseline[is.finite(df_baseline$pd), ]
 
 # Number of pupil data per baseline trial (white, black and grey slide)
-with(df_baseline[df_baseline$phase == "baseline_calibration", ], table(trial))
+with(df_baseline[df_baseline$phase == "baseline_calibration", ], table(stimulus))
 # Check: Block counter should be in line with aforementioned table
-with(df_baseline, table(trial, block_counter))
+with(df_baseline, table(stimulus, block_counter))
 with(df_baseline, by(
   timestamp_exp, interaction(baseline_trial_counter, phase, id),
   mean, na.rm = TRUE))
@@ -1240,7 +1385,7 @@ with(df_baseline, by(
 # mean_pd (subject baseline) is defined as mean of baseline trial during calibration phase
 df_meanpd <- with(
   df_baseline[df_baseline$phase == "baseline_calibration" &
-                df_baseline$trial == "baseline" , ], by(as.numeric(pd), id, mean))
+                df_baseline$stimulus == "baseline" , ], by(as.numeric(pd), id, mean))
 df_meanpd <- data.frame(names(df_meanpd), as.numeric(df_meanpd))
 names(df_meanpd) <- c("id", "mean_pd")
 df_baseline <- merge(df_baseline, df_meanpd, by = "id")
@@ -1263,7 +1408,7 @@ ggplot(
   xlab("trial duration [s]") +
   ylab("pupil dilation [mm]") +
   labs(title = "LAPR for group and trial") +
-  facet_wrap(~ factor(trial,
+  facet_wrap(~ factor(stimulus,
                       levels = c("baseline", "baseline_whiteslide", "baseline_blackslide")))
 
 ggsave(
@@ -1278,27 +1423,28 @@ ggsave(
 
 # Oddball phase
 df_oddball <- df[df$phase %in% c("oddball_block", "oddball_block_rev"), ]
-table(df_oddball$trial)
+table(df_oddball$stimulus)
 
 # merge with baseline PD
 df_oddball <- merge(df_oddball, df_meanpd, by = "id")
 
 # subject-baseline corrected pd
-df_oddball$rpd <- df_oddball$pd - df_oddball$mean_pd
-hist(df_oddball$rpd, 50)
+df_oddball$subj_corr_rpd <- df_oddball$pd - df_oddball$mean_pd
+hist(df_oddball$subj_corr_rpd, 50)
 
 # correct for non-finite values
-df_oddball <- df_oddball[is.finite(df_oddball$rpd), ]
+df_oddball <- df_oddball[is.finite(df_oddball$subj_corr_rpd), ]
+df_oddball <- df_oddball[is.finite(df_oddball$trial_corr_rpd), ]
 
 # trial type (standard versus oddball)
-df_oddball$trial_type <- substr(df_oddball$trial, 1, 7)
+df_oddball$trial_type <- substr(df_oddball$stimulus, 1, 7)
 
-table(df_oddball$block_counter, df_oddball$trial)
+table(df_oddball$block_counter, df_oddball$stimulus)
 df_oddball$manipulation <- factor(ifelse(df_oddball$block_counter < 8, "before",
                                          ifelse(df_oddball$block_counter > 8, "after", "manipulation")),
                                   levels = c("before", "after"))
 
-df_oddball$order <- ifelse(grepl("rev", df_oddball$trial), "reverse", "normal")
+df_oddball$order <- ifelse(grepl("rev", df_oddball$stimulus), "reverse", "normal")
 table(df_oddball$order, df_oddball$block_counter)
 
 # define trials in oddball phase
@@ -1322,16 +1468,16 @@ hist(df_oddball$trial_number_oddballphase)
 ggplot(
   df_oddball,
   aes(x = trial_number_oddballphase, y = rpd)) +
-  geom_smooth(method = "lm") + facet_wrap(~trial + manipulation)
+  geom_smooth(method = "lm") + facet_wrap(~stimulus + manipulation)
 dev.off()
 
 # Plot: Density of manipulation per condition
 ggplot(df_oddball,
        aes(rpd, fill = interaction(manipulation))) +
-  geom_density(alpha = 0.2) + facet_wrap(~trial)
+  geom_density(alpha = 0.2) + facet_wrap(~stimulus)
 dev.off()
 
-# Plot: Pupil response over a trial
+# Plot: Pupil response over a trial (only forward)
 ggplot(
   df_oddball[df_oddball$ts_trial < 1.8 & df_oddball$order == "normal", ],
   aes(x = ts_trial,
@@ -1362,14 +1508,14 @@ ggplot(
 dev.off()
 
 
-# Plot: Pupil response over a trial across groups
+# Plot: Pupil response over a trial across groups (SEGA Paper Fig 2)
 plot_dgkjp <- ggplot(
-  df_oddball[df_oddball$ts_trial < 1.8, ],
+  df_oddball[df_oddball$ts_trial < 1.9, ],
   aes(x = ts_trial,
-      y = scale(rpd),
+      y = pd,
       group = trial_type,
       color = trial_type)) + 
-  geom_smooth() +
+  geom_smooth(formula = y ~ x + poly(x, 5)) +
   theme_bw() +
   theme(axis.text.x = element_text(face = "bold", size = 14),
         axis.text.y = element_text(face = "bold", size = 14)) + 
@@ -1464,9 +1610,9 @@ ggplot(
 # Manipulation phase
 df_manip <- df[df$phase %in% c("manipulation_block"), ]
 
-table(df_manip$trial)
+table(df_manip$stimulus)
 table(df_manip$manipulation_trial_counter)
-with(df_manip, table(trial, manipulation_trial_counter))
+with(df_manip, table(stimulus, manipulation_trial_counter))
 
 # merge with baseline PD
 df_manip <- merge(df_manip, df_meanpd, by = "id")
@@ -1490,11 +1636,11 @@ df_manip$trial_type <- with(
 
 # 18 is duration of squeeze phase
 ggplot(
-  df_manip[df_manip$ts_trial < 18 & df_manip$trial != "baseline", ],
+  df_manip[df_manip$ts_trial < 18 & df_manip$stimulus != "baseline", ],
   aes(x = ts_trial,
       y = rpd,
-      group = trial,
-      color = trial)) +
+      group = stimulus,
+      color = stimulus)) +
   geom_smooth() +
   theme_bw() +
   labs(x = "trial duration (s)",
@@ -1530,11 +1676,11 @@ plot(contrast(emmeans(lmm, ~ trial_type), "pairwise"))
 hist(df_trial$mean_grip_strength)
 df_trial$mean_grip_strength_z<-scale(df_trial$mean_grip_strength)
 #pupillary response - SEPR 
-lmm<-lmer(scale(rpd)~mean_grip_strength_z*manipulation*trial*group*block+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
+lmm<-lmer(scale(rpd)~mean_grip_strength_z*manipulation*stimulus*group*block+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
 anova(lmm) #--> no effect of hand grip strength
 
 #pupillary response - BPS
-lmm<-lmer(scale(rpd_low)~mean_grip_strength_z*manipulation*trial*group*block+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
+lmm<-lmer(scale(rpd_low)~mean_grip_strength_z*manipulation*stimulus*group*block+(1|id),data=df_trial[df_trial$phase %in% c('oddball_block','oddball_block_rev'),])
 anova(lmm)
 fixef(lmm) #higher hand grip is assoicated with lower bps
 emtrends(lmm,~manipulation|group+block,var = 'mean_grip_strength_z') ##--> higher pupil size after manipulation
@@ -1546,19 +1692,19 @@ g1 <- ggplot(
                 df_baseline$ts_trial < 6, ],
   aes(x = ts_trial,
       y = pd,
-      group = trial,
-      color = trial)) +
+      group = stimulus,
+      color = stimulus)) +
   geom_smooth() +
   theme_bw() +
   xlab("time (s)") +
   ylab("pupil size (mm)") +
   labs(title = "change of PD during initial baseline between IDs")
 g2 <- ggplot(
-  df_manip[df_manip$ts_trial < 18 & df_manip$trial != "baseline", ],
+  df_manip[df_manip$ts_trial < 18 & df_manip$stimulus != "baseline", ],
   aes(x = ts_trial,
       y = rpd,
-      group = trial,
-      color = trial)) +
+      group = stimulus,
+      color = stimulus)) +
   geom_smooth() +
   theme_bw() +
   labs(x = "trial duration (s)",
