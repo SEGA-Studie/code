@@ -450,6 +450,11 @@ func_pd_preprocess <- function(x) {
 list_split_trial <- pblapply(
   list_split_trial, func_pd_preprocess)
 
+# Add rpd_low (< 250 ms of each trial) for trial-baseline correction
+list_split_trial <- lapply(list_split_trial, function(x){
+  x$rpd_low <- mean(x$pd[x$ts_trial <= 0.250], na.rm = T)
+  return(x)})
+
 # Bind trials together to a df
 df <- dplyr::bind_rows(list_split_trial)
 
@@ -511,8 +516,6 @@ list_split_blocks <- pblapply(list_split_blocks, function(x) {
   return(x)})
 
 df <- data.table::rbindlist(list_split_blocks)
-
-# melt to data.frame
 df$id <- as.character(df$id)
 
 # split by trial (for further processing)
@@ -543,10 +546,11 @@ rpd_auc<-ifelse(rpd_auc>15,NA,rpd_auc)
 rpd_high <- sapply(list_split_trial, function(x) {
   mean(x$pd[x$ts_trial > 0.500 & x$ts_trial < 1.5])})
 
+# trial-baseline
 rpd_low <- sapply(list_split_trial, function(x) {
   mean(x$pd[x$ts_trial < 0.250])})
 
-# news variables to index specific trials
+# new variables to index specific trials
 trial_number <- sapply(list_split_trial, function(x) {
   unique(x$trial_number)})
 trial_number_in_block <- sapply(list_split_trial, function(x) {
@@ -607,6 +611,8 @@ df_trial$trial <- as.factor(ifelse(grepl(
   df_trial$trial),
   "oddball", "standard"))
 
+# Add trial-baseline corrected pd
+df$trial_corr_rpd <- with(df, pd - rpd_low)
 
 ### VISUALIZATION ####
 
@@ -615,11 +621,6 @@ sampled_rows<-sample(1:nrow(df),nrow(df)/1000) #randomly select rows
 ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<2,],aes(x=ts_trial,y=pd,group=trial,color=trial))+geom_smooth()+facet_wrap(~block_counter)+theme_bw()  
 ggplot(df[sampled_rows & df$phase=='oddball_block_rev' & df$ts_trial<2,],aes(x=ts_trial,y=pd,group=trial,color=trial))+geom_smooth()+facet_wrap(~block_counter)+theme_bw()  
 ###--> select rpd high based on data inspection
-
-
-###--> show auditory oddball response in first block before manipulation
-df$rpd<-with(df,pd-rpd_low)
-  ###--> also shows a pupillary response in reverse trials
 
 ggplot(df[sampled_rows & df$ts_trial<1 & df$phase=='oddball_block',],aes(x=ts_trial,y=rpd,group=trial,color=trial))+geom_smooth()+
   facet_wrap(~block_counter)+
@@ -657,12 +658,27 @@ for (row in 1:length(df_trial$id)) {
   group <- exp_groups[row_number, "group"]
   df_trial[row, "group"] <- group}
 
-# Read handdynamometer z-values from .csv files
+# Read z_grip_strength values from .csv files
 for (row in 1:length(df_trial$id)) {
   SEGA_ID_df <- df_trial[row, "id"]
   row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
-  z_handdynamometer <- exp_groups[row_number, "z_handdynamometer"]
-  df_trial[row, "z_handdynamometer"] <- z_handdynamometer}
+  z_grip_strength <- exp_groups[row_number, "z_grip_strength"]
+  df_trial[row, "z_grip_strength"] <- z_grip_strength}
+
+# Include IQ from .csv file
+for (row in 1:length(df_trial$id)) {
+  SEGA_ID_df <- df_trial[row, "id"]
+  row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
+  MT <- exp_groups[row_number, "MT"]
+  GF <- exp_groups[row_number, "GF"]
+  MZ <- exp_groups[row_number, "MZ"]
+  WT <- exp_groups[row_number, "WT"]
+  GF_WT <- c(GF, WT)
+  MT_MZ <- c(MT, MZ)
+  verbal_IQ <- mean(GF_WT, na.rm = T)
+  non_verbal_IQ <- mean(MT_MZ, na.rm = T)
+  df_trial[row, "verbal_IQ"] <- verbal_IQ
+  df_trial[row, "non_verbal_IQ"] <- non_verbal_IQ}
 
 ##--> save preprocess df_trial ####
 #saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
@@ -1098,6 +1114,9 @@ reshaped_MMN_amplitude_750$id <- str_replace(
   reshaped_MMN_amplitude_750$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
 reshaped_MMN_amplitude_750$id <- str_replace(
   reshaped_MMN_amplitude_750$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
+
+reshaped_MMN_amplitude_750$id <- str_replace(
+  reshaped_MMN_amplitude_750$id, "SEGA_AuditoryOddball_189_02012025", "SEGA_189_AuditoryOddball_02012025")
 reshaped_MMN_amplitude_750$SEGA_ID <- as.factor(substr(reshaped_MMN_amplitude_750$id, 6, 8))
 reshaped_MMN_amplitude_750$SEGA_ID <- sub("^0+", "", reshaped_MMN_amplitude_750$SEGA_ID)
 
@@ -1169,6 +1188,8 @@ reshaped_MMN_latency_750$id <- str_replace(
   reshaped_MMN_latency_750$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
 reshaped_MMN_latency_750$id <- str_replace(
   reshaped_MMN_latency_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
+reshaped_MMN_latency_750$id <- str_replace(
+  reshaped_MMN_latency_750$id, "SEGA_AuditoryOddball_189_02012025", "SEGA_189_AuditoryOddball_02012025")
 reshaped_MMN_latency_750$SEGA_ID <- as.factor(substr(reshaped_MMN_latency_750$id, 6, 8))
 reshaped_MMN_latency_750$SEGA_ID <- sub("^0+", "", reshaped_MMN_latency_750$SEGA_ID)
 
@@ -1242,6 +1263,8 @@ reshaped_P3a_amplitude_750$id <- str_replace(
   reshaped_P3a_amplitude_750$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
 reshaped_P3a_amplitude_750$id <- str_replace(
   reshaped_P3a_amplitude_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
+reshaped_P3a_amplitude_750$id <- str_replace(
+  reshaped_P3a_amplitude_750$id, "SEGA_AuditoryOddball_189_02012025", "SEGA_189_AuditoryOddball_02012025")
 reshaped_P3a_amplitude_750$SEGA_ID <- as.factor(substr(reshaped_P3a_amplitude_750$id, 6, 8))
 reshaped_P3a_amplitude_750$SEGA_ID <- sub("^0+", "", reshaped_P3a_amplitude_750$SEGA_ID)
 
@@ -1314,6 +1337,8 @@ reshaped_P3a_latency_750$id <- str_replace(
   reshaped_P3a_latency_750$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
 reshaped_P3a_latency_750$id <- str_replace(
   reshaped_P3a_latency_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
+reshaped_P3a_latency_750$id <- str_replace(
+  reshaped_P3a_latency_750$id, "SEGA_AuditoryOddball_189_02012025", "SEGA_189_AuditoryOddball_02012025")
 reshaped_P3a_latency_750$SEGA_ID <- as.factor(substr(reshaped_P3a_latency_750$id, 6, 8))
 reshaped_P3a_latency_750$SEGA_ID <- sub("^0+", "", reshaped_P3a_latency_750$SEGA_ID)
 
@@ -1384,6 +1409,8 @@ reshaped_P3b_amplitude_750$id <- str_replace(
   reshaped_P3b_amplitude_750$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
 reshaped_P3b_amplitude_750$id <- str_replace(
   reshaped_P3b_amplitude_750$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
+reshaped_P3b_amplitude_750$id <- str_replace(
+  reshaped_P3b_amplitude_750$id, "SEGA_AuditoryOddball_189_02012025", "SEGA_189_AuditoryOddball_02012025")
 reshaped_P3b_amplitude_750$SEGA_ID <- as.factor(substr(reshaped_P3b_amplitude_750$id, 6, 8))
 reshaped_P3b_amplitude_750$SEGA_ID <- sub("^0+", "", reshaped_P3b_amplitude_750$SEGA_ID)
 
@@ -1458,6 +1485,8 @@ reshaped_P3b_latency_750$id <- str_replace(
   reshaped_P3b_latency_750$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
 reshaped_P3b_latency_750$id <- str_replace(
   reshaped_P3b_latency_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
+reshaped_P3b_latency_750$id <- str_replace(
+  reshaped_P3b_latency_750$id, "SEGA_AuditoryOddball_189_02012025", "SEGA_189_AuditoryOddball_02012025")
 reshaped_P3b_latency_750$SEGA_ID <- as.factor(substr(reshaped_P3b_latency_750$id, 6, 8))
 reshaped_P3b_latency_750$SEGA_ID <- sub("^0+", "", reshaped_P3b_latency_750$SEGA_ID)
 
@@ -1484,12 +1513,12 @@ for (row in 1:length(ERP_df$SEGA_ID)) {
 }
 ERP_df$group <- as.factor(ERP_df$group)
 
-# Include handdynamometer z-value from .csv file
+# Include grip_strength z-values from .csv file
 for (row in 1:length(ERP_df$SEGA_ID)) {
   SEGA_ID_df <- ERP_df[row, "SEGA_ID"]
   row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
-  z_handdynamometer <- exp_groups[row_number, "z_handdynamometer"]
-  ERP_df[row, "z_handdynamometer"] <- z_handdynamometer
+  z_grip_strength <- exp_groups[row_number, "z_grip_strength"]
+  ERP_df[row, "z_grip_strength"] <- z_grip_strength
 }
 
 # ET_df contains mean BPS + SEPR for 8 conditions per subject.
@@ -1769,6 +1798,14 @@ reshaped_MMN_amplitude_500_diff$manipulation <- as.factor(str_extract(reshaped_M
 reshaped_MMN_amplitude_500_diff$pitch <- as.factor(str_extract(reshaped_MMN_amplitude_500_diff$variable, "500|750"))
 reshaped_MMN_amplitude_500_diff$id <- str_replace(
   reshaped_MMN_amplitude_500_diff$id, "SEGA_AuditoryOddball_022_24102022", "SEGA_022_AuditoryOddball_24102022")
+reshaped_MMN_amplitude_500_diff$id <- str_replace(
+  reshaped_MMN_amplitude_500_diff$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
+reshaped_MMN_amplitude_500_diff$id <- str_replace(
+  reshaped_MMN_amplitude_500_diff$id, "SEGA_AuditoryOddball_129_04012025", "SEGA_129_AuditoryOddball_04012025")
+reshaped_MMN_amplitude_500_diff$id <- str_replace(
+  reshaped_MMN_amplitude_500_diff$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
+reshaped_MMN_amplitude_500_diff$id <- str_replace(
+  reshaped_MMN_amplitude_500_diff$id, "SEGA_AuditoryOddball_189_02012025", "SEGA_189_AuditoryOddball_02012025")
 reshaped_MMN_amplitude_500_diff$SEGA_ID <- as.factor(substr(reshaped_MMN_amplitude_500_diff$id, 6, 8))
 reshaped_MMN_amplitude_500_diff$SEGA_ID <- sub("^0+", "", reshaped_MMN_amplitude_500_diff$SEGA_ID)
 
@@ -1797,6 +1834,14 @@ reshaped_MMN_amplitude_750_diff$id <- str_replace(
   reshaped_MMN_amplitude_750_diff$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
 reshaped_MMN_amplitude_750_diff$id <- str_replace(
   reshaped_MMN_amplitude_750_diff$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
+reshaped_MMN_amplitude_750_diff$id <- str_replace(
+  reshaped_MMN_amplitude_750_diff$id, "SEGA_AuditoryOddball_022_24102022", "SEGA_022_AuditoryOddball_24012022")
+reshaped_MMN_amplitude_750_diff$id <- str_replace(
+  reshaped_MMN_amplitude_750_diff$id, "SEGA_AuditoryOddball_129_04012025", "SEGA_129_AuditoryOddball_04012025")
+reshaped_MMN_amplitude_750_diff$id <- str_replace(
+  reshaped_MMN_amplitude_750_diff$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
+reshaped_MMN_amplitude_750_diff$id <- str_replace(
+  reshaped_MMN_amplitude_750_diff$id, "SEGA_AuditoryOddball_189_02012025", "SEGA_189_AuditoryOddball_02012025")
 reshaped_MMN_amplitude_750_diff$SEGA_ID <- as.factor(substr(reshaped_MMN_amplitude_750_diff$id, 6, 8))
 reshaped_MMN_amplitude_750_diff$SEGA_ID <- sub("^0+", "", reshaped_MMN_amplitude_750_diff$SEGA_ID)
 
@@ -1825,6 +1870,14 @@ reshaped_MMN_latency_500_diff$manipulation <- as.factor(str_extract(reshaped_MMN
 reshaped_MMN_latency_500_diff$pitch <- as.factor(str_extract(reshaped_MMN_latency_500_diff$variable, "500|750"))
 reshaped_MMN_latency_500_diff$id <- str_replace(
   reshaped_MMN_latency_500_diff$id, "SEGA_AuditoryOddball_022_24102022", "SEGA_022_AuditoryOddball_24102022")
+reshaped_MMN_latency_500_diff$id <- str_replace(
+  reshaped_MMN_latency_500_diff$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
+reshaped_MMN_latency_500_diff$id <- str_replace(
+  reshaped_MMN_latency_500_diff$id, "SEGA_AuditoryOddball_129_04012025", "SEGA_129_AuditoryOddball_04012025")
+reshaped_MMN_latency_500_diff$id <- str_replace(
+  reshaped_MMN_latency_500_diff$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
+reshaped_MMN_latency_500_diff$id <- str_replace(
+  reshaped_MMN_latency_500_diff$id, "SEGA_AuditoryOddball_189_02012025", "SEGA_189_AuditoryOddball_02012025")
 reshaped_MMN_latency_500_diff$SEGA_ID <- as.factor(substr(reshaped_MMN_latency_500_diff$id, 6, 8))
 reshaped_MMN_latency_500_diff$SEGA_ID <- sub("^0+", "", reshaped_MMN_latency_500_diff$SEGA_ID)
 
@@ -1853,6 +1906,12 @@ reshaped_MMN_latency_750_diff$id <- str_replace(
   reshaped_MMN_latency_750_diff$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
 reshaped_MMN_latency_750_diff$id <- str_replace(
   reshaped_MMN_latency_750_diff$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
+reshaped_MMN_latency_750_diff$id <- str_replace(
+  reshaped_MMN_latency_750_diff$id, "SEGA_AuditoryOddball_129_04012025", "SEGA_129_AuditoryOddball_04012025")
+reshaped_MMN_latency_750_diff$id <- str_replace(
+  reshaped_MMN_latency_750_diff$id, "SEGA_AuditoryOddball_022_24102022", "SEGA_022_AuditoryOddball_24102022")
+reshaped_MMN_latency_750_diff$id <- str_replace(
+  reshaped_MMN_latency_750_diff$id, "SEGA_AuditoryOddball_189_02012025", "SEGA_189_AuditoryOddball_02012025")
 reshaped_MMN_latency_750_diff$SEGA_ID <- as.factor(substr(reshaped_MMN_latency_750_diff$id, 6, 8))
 reshaped_MMN_latency_750_diff$SEGA_ID <- sub("^0+", "", reshaped_MMN_latency_750_diff$SEGA_ID)
 
@@ -1866,7 +1925,6 @@ colnames(reshaped_MMN_latency_750_diff)[colnames(reshaped_MMN_latency_750_diff) 
 MMN_latency_diff_df <- rbind(reshaped_MMN_latency_500_diff, reshaped_MMN_latency_750_diff)
 
 MMN_diff_df <- merge(MMN_amplitude_diff_df, MMN_latency_diff_df, by = c("SEGA_ID", "block", "manipulation", "pitch"))
-
 
 # Include experimental group from .csv file in MMN_amplitude_diff_df
 for (row in 1:length(MMN_diff_df$SEGA_ID)) {
@@ -1887,6 +1945,23 @@ for (row in 1:length(MMN_diff_df$SEGA_ID)) {
   MMN_diff_df[row, "gender"] <- gender
   MMN_diff_df[row, "age"] <- age
 }
+
+# Include IQ from .csv file
+for (row in 1:length(MMN_diff_df$SEGA_ID)) {
+  SEGA_ID_df <- MMN_diff_df[row, "SEGA_ID"]
+  if (!(SEGA_ID_df %in% sample_characteristics$SEGA_ID)) {
+    next}
+  row_number <- which(sample_characteristics$SEGA_ID == SEGA_ID_df)
+  MT <- exp_groups[row_number, "MT"]
+  MZ <- exp_groups[row_number, "MZ"]
+  GF <- exp_groups[row_number, "GF"]
+  WT <- exp_groups[row_number, "WT"]
+  GF_WT <- c(GF, WT)
+  MT_MZ <- c(MT, MZ)
+  verbal_IQ <- mean(GF_WT, na.rm = T)
+  non_verbal_IQ <- mean(MT_MZ, na.rm = T)
+  MMN_diff_df[row, "verbal_IQ"] <- verbal_IQ
+  MMN_diff_df[row, "non_verbal_IQ"] <- non_verbal_IQ}
 
 # Correct data types for analysis
 MMN_diff_df$gender <- as.factor(MMN_diff_df$gender)
