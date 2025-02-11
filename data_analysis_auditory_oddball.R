@@ -461,8 +461,12 @@ plot(power_curve_interaction)
 
 # CORRELATION: BLOCK BASELINE-TRIAL BASELINE
 corr_block_trial_bl <- et_erp_trial %>%
-  summarise(cor = cor(block_baseline_mean, rpd_low, use = "complete.obs"),
-            p_value = cor.test(block_baseline_mean, rpd_low)$p.value)
+  summarise(
+    cor = cor(block_baseline_mean, rpd_low, use = "complete.obs"),
+    p_value = cor.test(block_baseline_mean, rpd_low)$p.value,
+    conf_low = cor.test(block_baseline_mean, rpd_low)$conf.int[1],
+    conf_high = cor.test(block_baseline_mean, rpd_low)$conf.int[2]
+  )
 print(corr_block_trial_bl)
 
 # RESULT 1: SEPR ON SUBJECT LEVEL
