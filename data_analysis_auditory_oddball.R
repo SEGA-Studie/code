@@ -419,7 +419,7 @@ plot_non_verbal_iq <- ggplot(IQ_df, aes(x = group, y = non_verbal_IQ), col = "gr
   theme(plot.title = element_text(face="bold")) +
   theme(plot.margin = unit(c(1, 0.5, 0.5, 0.5), "cm"))
   
-
+  
 grid.arrange(plot_verbal_iq, plot_non_verbal_iq, ncol = 2)
 
 # Power Analysis
@@ -458,6 +458,12 @@ power_interaction <- powerSim(model, nsim=1000, test = fcompare(y ~ group + cond
 print(power_interaction)
 power_curve_interaction <- powerCurve(model, test = fcompare(y ~ group + condition), along = "id")
 plot(power_curve_interaction)
+
+# CORRELATION: BLOCK BASELINE-TRIAL BASELINE
+corr_block_trial_bl <- et_erp_trial %>%
+  summarise(cor = cor(block_baseline_mean, rpd_low, use = "complete.obs"),
+            p_value = cor.test(block_baseline_mean, rpd_low)$p.value)
+print(corr_block_trial_bl)
 
 # RESULT 1: SEPR ON SUBJECT LEVEL
 lmm <- lmer(

@@ -480,13 +480,13 @@ for (subject in subjects){
     if (i == 2){
       block_counter <- 5}    
     if (i == 3){
-      block_counter <- NA}
+      block_counter <- NA} # no corresponding task block, bl before manip 
     if (i == 4){
       block_counter <- 10}
     if (i == 5){
       block_counter <- 12}
     if (i == 6){
-      block_counter <- NA}
+      block_counter <- NA} # no corresponding task block, last bl
     baseline_means_subj <- cbind(id, block_counter, block_baseline_mean, baseline_trial_counter)
     baseline_means <- rbind(baseline_means, baseline_means_subj)
   }}
@@ -1529,106 +1529,107 @@ for (i in unique_ids){
   i_subject_df <- ET_df_trial[ET_df_trial$SEGA_ID == i, ]
   manipulation_block_df <- i_subject_df[i_subject_df$manipulation == "before" & i_subject_df$block == "forward", ]
   stimulus_df <- manipulation_block_df[manipulation_block_df$trial == "oddball", ]
-  
   SEGA_ID <- unique(as.numeric(i))
   block <- unique(stimulus_df$block)
   manipulation <- unique(stimulus_df$manipulation)
   trial <- unique(stimulus_df$trial)
+  block_counter <- unique(stimulus_df$block_counter)
   rpd <- mean(stimulus_df$rpd, na.rm = TRUE)
   rpd_block <- mean(stimulus_df$rpd_block, na.rm = TRUE)
   rpd_low <- mean(stimulus_df$rpd_low, na.rm = TRUE)
   print(i)
-  ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, rpd, rpd_block, rpd_low))
+  ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, block_counter, rpd, rpd_block, rpd_low))
+  
   manipulation_block_df <- i_subject_df[i_subject_df$manipulation == "before" & i_subject_df$block == "forward", ]
   stimulus_df <- manipulation_block_df[manipulation_block_df$trial == "standard", ]
-  
   SEGA_ID <- unique(as.numeric(i))
   block <- unique(stimulus_df$block)
   manipulation <- unique(stimulus_df$manipulation)
   trial <- unique(stimulus_df$trial)
+  block_counter <- unique(stimulus_df$block_counter)
   rpd <- mean(stimulus_df$rpd, na.rm = TRUE)
   rpd_block <- mean(stimulus_df$rpd_block, na.rm = TRUE)
   rpd_low <- mean(stimulus_df$rpd_low, na.rm = TRUE)
   print(paste0("2nd", i))
-  ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, rpd, rpd_block, rpd_low))
+  ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, block_counter, rpd, rpd_block, rpd_low))
   
   manipulation_block_df <- i_subject_df[i_subject_df$manipulation == "before" & i_subject_df$block == "reverse", ]
   stimulus_df <- manipulation_block_df[manipulation_block_df$trial == "oddball", ]
-  
   SEGA_ID <- unique(as.numeric(i))
   block <- unique(stimulus_df$block)
   manipulation <- unique(stimulus_df$manipulation)
   trial <- unique(stimulus_df$trial)
+  block_counter <- unique(stimulus_df$block_counter)
   rpd <- mean(stimulus_df$rpd, na.rm = TRUE)
   rpd_block <- mean(stimulus_df$rpd_block, na.rm = TRUE)
   rpd_low <- mean(stimulus_df$rpd_low, na.rm = TRUE)
   print(paste0("3rd", i))
-  ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, rpd, rpd_block, rpd_low))
+  ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, block_counter, rpd, rpd_block, rpd_low))
   
   manipulation_block_df <- i_subject_df[i_subject_df$manipulation == "before" & i_subject_df$block == "reverse", ]
   stimulus_df <- manipulation_block_df[manipulation_block_df$trial == "standard", ]
-  
   SEGA_ID <- unique(as.numeric(i))
   block <- unique(stimulus_df$block)
   manipulation <- unique(stimulus_df$manipulation)
   trial <- unique(stimulus_df$trial)
+  block_counter <- unique(stimulus_df$block_counter)
   rpd <- mean(stimulus_df$rpd, na.rm = TRUE)
   rpd_block <- mean(stimulus_df$rpd_block, na.rm = TRUE)
   rpd_low <- mean(stimulus_df$rpd_low, na.rm = TRUE)
   print(paste0("4th", i))
-  ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, rpd, rpd_block, rpd_low))
+  ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, block_counter, rpd, rpd_block, rpd_low))
   
   manipulation_block_df <- i_subject_df[i_subject_df$manipulation == "after" & i_subject_df$block == "forward", ]
   stimulus_df <- manipulation_block_df[manipulation_block_df$trial == "oddball", ]
-  
   SEGA_ID <- unique(as.numeric(i))
   block <- unique(stimulus_df$block)
   manipulation <- unique(stimulus_df$manipulation)
   trial <- unique(stimulus_df$trial)
+  block_counter <- unique(stimulus_df$block_counter)
   rpd <- mean(stimulus_df$rpd, na.rm = TRUE)
   rpd_block <- mean(stimulus_df$rpd_block, na.rm = TRUE)
   rpd_low <- mean(stimulus_df$rpd_low, na.rm = TRUE)
   print(paste0("5th", i))
-  ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, rpd, rpd_block, rpd_low))
+  ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, block_counter, rpd, rpd_block, rpd_low))
   
   manipulation_block_df <- i_subject_df[i_subject_df$manipulation == "after" & i_subject_df$block == "forward", ]
   stimulus_df <- manipulation_block_df[manipulation_block_df$trial == "standard", ]
-  
   SEGA_ID <- unique(as.numeric(i))
   block <- unique(stimulus_df$block)
   manipulation <- unique(stimulus_df$manipulation)
   trial <- unique(stimulus_df$trial)
+  block_counter <- unique(stimulus_df$block_counter)
   rpd <- mean(stimulus_df$rpd, na.rm = TRUE)
   rpd_block <- mean(stimulus_df$rpd_block, na.rm = TRUE)
   rpd_low <- mean(stimulus_df$rpd_low, na.rm = TRUE)
   print(paste0("6th", i))
-  ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, rpd, rpd_block, rpd_low))
+  ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, block_counter, rpd, rpd_block, rpd_low))
   
   manipulation_block_df <- i_subject_df[i_subject_df$manipulation == "after" & i_subject_df$block == "reverse", ]
   stimulus_df <- manipulation_block_df[manipulation_block_df$trial == "oddball", ]
-  
   SEGA_ID <- unique( as.numeric(i))
   block <- unique(stimulus_df$block)
   manipulation <- unique(stimulus_df$manipulation)
   trial <- unique(stimulus_df$trial)
+  block_counter <- unique(stimulus_df$block_counter)
   rpd <- mean(stimulus_df$rpd, na.rm = TRUE)
   rpd_block <- mean(stimulus_df$rpd_block, na.rm = TRUE)
   rpd_low <- mean(stimulus_df$rpd_low, na.rm = TRUE)
   print(paste0("7th", i))
-  ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, rpd, rpd_block, rpd_low))
+  ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, block_counter, rpd, rpd_block, rpd_low))
   
   manipulation_block_df <- i_subject_df[i_subject_df$manipulation == "after" & i_subject_df$block == "reverse", ]
   stimulus_df <- manipulation_block_df[manipulation_block_df$trial == "standard", ]
-  
   SEGA_ID <- unique(as.numeric(i))
   block <- unique(stimulus_df$block)
   manipulation <- unique(stimulus_df$manipulation)
   trial <- unique(stimulus_df$trial)
+  block_counter <- unique(stimulus_df$block_counter)
   rpd <- mean(stimulus_df$rpd, na.rm = TRUE)
   rpd_block <- mean(stimulus_df$rpd_block, na.rm = TRUE)
   rpd_low <- mean(stimulus_df$rpd_low, na.rm = TRUE)
   print(paste0("8th", i))
-  ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, rpd, rpd_block, rpd_low))
+  ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, block_counter, rpd, rpd_block, rpd_low))
 }
 
 # Trial variable with capital letters due to congruence with eeg format
@@ -1724,6 +1725,14 @@ ET_ERP_subject$SEGA_ID <- as.factor(ET_ERP_subject$SEGA_ID)
 
 # Remove unused factor level
 ET_ERP_subject$manipulation <- droplevels(ET_ERP_subject$manipulation)
+
+# Add baseline means to ET_ERP_subject for correlation between trial baselines and block baselines
+# for paper to show that our trial baselines reflect the same as dedicated baseline phases
+# Only for merging here: variable "id" in baseline_means -> "SEGA_ID"
+names(baseline_means)[names(baseline_means) == "id"] <- "SEGA_ID"
+ET_ERP_subject <- merge(x = baseline_means, y = ET_ERP_subject,
+                        by = c("SEGA_ID", "block_counter"), all.y = TRUE)
+names(baseline_means)[names(baseline_means) == "SEGA_ID"] <- "id"
 
 # Save .Rds file for analysis on subject level
 saveRDS(ET_ERP_subject,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_subject.rds'))
