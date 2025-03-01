@@ -155,14 +155,14 @@ fun_return_descriptives <- function(group){
     n,
     gender_f_m,
     age,
-    SRS,
-    CBCL,
-    SCQ,
-    YSR,
-    SP2,
-    grip_strength,
     verbal_IQ,
     non_verbal_IQ,
+    CBCL,
+    YSR,
+    SRS,
+    SCQ,
+    SP2,
+    grip_strength,
     included_trials_eeg,
     included_trials_et)
   t(group_description)
@@ -459,8 +459,8 @@ print(power_interaction)
 power_curve_interaction <- powerCurve(model, test = fcompare(y ~ group + condition), along = "id")
 plot(power_curve_interaction)
 
-# CORRELATION: BLOCK BASELINE-TRIAL BASELINE
-corr_block_trial_bl <- et_erp_trial %>%
+# CORRELATION: BLOCK-BASELINE vs. TRIALBASELINE
+corr_block_trial_bl <- et_erp_subject %>%
   summarise(
     cor = cor(block_baseline_mean, rpd_low, use = "complete.obs"),
     p_value = cor.test(block_baseline_mean, rpd_low)$p.value,
@@ -518,6 +518,20 @@ contrast(emmeans(lmm, ~ manipulation|group), method = "revpairwise")
 confint(contrast(emmeans(lmm, ~ manipulation|group), method = "revpairwise"))
 emmip(lmm, ~ manipulation | group, linearg = list(linetype = "blank"), CIs = T)
 
+## Plot WTAS: manipulation * group
+emm_data <- emmip(lmm, ~ manipulation | group, CIs = TRUE, plotit = FALSE)
+ggplot(emm_data, aes(x = manipulation, y = yvar, color = group)) +
+  geom_point(size = 3) +  # Increased point size
+  geom_errorbar(aes(ymin = LCL, ymax = UCL), width = 0.2, size = 1) +
+  facet_wrap(~ group) +
+  labs(x = "Manipulation", y = "Estimated Marginal Mean") +
+  theme_bw() +
+  scale_color_manual(values = c("ASD" = "red", "CON" = "#045D5D", "MHC" = "#A05000")) +
+  theme(plot.title = element_text(face = "bold"), legend.position = "none") +
+  theme(axis.text.x = element_text(face = "bold")) +
+  theme(axis.text.y = element_text(face = "bold")) +
+  theme(text = element_text(size = 14))
+
 ### exploratory: custom contrast: group comparisons of BPS before manipulation
 emm <- emmeans(lmm, ~ group * manipulation)
 contrast(emm, method = list(
@@ -531,6 +545,61 @@ contrast(emm, method = list(
 contrast(emmeans(lmm, ~ manipulation|block), "revpairwise")
 confint(contrast(emmeans(lmm, ~ manipulation|block), "revpairwise"))
 emmip(lmm, ~ manipulation | block, linearg = list(linetype = "blank"), CIs = T)
+
+## Plot: manipulation x block interaction  
+plot_data <- as.data.frame(emmeans(lmm, ~ block * manipulation))
+plot_data <- na.omit(plot_data)
+
+interaction_plot_BPS <- ggplot(plot_data) +
+  geom_crossbar(aes(
+    x = manipulation, y = emmean, color = block,
+    ymin = emmean - 1 * SE, ymax = emmean + 1 * SE), 
+    alpha = 0.8, 
+    position = position_dodge(width = 0.7),  
+    width = 0.3) +  
+  geom_errorbar(aes(
+    x = manipulation, y = emmean, color = block, fill = block,
+    ymin = lower.CL, ymax = upper.CL), 
+    position = position_dodge(width = 0.7), 
+    width = 0.2) +  
+  scale_color_manual(values = c("blue", "orange")) +  
+  scale_fill_manual(values = c("blue", "orange")) +   
+  theme_bw() +
+  labs(title = "Manipulation x block interaction on BPS",
+       x = "Manipulation",
+       y = "BPS [z]") +
+  theme(plot.title = element_text(face = "bold"), legend.position = "none") 
+print(interaction_plot_BPS)
+
+## Plot BPS for WTAS 2025: manipulation x block interaction  
+plot_data <- as.data.frame(emmeans(lmm, ~ block * manipulation))
+plot_data <- na.omit(plot_data)
+
+interaction_plot_BPS <- ggplot(plot_data) +
+  geom_crossbar(aes(
+    x = manipulation, y = emmean, color = block,
+    ymin = emmean - 1 * SE, ymax = emmean + 1 * SE), 
+    alpha = 0.8, 
+    position = position_dodge(width = 0.9),  
+    width = 0.3,
+    linewidth = 0.8) +  
+  geom_errorbar(aes(
+    x = manipulation, y = emmean, color = block,
+    ymin = lower.CL, ymax = upper.CL), 
+    position = position_dodge(width = 0.9), 
+    width = 0.3,
+    linewidth = 0.8) +  
+  scale_color_manual(values = c("blue", "orange")) +  
+  scale_fill_manual(values = c("blue", "orange")) +   
+  theme_bw() +
+  labs(title = "Manipulation x block interaction on BPS",
+       x = "Manipulation",
+       y = "BPS [z]") +
+  theme(plot.title = element_text(face = "bold"), legend.position = "none") +
+  theme(axis.text.x = element_text(face = "bold")) +
+  theme(axis.text.y = element_text(face = "bold")) +
+  theme(text = element_text(size = 14))
+print(interaction_plot_BPS)
 
 ## custom contrast: Manipulation effect in block 3? (before.reverse vs. after.forward)
 emm <- emmeans(lmm, ~ block * manipulation)
@@ -592,6 +661,36 @@ print(interaction_plot_MMN)
 legend <- cowplot::get_legend(interaction_plot_MMN + theme(legend.position="right"))
 legend_plot <- ggdraw() + draw_plot(legend)
 print(legend_plot)
+
+## Slightly modified plot for WTAS 2025
+plot_data <- as.data.frame(emmeans(lmm, ~ block * manipulation))
+plot_data <- na.omit(plot_data)
+
+interaction_plot_MMN <- ggplot(plot_data) +
+  geom_crossbar(aes(
+    x = manipulation, y = emmean, color = block,
+    ymin = emmean - 1 * SE, ymax = emmean + 1 * SE), 
+    alpha = 0.8, 
+    position = position_dodge(width = 0.9),  
+    width = 0.3,
+    linewidth = 0.8) +  
+  geom_errorbar(aes(
+    x = manipulation, y = emmean, color = block,
+    ymin = lower.CL, ymax = upper.CL), 
+    position = position_dodge(width = 0.9), 
+    width = 0.3,
+    linewidth = 0.8) +  
+  scale_color_manual(values = c("blue", "orange")) +  
+  scale_fill_manual(values = c("blue", "orange")) +   
+  theme_bw() +
+  labs(title = "Manipulation x block interaction on MMN amplitude",
+       x = "Manipulation",
+       y = "MMN_amplitude [z]") +
+  theme(plot.title = element_text(face = "bold"), legend.position = "none") +
+  theme(axis.text.x = element_text(face = "bold")) +
+  theme(axis.text.y = element_text(face = "bold")) +
+  theme(text = element_text(size = 14))
+print(interaction_plot_MMN)
 
 ## Custom contrast: Manipulation effect in block 3?  (block 2 vs. 3).
 emm <- emmeans(lmm, ~ block * manipulation)
@@ -656,6 +755,20 @@ contrast(emmeans(lmm, ~ stimulus * block|group), "pairwise")
 confint(contrast(emmeans(lmm, ~ stimulus * block|group), "pairwise"))
 emmip(lmm, ~ stimulus | block|group, linearg = list(linetype = "blank"), CI = T)
 
+## WTAS: Plot with stimulus * group
+emm_data <- emmip(lmm, ~ stimulus | group, CIs = TRUE, plotit = FALSE)
+ggplot(emm_data, aes(x = xvar, y = yvar, color = stimulus)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = LCL, ymax = UCL), width = 0.2, size = 1) +
+  facet_wrap(~ group) +
+  labs(x = "Stimulus", y = "Estimated Marginal Mean") +
+  theme_bw() +
+  scale_color_manual(values = c("Oddball" = "red", "Standard" = "black")) +
+  theme(plot.title = element_text(face = "bold"), legend.position = "none") +
+  theme(axis.text.x = element_text(face = "bold")) +
+  theme(axis.text.y = element_text(face = "bold")) +
+  theme(text = element_text(size = 14))
+
 ## Post-hoc: manipulation * block
 emmeans(lmm, ~ manipulation|block)
 contrast(emmeans(lmm, ~ manipulation|block), "revpairwise")
@@ -664,20 +777,21 @@ emm <- emmeans(lmm, ~ block * manipulation)
 emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
   theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 
-## Plot: manipulation x block interaction
+## Plot: manipulation * block
 plot_data <- as.data.frame(emmeans(lmm, ~ block * manipulation))
 plot_data <- na.omit(plot_data)
 
 interaction_plot_P3a <- ggplot(plot_data, aes(x = manipulation, y = emmean, group = block, color = block)) +
   geom_crossbar(aes(ymin = emmean - 1 * SE, ymax = emmean + 1 * SE), 
                 alpha = 0.8, 
-                position = position_dodge(width = 0.7),  
-                width = 0.3) +  
+                position = position_dodge(width = 0.9),  
+                width = 0.3) +
   geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), 
-                position = position_dodge(width = 0.7), 
-                width = 0.2) +  
+                position = position_dodge(width = 0.9), 
+                width = 0.2) +
   scale_color_manual(values = c("blue", "orange")) +  
-  scale_fill_manual(values = c("blue", "orange")) +   
+  scale_fill_manual(values = c("blue", "orange")) + 
+  scale_x_discrete(expand = expansion(mult = c(0.5, 0.5))) +
   theme_bw() +
   labs(title = "Manipulation x block interaction on P3a amplitude",
        x = "Manipulation",
@@ -685,11 +799,36 @@ interaction_plot_P3a <- ggplot(plot_data, aes(x = manipulation, y = emmean, grou
   theme(plot.title = element_text(face = "bold"), legend.position = "none")
 print(interaction_plot_P3a)
 
+## Slightly modified for WTAS 2025
+plot_data <- as.data.frame(emmeans(lmm, ~ block * manipulation))
+plot_data <- na.omit(plot_data)
+interaction_plot_P3a <- ggplot(plot_data, aes(x = manipulation, y = emmean, group = block, color = block)) +
+  geom_crossbar(aes(ymin = emmean - 1 * SE, ymax = emmean + 1 * SE), 
+                alpha = 0.8, 
+                position = position_dodge(width = 0.9),
+                width = 0.3,
+                size = 0.8) +
+  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), 
+                position = position_dodge(width = 0.9), 
+                width = 0.2,
+                size = 0.8) +
+  scale_color_manual(values = c("blue", "orange")) +  
+  scale_fill_manual(values = c("blue", "orange")) + 
+  scale_x_discrete(expand = expansion(mult = c(0.5, 0.5))) +
+  theme_bw() +
+  labs(title = "Manipulation x block interaction on P3a amplitude",
+       x = "Manipulation",
+       y = "P3a_amplitude [z]") +
+  theme(plot.title = element_text(face = "bold"), legend.position = "none") +
+  theme(axis.text.x = element_text(face = "bold")) +
+  theme(axis.text.y = element_text(face = "bold")) +
+  theme(text = element_text(size = 14))
+print(interaction_plot_P3a)
+
+
 legend <- cowplot::get_legend(interaction_plot_MMN + theme(legend.position="right"))
 legend_plot <- ggdraw() + draw_plot(legend)
 print(legend_plot)
-
-grid.arrange(interaction_plot_MMN, interaction_plot_P3a)
 
 ## custom contrast: Manipulation effect in block 3? (before.reverse vs. after.forward)
 emm <- emmeans(lmm, ~ block * manipulation)
@@ -1081,6 +1220,7 @@ contrast(emm, method = list(
 emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
   theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 
+## Plot Manipulation effect on MMN Latency 
 plot_data <- as.data.frame(emmeans(lmm, ~ block * manipulation))
 plot_data <- na.omit(plot_data)
 
@@ -1101,7 +1241,35 @@ interaction_plot_MNN_latency <- ggplot(plot_data, aes(x = manipulation, y = emme
   theme(plot.title = element_text(face = "bold"), legend.position = "none")
 print(interaction_plot_MNN_latency)
 
-grid.arrange(interaction_plot_MMN, interaction_plot_P3a, interaction_plot_MNN_latency)
+## Slightly modified plot for WTAS 2025
+plot_data <- as.data.frame(emmeans(lmm, ~ block * manipulation))
+plot_data <- na.omit(plot_data)
+
+interaction_plot_MNN_latency <- ggplot(plot_data, aes(x = manipulation, y = emmean, group = block, color = block)) +
+  geom_crossbar(aes(ymin = emmean - 1 * SE, ymax = emmean + 1 * SE), 
+                alpha = 0.8, 
+                position = position_dodge(width = 0.9),  
+                width = 0.3,
+                linewidth = 0.8) +  
+  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), 
+                position = position_dodge(width = 0.9), 
+                width = 0.2,
+                linewidth = 0.8) +  
+  scale_color_manual(values = c("blue", "orange")) +  
+  scale_fill_manual(values = c("blue", "orange")) +   
+  theme_bw() +
+  labs(title = "Manipulation x block interaction on MMN latency",
+       x = "Manipulation",
+       y = "MMN latency [z]") +
+  theme(plot.title = element_text(face = "bold"), legend.position = "none") +
+  theme(axis.text = element_text(face = "bold")) +
+  theme(text = element_text(size = 14))
+print(interaction_plot_MNN_latency)
+
+grid.arrange(interaction_plot_BPS,
+             interaction_plot_MMN,
+             interaction_plot_P3a,
+             interaction_plot_MNN_latency)
 
 # RESULT 10: P3A AMPLITUDE ON TRIAL LEVEL
 lmm <- lmer(
@@ -1257,6 +1425,7 @@ summary(emt, infer = T)
 ## BPS * group
 emt <- emtrends(lmm, ~ group, var = c("z_rpd_low"))
 contrast(emt)
+confint(emt)
 
 # RESULT 17: EXPLORATORY ANALYSIS OF MODEL FIT FOR "trial_number_in_block" ON BPS
 linear_fit <- lmer(
@@ -1371,6 +1540,13 @@ r2_nakagawa(lmm)
 ## Post-hoc: grip strength
 emtrends(lmm, ~ z_grip_strength, var = "z_grip_strength")
 summary(emtrends(lmm, ~ z_grip_strength, var = "z_grip_strength"), infer = T)
+
+## Scatterplot: BPS-grip_strength
+ggplot(data = subset(et_erp_subject, !is.na(z_grip_strength) & !is.na(z_rpd_low)), 
+       aes(x = z_grip_strength, y = z_rpd_low)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  labs(x = "grip_strength [z]", y = "BPS [z]")
 
 ## Post-hoc: group * grip_strength
 emt <- emtrends(lmm, ~ group, var = 'z_grip_strength')
