@@ -644,12 +644,11 @@ ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<0.7 & df$block_
 hist(df_trial$rpd_block, xlim = c(-2, 2))
 hist(df_trial$rpd, xlim = c(-1, 1))
 
-### add experimental group data ####
-
-###--> where is this file?
-
-# Read experimental group data from .csv file
+# exp_group.csv is a file created manually including information on
+# group, date of data collection, grip strength values and IQ scores.
 exp_groups <- read.csv("exp_groups.csv", header = TRUE)
+
+# Get experimental group
 exp_groups$SEGA_ID <- as.character(exp_groups$SEGA_ID)
 # Include experimental group (ASD, CON, MHC) from .csv file in df_trial
 for (row in 1:length(df_trial$id)) {
@@ -658,7 +657,10 @@ for (row in 1:length(df_trial$id)) {
   group <- exp_groups[row_number, "group"]
   df_trial[row, "group"] <- group}
 
-# Read z_grip_strength values from .csv files
+# Read z_grip_strength values from .csv file
+# 5 grip strength values per participant have been averaged and average
+# has been compared to normal values (see JAMAR Hydraulic Hand Dynamometer Owner's Manual).
+# Statistics performed with z-values.
 for (row in 1:length(df_trial$id)) {
   SEGA_ID_df <- df_trial[row, "id"]
   row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
@@ -666,6 +668,9 @@ for (row in 1:length(df_trial$id)) {
   df_trial[row, "z_grip_strength"] <- z_grip_strength}
 
 # Include IQ from .csv file
+# For each subtest (MT, GF, MZ, WT): raw score -> scaled score (WAIS-V Manual) -> IQ value (100 ± 15)
+# mean IQ values from similarities + vocabulary -> verbal IQ
+# mean IQ values from matrix reasoning + block design -> non-verbal IQ
 for (row in 1:length(df_trial$id)) {
   SEGA_ID_df <- df_trial[row, "id"]
   row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
@@ -1514,6 +1519,9 @@ for (row in 1:length(ERP_df$SEGA_ID)) {
 ERP_df$group <- as.factor(ERP_df$group)
 
 # Include grip_strength z-values from .csv file
+# 5 grip strength values per participant have been averaged and average
+# has been compared to normal values (see JAMAR Hydraulic Hand Dynamometer Owner's Manual).
+# Statistics performed with z-values.
 for (row in 1:length(ERP_df$SEGA_ID)) {
   SEGA_ID_df <- ERP_df[row, "SEGA_ID"]
   row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
