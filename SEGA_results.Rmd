@@ -1150,7 +1150,7 @@ summary(emt, infer = T)
 #### Post-hoc: BPS x group
 ```{r, warning=FALSE}
 emt <- emtrends(lmm, ~ group, var = c("z_rpd_low"))
-contrast(emt)
+summary(emt, infer = T)
 ```
 
 # **Exploratory Analyses**
@@ -1297,7 +1297,7 @@ confint(contrast(emt))
 
 ## Correl. Trial-Block baseline
 ```{r, warning=FALSE}
-corr_block_trial_bl <- et_erp_trial %>%
+corr_block_trial_bl <- et_erp_subject %>%
   summarise(
     cor = cor(block_baseline_mean, rpd_low, use = "complete.obs"),
     p_value = cor.test(block_baseline_mean, rpd_low)$p.value,
