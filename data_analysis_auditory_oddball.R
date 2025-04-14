@@ -149,8 +149,13 @@ fun_return_descriptives <- function(group){
   non_verbal_IQ_mean <- round(mean(group_df$non_verbal_IQ, na.rm = TRUE), digits = 1)
   non_verbal_IQ_sd <- round(sd(group_df$non_verbal_IQ, na.rm = TRUE), digits = 1)
   non_verbal_IQ <- paste(non_verbal_IQ_mean, "(", non_verbal_IQ_sd, ")")
-  included_trials_eeg <- round((mean(group_df$included_trials_eeg))*100, 1)
-  included_trials_et <- round((mean(group_df$included_trials_et))*100, 1)
+  included_trials_eeg_mean <- round((mean(group_df$included_trials_eeg))*100, 1)
+  included_trials_et_mean <- round((mean(group_df$included_trials_et))*100, 1)
+  included_trials_eeg_sd <- round((sd(group_df$included_trials_eeg))*100, 1 )
+  included_trials_et_sd <- round((sd(group_df$included_trials_et))*100, 1)
+  included_trials_eeg <- paste(included_trials_eeg_mean, "(", included_trials_eeg_sd, ")")
+  included_trials_et <- paste(included_trials_et_mean, "(", included_trials_et_sd, ")")
+  
   group_description <- data.frame(
     n,
     gender_f_m,
@@ -615,6 +620,16 @@ contrast(emm, method = list(
 emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
   theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 
+### custom contrast: Habituation from block 1 to block 2?
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.before vs forward.before" = c(-1, 1, 0, 0)), infer = T)
+
+### custom contrast: Habituation from block 3 to 4
+emm <- emmeans(lmm, ~ block * manipulation)
+contrast(emm, method = list(
+  "reverse.after vs forward.after" = c(0, 0, -1, 1)), infer = T)
+
 # RESULT 3: MMN AMPLITUDE ON SUBJECT LEVEL
 lmm <- lmer(
   z_MMN_amplitude ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
@@ -751,9 +766,9 @@ r2_nakagawa(lmm)
 emtrends(lmm, ~ age, var = "age")
 
 ## Post-hoc: stimulus * group * block
-contrast(emmeans(lmm, ~ stimulus * block|group), "pairwise")
-confint(contrast(emmeans(lmm, ~ stimulus * block|group), "pairwise"))
-emmip(lmm, ~ stimulus | block|group, linearg = list(linetype = "blank"), CI = T)
+contrast(emmeans(lmm, ~ stimulus|group * block), "pairwise")
+confint(contrast(emmeans(lmm, ~ stimulus|group * block), "pairwise"))
+emmip(lmm, ~ stimulus | block * group, linearg = list(linetype = "blank"), CI = T)
 
 ## WTAS: Plot with stimulus * group
 emm_data <- emmip(lmm, ~ stimulus | group, CIs = TRUE, plotit = FALSE)
@@ -1287,9 +1302,8 @@ confint(contrast(emmeans(lmm, ~ gender), "pairwise"))
 emmip(lmm, ~ gender, linearg = list(linetype = "blank"), CI = T)
 
 ## Post-hoc: stimulus * group * block
-contrast(emmeans(lmm, ~ stimulus * block|group), "pairwise")
-confint(contrast(emmeans(lmm, ~ stimulus * block|group), "pairwise"))
-emmip(lmm, ~ stimulus | block|group, linearg = list(linetype = "blank"), CI = T)
+contrast(emmeans(lmm, ~ stimulus|group * block), "pairwise")
+confint(contrast(emmeans(lmm, ~ stimulus|group * block), "pairwise"))
 
 # Post-hoc: manipulation * block
 contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
@@ -1348,7 +1362,6 @@ anova(lmm)
 r2_nakagawa(lmm) 
 
 ### post-hoc: BPS
-emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low")
 summary(emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low"), infer = T)
 
 ### post-hoc: BPS x manipulation x block
@@ -1399,17 +1412,13 @@ anova(lmm)
 r2_nakagawa(lmm)
 
 ### post-hoc: SEPR
-emt <- emtrends(lmm, ~ z_rpd, var = "z_rpd")
-summary(emt, infer = T)
+summary(emtrends(lmm, ~ z_rpd, var = "z_rpd"), infer = T)
 
 ### post-hoc: BPS
-emt <- emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low")
-summary(emt, infer = T)
+summary(emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low"), infer = T)
 
 ### post-hoc: SEPR * BPS *group
-emt <- emtrends(lmm, ~  z_rpd * z_rpd_low|group,  var = 'z_rpd', at = list(z_rpd_low = c(-2,2)))
-contrast(emt)
-confint(contrast(emt))
+summary(emtrends(lmm, ~  z_rpd * z_rpd_low|group,  var = 'z_rpd', at = list(z_rpd_low = c(-2,0, 2))), infer = T)
 
 ## P3a amplitude
 lmm <- lmer(
@@ -1419,13 +1428,10 @@ anova(lmm)
 r2_nakagawa(lmm)
 
 ### Post-hoc: SEPR
-emt <- emtrends(lmm, ~ z_rpd, var = "z_rpd")
-summary(emt, infer = T)
+summary(emtrends(lmm, ~ z_rpd, var = "z_rpd"), infer = T)
 
 ## BPS * group
-emt <- emtrends(lmm, ~ group, var = c("z_rpd_low"))
-contrast(emt)
-confint(emt)
+summary(emtrends(lmm, ~ group, var = c("z_rpd_low")), infer = T)
 
 # RESULT 17: EXPLORATORY ANALYSIS OF MODEL FIT FOR "trial_number_in_block" ON BPS
 linear_fit <- lmer(
