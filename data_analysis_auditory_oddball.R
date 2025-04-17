@@ -112,46 +112,67 @@ hist(et_erp_subject$z_P3b_amplitude,
      breaks = 200)
 par(mfrow = c(1, 1))
 
-## mean + sd for each group
+## 1 row per subject containing sample description data which is constant across conditions.
+sample_description_df <- et_erp_subject %>%
+  group_by(SEGA_ID) %>%
+  summarise(across(everything(), ~ {
+    vals <- na.omit(.x) # removes NAs so we only check actual values
+    # keeps the column if all non-NA values are identical + returns that consistent value (or NA if all were NA)
+    if (length(unique(vals)) <= 1) unique(vals)[1] else NA 
+  }), .groups = "drop") %>% 
+  # Keep columns that have at least some non-NA values + removes columns that are completely NA across all subjects
+  select(where(~ any(!is.na(.))))
+
+## Function returning group mean + sd
 fun_return_descriptives <- function(group){
-  group_df <- et_erp_subject[
-    et_erp_subject$group == group,
-    c("gender", "age", "SRS", "SCQ", "CBCL", "YSR", "SP2","z_grip_strength", "SEGA_ID",
-      "verbal_IQ", "non_verbal_IQ","included_trials_et", "included_trials_eeg")]
+  group_df <- sample_description_df[
+    sample_description_df$group == group, ]
+  # gender
   n <- length(unique(group_df$SEGA_ID))
-  male <- (length(which(group_df$gender == "männlich"))/8)
-  female <- (length(which(group_df$gender == "weiblich"))/8)
+  male <- (length(which(group_df$gender == "männlich")))
+  female <- (length(which(group_df$gender == "weiblich")))
   gender_f_m <- paste(female,"/",male)
+  # age
   age_mean <- round(mean(group_df$age, na.rm = TRUE), digits = 1)
   age_sd <- round(sd(group_df$age, na.rm = TRUE), digits = 1)
   age <- paste(age_mean, "(",age_sd,")" )
+  # SRS
   SRS_mean <- round(mean(group_df$SRS, na.rm = TRUE), digits = 1)
   SRS_sd <- round(sd(group_df$SRS, na.rm = TRUE), digits = 1)
   SRS <- paste(SRS_mean, "(",SRS_sd,")")
+  # CBCL
   CBCL_mean <- round(mean(group_df$CBCL, na.rm = TRUE), digits = 1)
   CBCL_sd <- round(sd(group_df$CBCL, na.rm = TRUE), digits = 1)
   CBCL <- paste(CBCL_mean, "(",CBCL_sd,")")
+  # SCQ
   SCQ_mean <- round(mean(group_df$SCQ, na.rm = TRUE), digits = 1)
   SCQ_sd <- round(sd(group_df$SCQ, na.rm = TRUE), digits = 1)
   SCQ <- paste(SCQ_mean, "(", SCQ_sd, ")")
+  # YSR
   YSR_mean <- round(mean(group_df$YSR, na.rm = TRUE), digits = 1)
   YSR_sd <- round(sd(group_df$YSR, na.rm = TRUE), digits = 1)
   YSR <- paste(YSR_mean, "(", YSR_sd, ")")
+  # SP2
   SP2_mean <- round(mean(group_df$SP2, na.rm = TRUE), digits = 1)
   SP2_sd <- round(sd(group_df$SP2, na.rm = TRUE), digits = 1)
   SP2 <- paste(SCQ_mean, "(", SP2_sd, ")")
+  # grip strength
   grip_strength_mean <- round(mean(group_df$z_grip_strength, na.rm = TRUE), digits = 1)
   grip_strength_sd <- round(sd(group_df$z_grip_strength, na.rm = TRUE), digits = 1)
   grip_strength <- paste(grip_strength_mean, "(", grip_strength_sd, ")")
+  # verbal IQ
   verbal_IQ_mean <- round(mean(group_df$verbal_IQ, na.rm = TRUE), digits = 1)
   verbal_IQ_sd <- round(sd(group_df$verbal_IQ, na.rm = TRUE), digits = 1)
   verbal_IQ <- paste(verbal_IQ_mean, "(", verbal_IQ_sd, ")")
+  # non-verbal IQ
   non_verbal_IQ_mean <- round(mean(group_df$non_verbal_IQ, na.rm = TRUE), digits = 1)
   non_verbal_IQ_sd <- round(sd(group_df$non_verbal_IQ, na.rm = TRUE), digits = 1)
   non_verbal_IQ <- paste(non_verbal_IQ_mean, "(", non_verbal_IQ_sd, ")")
+  # included trials eeg
   included_trials_eeg_mean <- round((mean(group_df$included_trials_eeg))*100, 1)
   included_trials_et_mean <- round((mean(group_df$included_trials_et))*100, 1)
   included_trials_eeg_sd <- round((sd(group_df$included_trials_eeg))*100, 1 )
+  # included trials et
   included_trials_et_sd <- round((sd(group_df$included_trials_et))*100, 1)
   included_trials_eeg <- paste(included_trials_eeg_mean, "(", included_trials_eeg_sd, ")")
   included_trials_et <- paste(included_trials_et_mean, "(", included_trials_et_sd, ")")
@@ -173,7 +194,6 @@ fun_return_descriptives <- function(group){
   t(group_description)
 }
 
-## p-values for descriptive statistics
 asd_description <- fun_return_descriptives(group = "ASD")
 colnames(asd_description) <- "ASD"
 con_description <- fun_return_descriptives(group = "CON")
@@ -181,29 +201,30 @@ colnames(con_description) <- "CON"
 mhc_description <- fun_return_descriptives(group = "MHC")
 colnames(mhc_description) <- "MHC"
 
-SCQ_anova <- aov(SCQ ~ group, data = et_erp_subject)
+## p-values for descriptive statistics
+SCQ_anova <- aov(SCQ ~ group, data = sample_description_df)
 SCQ_anova_p <- summary(SCQ_anova)[[1]][["Pr(>F)"]][[1]]
-age_anova <- aov(age ~ group, data = et_erp_subject)
+age_anova <- aov(age ~ group, data = sample_description_df)
 age_anova_p <- summary(age_anova)[[1]][["Pr(>F)"]][[1]]
-CBCL_anova <- aov(CBCL ~ group, data = et_erp_subject)
+CBCL_anova <- aov(CBCL ~ group, data = sample_description_df)
 CBCL_anova_p <- summary(CBCL_anova)[[1]][["Pr(>F)"]][[1]]
-SRS_anova <- aov(SRS ~ group, data = et_erp_subject)
+SRS_anova <- aov(SRS ~ group, data = sample_description_df)
 SRS_anova_p <- summary(SRS_anova)[[1]][["Pr(>F)"]][[1]]
-YSR_anova <- aov(YSR ~ group, data = et_erp_subject)
+YSR_anova <- aov(YSR ~ group, data = sample_description_df)
 YSR_anova_p <- summary(YSR_anova)[[1]][["Pr(>F)"]][[1]]
-SP2_anova <- aov(SP2 ~ group, data = et_erp_subject)
+SP2_anova <- aov(SP2 ~ group, data = sample_description_df)
 SP2_anova_p <- summary(SP2_anova)[[1]][["Pr(>F)"]][[1]]
-grip_strength_anova <- aov(z_grip_strength ~ group, data = et_erp_subject)
+grip_strength_anova <- aov(z_grip_strength ~ group, data = sample_description_df)
 grip_strength_anova_p <- summary(grip_strength_anova)[[1]][["Pr(>F)"]][[1]]
-verbal_IQ_anova <- aov(verbal_IQ ~ group, data = et_erp_subject)
+verbal_IQ_anova <- aov(verbal_IQ ~ group, data = sample_description_df)
 verbal_IQ_anova_p <- summary(verbal_IQ_anova)[[1]][["Pr(>F)"]][[1]]
-non_verbal_IQ_anova <- aov(non_verbal_IQ ~ group, data = et_erp_subject)
+non_verbal_IQ_anova <- aov(non_verbal_IQ ~ group, data = sample_description_df)
 non_verbal_IQ_anova_p <- summary(non_verbal_IQ_anova)[[1]][["Pr(>F)"]][[1]]
-gender_chi2 <- chisq.test(et_erp_subject$gender, et_erp_subject$group)
+gender_chi2 <- chisq.test(sample_description_df$gender, sample_description_df$group)
 gender_chi2_p <- gender_chi2$p.value
-included_trials_et_anova <- aov(included_trials_et ~ group, data = et_erp_subject)
+included_trials_et_anova <- aov(included_trials_et ~ group, data = sample_description_df)
 included_trials_et_p <- summary(included_trials_et_anova)[[1]][["Pr(>F)"]][[1]]
-included_trials_eeg_anova <- aov(included_trials_eeg ~ group, data = et_erp_subject)
+included_trials_eeg_anova <- aov(included_trials_eeg ~ group, data = sample_description_df)
 included_trials_eeg_p <- summary(included_trials_eeg_anova)[[1]][["Pr(>F)"]][[1]]
 
 p_values <- c(
@@ -221,13 +242,19 @@ p_values <- c(
   round(included_trials_et_p, 2),
   included_trials_eeg_p)
 
-p_value <- c()
-for (p in p_values){
-  ifelse (p < 0.001, p <- "< 0.001",
-          ifelse(p < 0.01, p <- "< 0.01",
-                 ifelse(p < 0.05, p <- "< 0.05", p <- p )))
-  p_value <- c(p_value, p)
-}
+p_value <- sapply(p_values, function(p) {
+  if (is.na(p)) {
+    NA
+  } else if (p < 0.001) {
+    "< 0.001"
+  } else if (p < 0.01) {
+    "< 0.01"
+  } else if (p < 0.05) {
+    "< 0.05"
+  } else {
+    sprintf("%.2f", round(p, 2))
+  }
+})
 
 sample_table <- cbind(asd_description, con_description, mhc_description, p_value)
 # Redo table row and column names
