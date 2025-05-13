@@ -2,10 +2,9 @@
 # Author: Nico Bast
 # Date Created: `r paste(Sys.Date())`
 # Copyright (c) Nico Bast, `r paste(format(Sys.Date(), "%Y"))`
-# Email: nico.bast@kgu.de
+# Email: bast@med.uni-frankfurt.de
 
-###notes on
-
+### NOTOES ON MISSING DATA ####
 # - 027 without task data
 # - 037 task aborted
 # - 073 without ET data
@@ -14,11 +13,19 @@
 # - 073 problems with starting the task
 # - 077 complete data but script fails
 # - 139 no data due to subject-related issues
-# - 122 no eeg data due to eeg pc problem
-# - 114 no eeg data due to eeg pc problem
+# - 122 no EEG data due to EEG pc problem
+# - 114 no EEG data due to EEG pc problem
 # - 103 only .psydat, no csv file
-# - 164 no eeg due to subject's aversion
-# - 161 no egg because wearing wig
+# - 164 no EEG due to subject's aversion
+# - 161 no EEG because wearing wig
+# - 185 no EEG because wrong eeg gel used (noisy)
+# - 129 no EEG because wrong eeg gel used (noisy)
+# - 132 no EEG because EEG recording was started with a delay
+# - 125 no EEG because EEG files do not exist?
+# - 024 no EEG because EEG files do not exist?
+# - 191 no ET data because missing .csv file
+# - 148 no EEG because... MUESSSTE VORLIEGEN
+# - 153 no ET data because 2 x ????
 
 
 ## SETUP ####
@@ -1524,27 +1531,6 @@ ERP_df <- merge(P3a_df, MMN_df, by = c("SEGA_ID", "block", "manipulation", "tria
 # Add P3b to ERP_df
 ERP_df <- merge(ERP_df, P3b_df, by = c("SEGA_ID", "block", "manipulation", "trial", "pitch"), all = TRUE)
 
-# Include experimental group from .csv file in ERP_df
-for (row in 1:length(ERP_df$SEGA_ID)) {
-  SEGA_ID_df <- ERP_df[row, "SEGA_ID"]
-  print(SEGA_ID_df)
-  row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
-  group <- exp_groups[row_number, "group"]
-  ERP_df[row, "group"] <- group
-}
-ERP_df$group <- as.factor(ERP_df$group)
-
-# Include grip_strength z-values from .csv file
-# 5 grip strength values per participant have been averaged and average
-# has been compared to normal values (see JAMAR Hydraulic Hand Dynamometer Owner's Manual).
-# Statistics performed with z-values.
-for (row in 1:length(ERP_df$SEGA_ID)) {
-  SEGA_ID_df <- ERP_df[row, "SEGA_ID"]
-  row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
-  z_grip_strength <- exp_groups[row_number, "z_grip_strength"]
-  ERP_df[row, "z_grip_strength"] <- z_grip_strength
-}
-
 # ET_df contains mean BPS + SEPR for 8 conditions per subject.
 unique_ids <- unique(ET_df_trial$SEGA_ID)
 ET_df <- NULL
@@ -1659,31 +1645,8 @@ for (i in unique_ids){
 # Trial variable with capital letters due to congruence with eeg format
 ET_df$trial <- str_to_sentence(ET_df$trial)
 
-# Include experimental group from .csv file in ET_df
-for (row in 1:length(ET_df$SEGA_ID)) {
-  SEGA_ID_df <- ET_df[row, "SEGA_ID"]
-  row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
-  group <- exp_groups[row_number, "group"]
-  ET_df[row, "group"] <- group
-}
-ET_df$group <- as.factor(ET_df$group)
-
-# Include IQ from .csv file
-for (row in 1:length(ET_df$SEGA_ID)) {
-  SEGA_ID_df <- ET_df[row, "SEGA_ID"]
-  row_number <- which(exp_groups$SEGA_ID == SEGA_ID_df)
-  MT <- exp_groups[row_number, "MT"]
-  GF <- exp_groups[row_number, "GF"]
-  MZ <- exp_groups[row_number, "MZ"]
-  WT <- exp_groups[row_number, "WT"]
-  GF_WT <- c(GF, WT)
-  MT_MZ <- c(MT, MZ)
-  verbal_IQ <- mean(GF_WT, na.rm = T)
-  non_verbal_IQ <- mean(MT_MZ, na.rm = T)
-  ET_df[row, "verbal_IQ"] <- verbal_IQ
-  ET_df[row, "non_verbal_IQ"] <- non_verbal_IQ}
-
-ET_ERP_subject <- merge(ET_df, ERP_df, by = c("SEGA_ID", "block", "trial", "manipulation", 'group'), all = T)
+# Merge EEG and ET
+ET_ERP_subject <- merge(ET_df, ERP_df, by = c("SEGA_ID", "block", "trial", "manipulation"), all = T)
 
 # Add sample characteristics to ET_ERP_subject
 for (row in 1:length(ET_ERP_subject$SEGA_ID)) {
@@ -1698,6 +1661,20 @@ for (row in 1:length(ET_ERP_subject$SEGA_ID)) {
   CBCL <- sample_characteristics[[row_number, "CBCL_T_GES"]]
   YSR <- sample_characteristics[[row_number, "YSR_T_GES"]]
   SP2 <- sample_characteristics[[row_number, "SP2_Eltern_RW_Auditiv"]]
+  z_grip_strength <- sample_characteristics[[row_number, "z_grip_strength"]]
+  group <- sample_characteristics[[row_number, "group"]]
+  # For each subtest (MT, GF, MZ, WT): raw score -> scaled score (WAIS-V Manual) -> IQ value (100 ± 15)
+  # verbal IQ = mean IQ values from similarities + vocabulary
+  # non-verbal IQ = mean IQ values from matrix reasoning + block design 
+  MT <- sample_characteristics[[row_number, "MT"]]
+  GF <- sample_characteristics[[row_number, "GF"]]
+  MZ <- sample_characteristics[[row_number, "MZ"]]
+  WT <- sample_characteristics[[row_number, "WT"]]
+  GF_WT <- c(GF, WT)
+  MT_MZ <- c(MT, MZ)
+  verbal_IQ <- mean(GF_WT, na.rm = T)
+  non_verbal_IQ <- mean(MT_MZ, na.rm = T)
+  # Add to ET_ERP_subject
   ET_ERP_subject[row, "gender"] <- gender
   ET_ERP_subject[row, "age"] <- age
   ET_ERP_subject[row, "SCQ"] <- SCQ
@@ -1705,6 +1682,10 @@ for (row in 1:length(ET_ERP_subject$SEGA_ID)) {
   ET_ERP_subject[row, "CBCL"] <- CBCL
   ET_ERP_subject[row, "YSR"] <- YSR
   ET_ERP_subject[row, "SP2"] <- SP2
+  ET_ERP_subject[row, "z_grip_strength"] <- z_grip_strength
+  ET_ERP_subject[row, "group"] <- group
+  ET_ERP_subject[row, "verbal_IQ"] <- verbal_IQ
+  ET_ERP_subject[row, "non_verbal_IQ"] <- non_verbal_IQ
 }
 
 # Correct data types for analysis
