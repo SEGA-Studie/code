@@ -74,10 +74,6 @@ names(df_trial)[names(df_trial) == "trial"] <- "stimulus"
 names(df)[names(df) == "trial"] <- "stimulus"
 
 # DATA ANALYSIS ON SUBJECT LEVEL ####
-# Sample size
-length(unique(et_erp_subject$SEGA_ID))
-table(et_erp_subject$group)/8
-
 # Distributions of dependent variables
 par(mfrow = c(3,2), mar = c(4, 4, 2, 1))
 hist(et_erp_subject$z_rpd,
@@ -112,7 +108,7 @@ hist(et_erp_subject$z_P3b_amplitude,
      breaks = 200)
 par(mfrow = c(1, 1))
 
-## 1 row per subject containing sample description data which is constant across conditions.
+# New data frame: 1 row per subject containing sample description data (consistent across conditions)
 sample_description_df <- et_erp_subject %>%
   group_by(SEGA_ID) %>%
   summarise(across(everything(), ~ {
@@ -122,8 +118,13 @@ sample_description_df <- et_erp_subject %>%
   }), .groups = "drop") %>% 
   # Keep columns that have at least some non-NA values + removes columns that are completely NA across all subjects
   select(where(~ any(!is.na(.))))
+sample_description_df$block_baseline_mean <- NULL
 
-## Function returning group mean + sd
+# Sample size
+nrow(sample_description_df)
+table(sample_description_df$group)
+
+# Function returning group mean + sd
 fun_return_descriptives <- function(group){
   group_df <- sample_description_df[
     sample_description_df$group == group, ]
@@ -169,12 +170,12 @@ fun_return_descriptives <- function(group){
   non_verbal_IQ_sd <- round(sd(group_df$non_verbal_IQ, na.rm = TRUE), digits = 1)
   non_verbal_IQ <- paste(non_verbal_IQ_mean, "(", non_verbal_IQ_sd, ")")
   # included trials eeg
-  included_trials_eeg_mean <- round((mean(group_df$included_trials_eeg))*100, 1)
-  included_trials_et_mean <- round((mean(group_df$included_trials_et))*100, 1)
-  included_trials_eeg_sd <- round((sd(group_df$included_trials_eeg))*100, 1 )
-  # included trials et
-  included_trials_et_sd <- round((sd(group_df$included_trials_et))*100, 1)
+  included_trials_eeg_mean <- round((mean(group_df$included_trials_eeg))*100, digits = 1)
+  included_trials_eeg_sd <- round((sd(group_df$included_trials_eeg))*100, digits = 1 )
   included_trials_eeg <- paste(included_trials_eeg_mean, "(", included_trials_eeg_sd, ")")
+  # included trials et
+  included_trials_et_mean <- round((mean(group_df$included_trials_et))*100, digits = 1)
+  included_trials_et_sd <- round((sd(group_df$included_trials_et))*100, digits = 1)
   included_trials_et <- paste(included_trials_et_mean, "(", included_trials_et_sd, ")")
   
   group_description <- data.frame(
@@ -189,8 +190,8 @@ fun_return_descriptives <- function(group){
     SCQ,
     SP2,
     grip_strength,
-    included_trials_eeg,
-    included_trials_et)
+    included_trials_et,
+    included_trials_eeg)
   t(group_description)
 }
 
@@ -239,7 +240,7 @@ p_values <- c(
   grip_strength_anova_p,
   verbal_IQ_anova_p,
   non_verbal_IQ_anova_p,
-  round(included_trials_et_p, 2),
+  included_trials_et_p,
   included_trials_eeg_p)
 
 p_value <- sapply(p_values, function(p) {
@@ -247,12 +248,9 @@ p_value <- sapply(p_values, function(p) {
     NA
   } else if (p < 0.001) {
     "< 0.001"
-  } else if (p < 0.01) {
-    "< 0.01"
-  } else if (p < 0.05) {
-    "< 0.05"
   } else {
-    sprintf("%.2f", round(p, 2))
+    format(p, scientific = F)
+    round(p, 3)
   }
 })
 
@@ -359,7 +357,7 @@ condition_trials_table <- kable(
 condition_trials_table
 
 ## Plot SCQ
-ggplot(et_erp_subject, aes(x = group, y = SCQ), col = "group") + 
+ggplot(sample_description_df, aes(x = group, y = SCQ), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
@@ -370,7 +368,7 @@ ggplot(et_erp_subject, aes(x = group, y = SCQ), col = "group") +
   theme(plot.title = element_text(face = "bold"))
 
 ## Plot SRS
-ggplot(et_erp_subject, aes(x = group, y = SRS), col = "group") + 
+ggplot(sample_description_df, aes(x = group, y = SRS), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
@@ -381,7 +379,7 @@ ggplot(et_erp_subject, aes(x = group, y = SRS), col = "group") +
   theme(plot.title = element_text(face = "bold"))
 
 ## Plot CBCL
-ggplot(et_erp_subject, aes(x = group, y = CBCL), col = "group") + 
+ggplot(sample_description_df, aes(x = group, y = CBCL), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
@@ -392,7 +390,7 @@ ggplot(et_erp_subject, aes(x = group, y = CBCL), col = "group") +
   theme(plot.title = element_text(face = "bold"))
 
 ## Plot: YSR
-ggplot(et_erp_subject, aes(x = group, y = YSR), col = "group") + 
+ggplot(sample_description_df, aes(x = group, y = YSR), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
@@ -403,7 +401,7 @@ ggplot(et_erp_subject, aes(x = group, y = YSR), col = "group") +
   theme(plot.title = element_text(face="bold"))
 
 ## Plot: SP2-Auditiv
-ggplot(et_erp_subject, aes(x = group, y = SP2), col = "group") + 
+ggplot(sample_description_df, aes(x = group, y = SP2), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
@@ -414,8 +412,7 @@ ggplot(et_erp_subject, aes(x = group, y = SP2), col = "group") +
   theme(plot.title = element_text(face="bold"))
 
 ## Plot: Age
-age_df <- et_erp_subject[!duplicated(et_erp_subject$SEGA_ID), c("SEGA_ID", "group", "age")]
-ggplot(age_df, aes(x = group, y = age), col = "group") + 
+ggplot(sample_description_df, aes(x = group, y = age), col = group) +
   geom_boxplot(fill = "grey") +
   geom_jitter() +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
@@ -427,8 +424,7 @@ ggplot(age_df, aes(x = group, y = age), col = "group") +
   theme(plot.title = element_text(face="bold"))
 
 ## Plot: IQ-verbal
-IQ_df <- et_erp_subject[!duplicated(et_erp_subject$SEGA_ID), c("SEGA_ID", "group", "verbal_IQ", "non_verbal_IQ")]
-plot_verbal_iq <- ggplot(IQ_df, aes(x = group, y = verbal_IQ), col = "group") + 
+plot_verbal_iq <- ggplot(sample_description_df, aes(x = group, y = verbal_IQ), col = group) + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
@@ -440,7 +436,7 @@ plot_verbal_iq <- ggplot(IQ_df, aes(x = group, y = verbal_IQ), col = "group") +
   theme(plot.margin = unit(c(1, 0.5, 0.5, 0.5), "cm"))
 
 ## Plot: IQ-non-verbal
-plot_non_verbal_iq <- ggplot(IQ_df, aes(x = group, y = non_verbal_IQ), col = "group") + 
+plot_non_verbal_iq <- ggplot(sample_description_df, aes(x = group, y = non_verbal_IQ), col = "group") + 
   geom_boxplot(fill = "grey") +
   geom_signif(comparisons = list(c("ASD", "CON"), c("ASD", "MHC"), c("MHC", "CON")),
               map_signif_level=TRUE,
@@ -451,11 +447,10 @@ plot_non_verbal_iq <- ggplot(IQ_df, aes(x = group, y = non_verbal_IQ), col = "gr
   theme(plot.title = element_text(face="bold")) +
   theme(plot.margin = unit(c(1, 0.5, 0.5, 0.5), "cm"))
   
-  
 grid.arrange(plot_verbal_iq, plot_non_verbal_iq, ncol = 2)
 
 # Power Analysis
-n_size<- 141 # sample size
+n_size<- 150 # sample size
 k_size<-4*100 # number of trials --> auditory oddball: 
 subj <- factor(1:n_size) 
 trial_id <- 1:k_size # remains integer variable
@@ -475,16 +470,6 @@ res <- 1.2 # residual standard deviation
 model <- makeLmer(
   y ~ group*condition + (1|id), fixef=fixed, VarCorr=rand, sigma=res, data=covars) # create model
 summary(model) # model
-
-power_condition <- powerSim(model, nsim=1000, test = fcompare(y ~ condition))
-print(power_condition)
-power_curve_condition <- powerCurve(model, test = fcompare(y ~ condition), along = "id")
-plot(power_curve_condition, col = "black")
-
-power_group <- powerSim(model, nsim=1000, test = fcompare(y ~ group))
-print(power_group)
-power_curve_group <- powerCurve(model, test = fcompare(y ~ group), along = "id")
-plot(power_curve_group, col = "black")
 
 power_interaction <- powerSim(model, nsim=1000, test = fcompare(y ~ group + condition))
 print(power_interaction)
@@ -512,38 +497,12 @@ r2_nakagawa(lmm)
 contrast(emmeans(lmm, ~ stimulus), "pairwise")
 confint(contrast(emmeans(lmm, ~ stimulus), "pairwise"))
 
-## Post-hoc: manipulation * block
-emmeans(lmm, ~ manipulation|block)
-contrast(emmeans(lmm, ~ manipulation|block), "revpairwise")
-confint(contrast(emmeans(lmm, ~ manipulation|block), "revpairwise"))
-emm <- emmeans(lmm, ~ block * manipulation)
-emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
-
-## custom contrast: block 1 vs. block 2
-emm <- emmeans(lmm, ~ block * manipulation)
-contrast(emm, method = list(
-  "forward.before vs reverse.before" = c(1, -1, 0, 0)), infer = T)
-
-## custom contrast: block 1 vs. block 3
-emm <- emmeans(lmm, ~ block * manipulation)
-contrast(emm, method = list(
-  "forward.before vs forward.after" = c(1, 0, -1, 0)), infer = T)
-
-## custom contrast: block 1 vs. block 4
-emm <- emmeans(lmm, ~ block * manipulation)
-contrast(emm, method = list(
-  "forward.before vs reverse.after" = c(1, 0, 0, -1)), infer = T)
-
 # RESULT 2: BPS ON SUBJECT LEVEL
 lmm <- lmer(
   z_rpd_low ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
   data = et_erp_subject)
 anova(lmm) 
 r2_nakagawa(lmm) 
-
-## Post-hoc: age
-emtrends(lmm, ~ age, var = "age")
 
 ## post-hoc: manipulation * group
 contrast(emmeans(lmm, ~ manipulation|group), method = "revpairwise")
@@ -554,7 +513,7 @@ emmip(lmm, ~ manipulation | group, linearg = list(linetype = "blank"), CIs = T)
 emm_data <- emmip(lmm, ~ manipulation | group, CIs = TRUE, plotit = FALSE)
 ggplot(emm_data, aes(x = manipulation, y = yvar, color = group)) +
   geom_point(size = 3) +  # Increased point size
-  geom_errorbar(aes(ymin = LCL, ymax = UCL), width = 0.2, size = 1) +
+  geom_errorbar(aes(ymin = LCL, ymax = UCL), width = 0.2, linewidth = 1) +
   facet_wrap(~ group) +
   labs(x = "Manipulation", y = "Estimated Marginal Mean") +
   theme_bw() +
@@ -603,7 +562,7 @@ interaction_plot_BPS <- ggplot(plot_data) +
   theme(plot.title = element_text(face = "bold"), legend.position = "none") 
 print(interaction_plot_BPS)
 
-## Plot BPS for WTAS 2025: manipulation x block interaction  
+## Plot BPS for WTAS 2025: manipulation x block interaction
 plot_data <- as.data.frame(emmeans(lmm, ~ block * manipulation))
 plot_data <- na.omit(plot_data)
 
@@ -631,6 +590,34 @@ interaction_plot_BPS <- ggplot(plot_data) +
   theme(axis.text.x = element_text(face = "bold")) +
   theme(axis.text.y = element_text(face = "bold")) +
   theme(text = element_text(size = 14))
+print(interaction_plot_BPS)
+
+## Plot BPS: manipulation x block interaction (SEGA_Paper)
+plot_data <- as.data.frame(emmeans(lmm, ~ block * manipulation))
+plot_data <- na.omit(plot_data)
+
+interaction_plot_BPS <- ggplot(plot_data) +
+  geom_crossbar(aes(
+    x = manipulation, y = emmean, color = block,
+    ymin = emmean - 1 * SE, ymax = emmean + 1 * SE), 
+    alpha = 0.8, 
+    position = position_dodge(width = 0.9),  
+    width = 0.3,
+    linewidth = 0.8) +  
+  geom_errorbar(aes(
+    x = manipulation, y = emmean, color = block,
+    ymin = lower.CL, ymax = upper.CL), 
+    position = position_dodge(width = 0.9), 
+    width = 0.3,
+    linewidth = 0.8) +  
+  scale_color_manual(values = c("blue", "orange")) +  
+  scale_fill_manual(values = c("blue", "orange")) +   
+  theme_bw() +
+  labs(x = "Manipulation", y = "BPS [z]") +
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(face = "bold")) +
+  theme(axis.text.y = element_text(face = "bold")) +
+  theme(text = element_text(size = 18))
 print(interaction_plot_BPS)
 
 ## custom contrast: Manipulation effect in block 3? (before.reverse vs. after.forward)
@@ -732,6 +719,34 @@ interaction_plot_MMN <- ggplot(plot_data) +
   theme(axis.text.x = element_text(face = "bold")) +
   theme(axis.text.y = element_text(face = "bold")) +
   theme(text = element_text(size = 14))
+print(interaction_plot_MMN)
+
+## Plot MMN amplitude (SEGA-Paper)
+plot_data <- as.data.frame(emmeans(lmm, ~ block * manipulation))
+plot_data <- na.omit(plot_data)
+
+interaction_plot_MMN <- ggplot(plot_data) +
+  geom_crossbar(aes(
+    x = manipulation, y = emmean, color = block,
+    ymin = emmean - 1 * SE, ymax = emmean + 1 * SE), 
+    alpha = 0.8, 
+    position = position_dodge(width = 0.9),  
+    width = 0.3,
+    linewidth = 0.8) +  
+  geom_errorbar(aes(
+    x = manipulation, y = emmean, color = block,
+    ymin = lower.CL, ymax = upper.CL), 
+    position = position_dodge(width = 0.9), 
+    width = 0.3,
+    linewidth = 0.8) +  
+  scale_color_manual(values = c("blue", "orange")) +  
+  scale_fill_manual(values = c("blue", "orange")) +   
+  theme_bw() +
+  labs(x = "Manipulation", y = "MMN_amplitude [z]") +
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(face = "bold")) +
+  theme(axis.text.y = element_text(face = "bold")) +
+  theme(text = element_text(size = 18))
 print(interaction_plot_MMN)
 
 ## Custom contrast: Manipulation effect in block 3?  (block 2 vs. 3).
@@ -867,10 +882,33 @@ interaction_plot_P3a <- ggplot(plot_data, aes(x = manipulation, y = emmean, grou
   theme(text = element_text(size = 14))
 print(interaction_plot_P3a)
 
-
 legend <- cowplot::get_legend(interaction_plot_MMN + theme(legend.position="right"))
 legend_plot <- ggdraw() + draw_plot(legend)
 print(legend_plot)
+
+## Plot P3a: Manipulation effect (SEGA Paper)
+plot_data <- as.data.frame(emmeans(lmm, ~ block * manipulation))
+plot_data <- na.omit(plot_data)
+interaction_plot_P3a <- ggplot(plot_data, aes(x = manipulation, y = emmean, group = block, color = block)) +
+  geom_crossbar(aes(ymin = emmean - 1 * SE, ymax = emmean + 1 * SE), 
+                alpha = 0.8, 
+                position = position_dodge(width = 0.9),
+                width = 0.3,
+                size = 0.8) +
+  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), 
+                position = position_dodge(width = 0.9), 
+                width = 0.2,
+                size = 0.8) +
+  scale_color_manual(values = c("blue", "orange")) +  
+  scale_fill_manual(values = c("blue", "orange")) + 
+  scale_x_discrete(expand = expansion(mult = c(0.5, 0.5))) +
+  theme_bw() +
+  labs(x = "Manipulation", y = "P3a_amplitude [z]") +
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(face = "bold")) +
+  theme(axis.text.y = element_text(face = "bold")) +
+  theme(text = element_text(size = 18))
+print(interaction_plot_P3a)
 
 ## custom contrast: Manipulation effect in block 3? (before.reverse vs. after.forward)
 emm <- emmeans(lmm, ~ block * manipulation)
@@ -904,10 +942,10 @@ r2_nakagawa(lmm)
 contrast(emmeans(lmm, ~ stimulus), "pairwise")
 confint(contrast(emmeans(lmm, ~ stimulus), "pairwise"))
 
-## Post-hoc: group
-contrast(emmeans(lmm, ~ group), "pairwise")
-confint(contrast(emmeans(lmm, ~ group), "pairwise"))
-emmip(lmm, ~ group, linearg = list(linetype = "blank"), CI = T)
+## Post-hoc: manipulation
+contrast(emmeans(lmm, ~ manipulation), "pairwise")
+confint(contrast(emmeans(lmm, ~ manipulation), "pairwise"))
+emmip(lmm, ~ manipulation, linearg = list(linetype = "blank"), CI = T)
 
 ## Post-hoc: Age
 emtrends(lmm, ~ age, var = "age")
@@ -935,12 +973,6 @@ r2_nakagawa(lmm)
 ## Post-hoc: BPS
 emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low")
 summary(emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low"), infer = T)
-
-## Post-hoc: BPS * group
-emt <- emtrends(lmm, ~ group, var = "z_rpd_low")
-cont <- contrast(emtrends(lmm, ~ group, var = "z_rpd_low"), "pairwise")
-confint(cont)
-contrast(emt, "pairwise")
 
 # RESULT 12: ASSOCIATIONS: PUPIL DATA- ERPs ON SUBJECT LEVEL
 ## MMN amplitude
@@ -1037,32 +1069,12 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
+## Post-hoc: Age
+emtrends(lmm, ~ age, var = "age")
+
 ## Post-hoc: stimulus
 contrast(emmeans(lmm, ~ stimulus), "pairwise")
 confint(contrast(emmeans(lmm, ~ stimulus), "pairwise"))
-
-## manipulation x block
-emmeans(lmm, ~ manipulation|block)
-contrast(emmeans(lmm, ~ manipulation|block), "revpairwise")
-confint(contrast(emmeans(lmm, ~ manipulation|block), "revpairwise"))
-emm <- emmeans(lmm, ~ block * manipulation)
-emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
-
-### Post-hoc: bef.for. vs. bef.rev.
-emm <- emmeans(lmm, ~ block * manipulation)
-contrast(emm, method = list(
-  "forward.before vs reverse.before" = c(1, -1, 0, 0)), infer = T)
-
-### Post-hoc: bef.for. vs. aft.for
-emm <- emmeans(lmm, ~ block * manipulation)
-contrast(emm, method = list(
-  "forward.before vs forward.after" = c(1, 0, -1, 0)), infer = T)
-
-### Post-hoc: bef.for. vs. aft.rev.
-emm <- emmeans(lmm, ~ block * manipulation)
-contrast(emm, method = list(
-  "forward.before vs reverse.after" = c(1, 0, 0, -1)), infer = T)
 
 # EXPLORATORY: SEPR OVER TASK
 lmm <- lmer(
@@ -1216,24 +1228,6 @@ r2_nakagawa(lmm)
 contrast(emmeans(lmm, ~ stimulus), "pairwise")
 confint(contrast(emmeans(lmm, ~ stimulus), "pairwise"))
 
-## Post-hoc: manipulation * block
-contrast(emmeans(lmm, ~ block|manipulation), "pairwise")
-emm <- emmeans(lmm, ~ block * manipulation)
-emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
-
-## custom contrast: Manipulation effect in block 3?  (block 2 vs. 3).
-emm <- emmeans(lmm, ~ block * manipulation)
-contrast(emm, method = list(
-  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
-emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
-
-## custom contrast: Manipulation effect in block 4? (block 2 vs 4).
-emm <- emmeans(lmm, ~ block * manipulation)
-contrast(emm, method = list(
-  "reverse.before vs reverse.after" = c(0, 1, 0, -1)), infer = T)
-
 # RESULT 9: MMN LATENCY ON TRIAL LEVEL
 lmm <- lmer(
   z_MMN_latency ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
@@ -1310,8 +1304,7 @@ print(interaction_plot_MNN_latency)
 
 grid.arrange(interaction_plot_BPS,
              interaction_plot_MMN,
-             interaction_plot_P3a,
-             interaction_plot_MNN_latency)
+             interaction_plot_P3a)
 
 # RESULT 10: P3A AMPLITUDE ON TRIAL LEVEL
 lmm <- lmer(
@@ -1396,11 +1389,6 @@ emt <- emtrends(lmm, ~ manipulation|block, var = "z_rpd_low")
 contrast(emt, "revpairwise")
 confint(contrast(emt, "revpairwise"))
 
-### post-hoc: BPS x manipulation x group
-emt <- emtrends(lmm, ~ manipulation|group, var = "z_rpd_low")
-contrast(emt, "revpairwise")
-confint(contrast(emt, "revpairwise"))
-
 # RESULT 15: Correlation: Pupil-ERP
 crl <- cor(et_erp_trial[et_erp_trial$stimulus == "oddball", c(
   "z_rpd_low",
@@ -1458,7 +1446,7 @@ r2_nakagawa(lmm)
 summary(emtrends(lmm, ~ z_rpd, var = "z_rpd"), infer = T)
 
 ## BPS * group
-summary(emtrends(lmm, ~ group, var = c("z_rpd_low")), infer = T)
+summary(emtrends(lmm, ~ z_rpd_low|group,  var = 'z_rpd_low'), infer = T)
 
 # RESULT 17: EXPLORATORY ANALYSIS OF MODEL FIT FOR "trial_number_in_block" ON BPS
 linear_fit <- lmer(
@@ -1561,7 +1549,10 @@ lmm <- lmer(
   z_rpd ~ stimulus * group * block * z_grip_strength + (1|SEGA_ID) + age + gender,
   data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm)
-r2_nakagawa(lmm) 
+r2_nakagawa(lmm)
+
+## Post-hoc: grip strength
+summary(emtrends(lmm, ~ z_grip_strength, var = "z_grip_strength"), infer = T)
 
 ## BPS
 lmm <- lmer(
@@ -1571,7 +1562,6 @@ anova(lmm)
 r2_nakagawa(lmm)
 
 ## Post-hoc: grip strength
-emtrends(lmm, ~ z_grip_strength, var = "z_grip_strength")
 summary(emtrends(lmm, ~ z_grip_strength, var = "z_grip_strength"), infer = T)
 
 ## Scatterplot: BPS-grip_strength
@@ -1587,6 +1577,77 @@ contrast(emt)
 confint(contrast(emt))
 contrast(emt, "pairwise")
 confint(contrast(emt, "pairwise"))
+
+# RESULT 20: Covariates Models
+## MMN amplitude
+lmm <- lmer(
+  z_MMN_amplitude ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender + verbal_IQ + non_verbal_IQ,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+
+## MMN latency
+lmm <- lmer(
+  z_MMN_latency ~ stimulus * manipulation * group * block + (1|SEGA_ID) + gender + age + verbal_IQ + non_verbal_IQ,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+
+## Post-hoc: age
+emtrends(lmm, ~ age, var = "age")
+
+## MMN diff amplitude
+lmm <- lmer(
+  z_MMN_diff_amplitude ~  manipulation * group * block + (1|SEGA_ID) + gender + age + verbal_IQ + non_verbal_IQ,
+  data = MMN_diff)
+anova(lmm)
+r2_nakagawa(lmm)
+
+## MMN diff latency
+lmm <- lmer(
+  z_MMN_diff_latency ~  manipulation * group * block + (1|SEGA_ID) + gender + age + verbal_IQ + non_verbal_IQ,
+  data = MMN_diff)
+anova(lmm)
+r2_nakagawa(lmm)
+
+## P3a amplitude
+lmm <- lmer(
+  z_P3a_amplitude ~ stimulus * manipulation * group * block + (1|SEGA_ID) + gender + age + verbal_IQ + non_verbal_IQ,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+
+## Post-hoc: age
+emtrends(lmm, ~ age, var = "age")
+
+## Post-hoc: gender
+contrast(emmeans(lmm, ~ gender), "pairwise")
+confint(contrast(emmeans(lmm, ~ gender), "pairwise"))
+emmip(lmm, ~ gender, linearg = list(linetype = "blank"), CI = T)
+
+## P3a latency
+lmm <- lmer(
+  z_P3a_latency ~ stimulus * manipulation * group * block + (1|SEGA_ID) + gender + age + verbal_IQ + non_verbal_IQ,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+## SEPR
+lmm <- lmer(
+  z_rpd ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender + verbal_IQ + non_verbal_IQ,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm)
+
+## BPS
+lmm <- lmer(
+  z_rpd_low ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender + verbal_IQ + non_verbal_IQ,
+  data = et_erp_subject)
+anova(lmm)
+r2_nakagawa(lmm) 
+
+## Post-hoc: age
+emtrends(lmm, ~ age, var = "age")
 
 # ANALYSIS OF df (ONLY PUPIL DATA-ALL DATA POINTS) ####
 # Baseline phase
@@ -1737,11 +1798,14 @@ plot_dgkjp <- ggplot(
   geom_smooth(formula = y ~ x + poly(x, 5)) +
   theme_bw() +
   theme(axis.text.x = element_text(face = "bold", size = 14),
-        axis.text.y = element_text(face = "bold", size = 14)) + 
-  labs(x = "trial duration (s)",
+        axis.text.y = element_text(face = "bold", size = 14),
+        axis.title.x = element_text(face = "bold", size = 16),
+        axis.title.y = element_text(face = "bold", size = 16)) + 
+  labs(x = "trial duration [s]",
        y = "standardized pupil response [z]",
        title = "Oddball Effect on pupillary response") +
     scale_color_manual(values = c("red", "black"))
+plot_dgkjp
 dev.off()
 
 
