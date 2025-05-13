@@ -1,0 +1,781 @@
+---
+title: "Supplements"
+subtitle: "Locus-coeruleus modulation of neurophysiological sensory selectivity differs
+  in autism and other mental health conditions "
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 2
+    latex_engine: xelatex
+header-includes:
+- \usepackage{tocloft}
+- \setlength{\cftbeforesecskip}{2pt}
+- \setlength{\cftbeforesubsecskip}{1pt}
+---
+
+```{r global-options, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+# **Abbreviations**
+**SEPR** = stimulus-evoked pupillary response   
+**BPS** = baseline pupil size   
+**MMN** = mismatch negativity   
+\newpage
+```{r setup, include = FALSE, warning = FALSE}
+# REQUIRED PACKAGES
+require(performance) 
+require(lme4) 
+require(lmerTest, warn.conflicts = FALSE)
+require(emmeans, warn.conflicts = FALSE)
+require(ggplot2, warn.conflicts = FALSE)
+require(dplyr, warn.conflicts = FALSE)
+library(ggpubr, warn.conflicts = FALSE)
+library(knitr)
+library(kableExtra)
+library(stringr)
+library(tidyverse)
+library(simr)
+library(gridExtra)
+library(ggpubr)
+
+# PATHS 
+if (Sys.info()["sysname"] == "Linux") {
+  home_path <- "~"
+  project_path <- "/PowerFolders/project_sega"
+  data_path <- "/PowerFolders/project_sega/data/AuditoryOddball"
+  data_path_eeg <- "/PowerFolders/project_sega/data/AuditoryOddball_EEG"
+  datapath <- paste0(home_path, data_path) # .csv + .hdf5 input files
+  datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
+  # List all .hdf and .csv files
+  data_files <- list.files(path = datapath, full.names = TRUE)
+}
+if (Sys.info()["sysname"] == "Windows") {
+  home_path <- "C:/Users/Nico"
+  project_path <- "/PowerFolders/project_sega"
+  data_path <- "/PowerFolders/project_sega/data/et auditory oddball"
+  data_path_task<-"/PowerFolders/project_sega/data/task auditory oddball"
+  data_path_eeg <- "/PowerFolders/project_sega/data/tests/eeg preprocessed auditory oddball"
+  datapath <- paste0(home_path, data_path) # hdf5 input files
+  datapath_task <- paste0(home_path, data_path_task) # hdf5 input files
+  datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
+  # List all .hdf and .csv files
+  data_files <- c(list.files(path = datapath, full.names = TRUE),
+                  list.files(path = datapath_task, full.names = TRUE))
+}
+if (Sys.info()["sysname"] == "Darwin") {
+  home_path <- "~"
+  project_path <- "/code"
+  data_path <- "/code/input/AuditoryOddball/eyetracking"
+  data_path_task <- "/code/input/AuditoryOddball/taskdata"
+  data_path_eeg <- "/code/input/AuditoryOddball/eeg"
+  datapath <- paste0(home_path, data_path) # .hdf5 input files
+  datapath_task <- paste0(home_path, data_path_task) # .csv input files
+  datapath_eeg <- paste0(home_path, data_path_eeg) # .txt input files (eeg)
+  data_path_single_trial_eeg <- "/code/input/AuditoryOddball/eeg_single_trial"
+  datapath_single_eeg <- paste0(home_path, data_path_single_trial_eeg)
+  # List all .hdf and .csv files
+  data_files <- c(
+    list.files(path = datapath, full.names = TRUE),
+    list.files(path = datapath_task, full.names = TRUE))
+}
+
+# Can be used to skip preprocessing and directly read proprocessed data from .rds file:
+et_erp_subject <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_subject.rds'))
+et_erp_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_trial.rds'))
+MMN_diff <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_MMN_diff.rds'))
+```
+
+```{r, warning=FALSE}
+# Renaming the variable "trial" into "stimulus" to match terminology in the paper
+names(et_erp_subject)[names(et_erp_subject) == "trial"] <- "stimulus"
+names(et_erp_trial)[names(et_erp_trial) == "trial"] <- "stimulus"
+```
+
+# **Supplement 1: Number of included trials per condition**
+```{r, warning=FALSE}
+fun_trials_per_cond <- function(group, variable){
+  group_df <- droplevels(et_erp_trial[et_erp_trial$group == group, ])
+  # subjects starting with 500 Hz oddball
+  ## block 1
+  df_before_forward_O500_S750 <- group_df %>% filter(
+    (manipulation == "before" & phase == "oddball_block" & stimulus == "oddball" & pitch == "500") |
+      (manipulation == "before" & phase == "oddball_block" & stimulus == "standard" & pitch == "750"))
+  sample_size <- length(unique(df_before_forward_O500_S750$SEGA_ID))
+  max_trials <- sample_size *100
+  before_forward_O500_S750 <- paste(round(((sum(!is.na(df_before_forward_O500_S750[variable]), na.rm = T))/max_trials)*100, 2), "%")
+  ## block 2
+  df_before_reverse_O750_S500 <- group_df %>% filter(
+    (manipulation == "before" & phase == "oddball_block_rev" & stimulus == "oddball" & pitch == "750") |
+      (manipulation == "before" & phase == "oddball_block_rev" & stimulus == "standard" & pitch == "500"))
+  before_reverse_O750_S500 <- paste(round(((sum(!is.na(df_before_reverse_O750_S500[variable]), na.rm = T))/max_trials)*100, 2), "%")
+  ## block 3
+  df_after_forward_O500S750 <- group_df %>% filter(
+    (manipulation == "after" & phase == "oddball_block" & stimulus == "oddball" & pitch == "500") |
+      (manipulation == "after" & phase == "oddball_block" & stimulus == "standard" & pitch == "750"))
+  after_forward_O500S750 <- paste(round(((sum(!is.na(df_after_forward_O500S750[variable]), na.rm = T))/max_trials)*100, 2), "%")
+  # block 4
+  df_after_reverse_O750S500 <- group_df %>% filter(
+    (manipulation == "after" & phase == "oddball_block_rev" & stimulus == "oddball" & pitch == "750") |
+      (manipulation == "after" & phase == "oddball_block_rev" & stimulus == "standard" & pitch == "500"))
+  after_reverse_O750S500 <- paste(round(((sum(!is.na(df_after_reverse_O750S500[variable]), na.rm = T))/max_trials)*100, 2), "%")
+  # subjects starting with 750 Hz oddball
+  ## block 1
+  df_before_forward_O750_S500 <- group_df %>% filter(
+    (manipulation == "before" & phase == "oddball_block" & stimulus == "oddball" & pitch == "750") |
+      (manipulation == "before" & phase == "oddball_block" & stimulus == "standard" & pitch == "500"))
+  sample_size <- length(unique(df_before_forward_O750_S500$SEGA_ID))
+  max_trials <- sample_size *100
+  before_forward_O750_S500 <- paste(round(((sum(!is.na(df_before_forward_O750_S500[variable]), na.rm = T))/max_trials)*100, 2), "%")
+  ## block 2
+  df_before_reverse_O500S750 <- group_df %>% filter(
+    (manipulation == "before" & phase == "oddball_block_rev" & stimulus == "oddball" & pitch == "500") |
+      (manipulation == "before" & phase == "oddball_block_rev" & stimulus == "standard" & pitch == "750"))
+  before_reverse_O500S750 <- paste(round(((sum(!is.na(df_before_reverse_O500S750[variable]), na.rm = T))/max_trials)*100, 2), "%")
+  ## block 3
+  df_after_forward_O750_S500 <- group_df %>% filter(
+    (manipulation == "after" & phase == "oddball_block" & stimulus == "oddball" & pitch == "750") |
+      (manipulation == "after" & phase == "oddball_block" & stimulus == "standard" & pitch == "500"))
+  after_forward_O750_S500 <- paste(round(((sum(!is.na(df_after_forward_O750_S500[variable]), na.rm = T))/max_trials)*100, 2), "%")
+  ## block 4
+  df_after_reverse_O500S750 <- group_df %>% filter(
+    (manipulation == "after" & phase == "oddball_block_rev" & stimulus == "oddball" & pitch == "500") |
+      (manipulation == "after" & phase == "oddball_block_rev" & stimulus == "standard" & pitch == "750"))
+  after_reverse_O500S750 <- paste(round(((sum(!is.na(df_after_reverse_O500S750[variable]), na.rm = T))/max_trials)*100, 2), "%")
+  
+   trial_per_condition <- data.frame(
+     before_forward_O500_S750,
+     before_reverse_O750_S500,
+     after_forward_O500S750,
+     after_reverse_O750S500,
+     before_forward_O750_S500,
+     before_reverse_O500S750,
+     after_forward_O750_S500,
+     after_reverse_O500S750)
+   t(trial_per_condition)
+   }
+
+# Call function for each group for EEG
+asd_trials_per_cond_eeg <- fun_trials_per_cond(group = "ASD", variable = "z_MMN_amplitude")
+colnames(asd_trials_per_cond_eeg) <- "ASD"
+con_trials_per_cond_eeg <- fun_trials_per_cond(group = "CON", variable = "z_MMN_amplitude")
+colnames(con_trials_per_cond_eeg) <- "CON"
+mhc_trials_per_cond_eeg <- fun_trials_per_cond(group = "MHC", variable = "z_MMN_amplitude")
+colnames(mhc_trials_per_cond_eeg) <- "MHC"
+# Call function for each group for ET
+asd_trials_per_cond_et <- fun_trials_per_cond(group = "ASD", variable = "z_rpd")
+colnames(asd_trials_per_cond_et) <- "ASD"
+con_trials_per_cond_et <- fun_trials_per_cond(group = "CON", variable = "z_rpd")
+colnames(con_trials_per_cond_et) <- "CON"
+mhc_trials_per_cond_et <- fun_trials_per_cond(group = "MHC", variable = "z_rpd")
+colnames(mhc_trials_per_cond_et) <- "MHC"
+
+condition_table <- cbind(
+  asd_trials_per_cond_eeg, con_trials_per_cond_eeg, mhc_trials_per_cond_eeg,
+  asd_trials_per_cond_et, con_trials_per_cond_et, mhc_trials_per_cond_et)
+
+condition_trials_table <- kable(
+  condition_table, align = "c") %>% 
+  kable_classic() %>%
+  kable_styling(full_width = FALSE) %>%
+  add_header_above(c(" " = 1, "Eye Tracking" = 3, "EEG" = 3))
+condition_trials_table
+```
+“before_forward_O500_S750” as block 1, oddball 500Hz   
+"before_reverse_O750_S500" as block 2 oddball 750 Hz   
+"after_forward_O500S750" as block 3 oddball 500 Hz   
+"after_reverse_O750S500" as block 4 oddball 750 Hz   
+"before_forward_O750_S500" as block 1 oddball 750 Hz   
+"before_reverse_O500S750" as block 2 oddball 500 Hz   
+"after_forward_O750_S500" as block 3 oddball 750 Hz   
+"after_reverse_O500S750" as block 4 oddball 500 Hz
+
+
+# **Supplement 2**: Model for SEPR (subject level)
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_rpd ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+
+\newpage
+# **Supplement 3: Model for BPS (subject level)**
+```{r, results='asis', echo=FALSE, warning=FALSE, message=FALSE}
+lmm <- lmer(
+  z_rpd_low ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+
+# **Supplement 4: Model for MMN amplitude (subject level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_MMN_amplitude ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject)
+anova_table <- anova(lmm)
+
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+\newpage
+# **Supplement 5: Model for P3a amplitude (subject level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_P3a_amplitude ~ stimulus * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = et_erp_subject)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+
+# **Supplement 6: Model for MMN latency (subject level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_MMN_latency ~ stimulus * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = et_erp_subject)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+\newpage
+# **Supplement 7: Model for P3a latency (subject level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_P3a_latency ~ stimulus * manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = et_erp_subject)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+
+# **Supplement 8: Model for SEPR (trial level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_rpd ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+\newpage
+# **Supplement 9: Model for MMN amplitude (trial level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_MMN_amplitude ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+
+# **Supplement 10: Model for P3a amplitude (trial level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_P3a_amplitude ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+\newpage
+# **Supplement 11: Model for P3a latency (trial level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_P3a_latency ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+
+# **Supplement 12: Model for MMN latency (trial level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_MMN_latency ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+\newpage
+# **Supplement 13: Model for BPS (trial level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_rpd_low ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+
+# **Supplement 14: Grip strength on BPS (subject level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_rpd_low ~ stimulus * group * block * z_grip_strength + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+\newpage
+# **Supplement 15: Grip strength on SEPR (subject level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_rpd ~ stimulus * group * block * z_grip_strength + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+
+# **Supplement 16: Grip strength on MMN amplitude (subject level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_MMN_amplitude ~ stimulus * group * block * z_grip_strength + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+\newpage
+# **Supplement 17: Grip strength on P3a amplitude (subject level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_P3a_amplitude ~ stimulus * group * block * z_grip_strength + (1|SEGA_ID) + age + gender,
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+
+# **Supplement 18: Grip strength on MMN latency (subject level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_MMN_latency ~ stimulus * group * block * z_grip_strength+ (1|SEGA_ID) + age + gender,
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+\newpage
+# **Supplement 19: Grip strength on P3a latency (subject level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_P3a_latency ~ stimulus * group * block * z_grip_strength+ (1|SEGA_ID) + age + gender,
+  data = et_erp_subject[et_erp_subject$manipulation == "after", ])
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+\newpage
+# **Supplement 20: Associations of pupillometric measures (trial level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_rpd ~ z_rpd_low * stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded, format = "latex", booktabs = TRUE) %>%
+  kable_styling(latex_options = c("scale_down", "hold_position"))
+```
+
+\newpage
+# **Supplement 21: Associations between pupillometric measures and MMN amplitude**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_MMN_amplitude ~ z_rpd * z_rpd_low * stimulus *  manipulation * group + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded, format = "latex", booktabs = TRUE) %>%
+  kable_styling(latex_options = c("scale_down", "hold_position"))
+```
+\newpage
+# **Supplement 22: Associations between pupillometric measures and P3a amplitude**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_P3a_amplitude ~ z_rpd * z_rpd_low * stimulus *  manipulation * group + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded, format = "latex", booktabs = TRUE) %>%
+  kable_styling(latex_options = c("scale_down", "hold_position"))
+```
+\newpage
+# **Supplement 23: Covariates effects on SEPR (subject level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_rpd ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender + verbal_IQ + non_verbal_IQ,
+  data = et_erp_subject)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+
+# **Supplement 24: Covariates effects on BPS (subject level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_rpd_low ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender + verbal_IQ + non_verbal_IQ,
+  data = et_erp_subject)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+\newpage
+# **Supplement 25: Covariates effects on MMN amplitude (subject level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_MMN_amplitude ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender + verbal_IQ + non_verbal_IQ,
+  data = et_erp_subject)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+
+# **Supplement 26: Covariates effects on P3a amplitude (subject level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_P3a_amplitude ~ stimulus * manipulation * group * block + (1|SEGA_ID) + gender + age + verbal_IQ + non_verbal_IQ,
+  data = et_erp_subject)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+\newpage
+# **Supplement 27: Covariates effects on MMN latency (subject level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_MMN_latency ~ stimulus * manipulation * group * block + (1|SEGA_ID) + gender + age + verbal_IQ + non_verbal_IQ,
+  data = et_erp_subject)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+
+# **Supplement 28: Covariates effects on P3a latency (subject level)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_P3a_latency ~ stimulus * manipulation * group * block + (1|SEGA_ID) + gender + age + verbal_IQ + non_verbal_IQ,
+  data = et_erp_subject)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+\newpage
+# **Supplement 29: Post-hoc power analysis**
+```{r, warning=FALSE, message = FALSE, echo=FALSE, results="hide"}
+n_size <- 150 # sample size
+k_size <- 4*100 # number of trials --> auditory oddball:
+subj <- factor(1:n_size)
+trial_id <- 1:k_size # remains integer variable
+condition <- c("before", "after")
+group <- c("ASD", "MHC", "CON")
+
+subj_full <- rep(subj, k_size)
+trial_full <- rep(trial_id, each=n_size)
+condition_full <- rep(condition, each=k_size*n_size/2)
+group_full <- rep(group, k_size * n_size/3)
+
+covars <- data.frame(id=subj_full, trial=trial_full, condition=condition_full, group=group_full)
+fixed <- c(0.1, 0.2, 0.2, 0.2, 0.1, 0.1) # effect sizes
+rand <- list(0.05) # random intercept
+res <- 1.2 # residual standard deviation
+
+model <- makeLmer(
+  y ~ group*condition + (1|id), fixef=fixed, VarCorr=rand, sigma=res, data=covars) # create model
+summary(model) # model
+
+power_interaction <- suppressMessages(powerSim(model, nsim=1000, test = fcompare(y ~ group + condition)))
+# print(power_interaction)
+power_curve_interaction <- powerCurve(model, test = fcompare(y ~ group + condition), along = "id")
+plot(power_curve_interaction)
+```
+
+```{r, warning=FALSE, results='asis'}
+print(power_interaction)
+```
+
+# **Supplement 30: MMN amplitude (difference wave)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_MMN_diff_amplitude ~  manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = MMN_diff)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
+\newpage
+# **Supplement 31: MMN latency (difference wave)**
+```{r, warning=FALSE}
+lmm <- lmer(
+  z_MMN_diff_latency ~  manipulation * group * block + (1|SEGA_ID) + gender + age,
+  data = MMN_diff)
+anova_table <- anova(lmm)
+anova_table_rounded <- anova_table %>%
+  mutate(
+    `Sum Sq`   = round(`Sum Sq`, 2),
+    `Mean Sq`  = round(`Mean Sq`, 2),
+    `NumDF`    = round(`NumDF`, 0),
+    `DenDF`    = round(`DenDF`, 0),
+    `F value`  = round(`F value`, 2),
+    `Pr(>F)`   = round(`Pr(>F)`, 3)
+  )
+kable(anova_table_rounded) %>%
+  kable_styling(latex_options = "scale_down")
+```
