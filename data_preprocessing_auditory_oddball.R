@@ -5,28 +5,31 @@
 # Email: bast@med.uni-frankfurt.de
 
 ### NOTOES ON MISSING DATA ####
+# - 007: no SCQ
+# - 024 no EEG because EEG files do not exist
 # - 027 without task data
 # - 037 task aborted
-# - 073 without ET data
 # - 056 program failed
+# - 068: no SCQ
 # - 070 no data due to subject-related issues
-# - 073 problems with starting the task
-# - 077 complete data but script fails
-# - 139 no data due to subject-related issues
-# - 122 no EEG data due to EEG pc problem
-# - 114 no EEG data due to EEG pc problem
+# - 073 without ET data (problems with starting the task)
+# - 076: no YSR + CBCL
+# - 077 complete data but analysis script fails (no EEG + ET on trial level)
+# - 096: no SCQ
+# - 101: no SCQ
 # - 103 only .psydat, no csv file
-# - 164 no EEG due to subject's aversion
-# - 161 no EEG because wearing wig
-# - 185 no EEG because wrong eeg gel used (noisy)
-# - 129 no EEG because wrong eeg gel used (noisy)
+# - 101: no SCQ
+# - 114 no EEG data due to EEG PC problem
+# - 122 no EEG data due to EEG PC problem
+# - 125 no EEG because EEG files do not exist
+# - 129 no EEG because wrong EEG gel used (noisy)
 # - 132 no EEG because EEG recording was started with a delay
-# - 125 no EEG because EEG files do not exist?
-# - 024 no EEG because EEG files do not exist?
-# - 191 no ET data because missing .csv file
-# - 148 no EEG because... MUESSSTE VORLIEGEN
-# - 153 no ET data because 2 x ????
-
+# - 139 no data due to subject-related issues
+# - 161 no EEG because wearing wig
+# - 164 no EEG due to subject's aversion
+# - 185 no EEG because wrong EEG gel used (noisy)
+# - 191 no data on trial level because missing .csv file
+# - 196: no CBCL + YSR
 
 ## SETUP ####
 
@@ -734,6 +737,37 @@ P3a_df_trial_before <- data.frame()
 for (file in files_single_eeg_before) {
   if (grepl("MMN", file)) {
     eeg_data_before <- read.table(file, header = TRUE, fill = TRUE)
+    # Correct EEG file name for SEGA_189
+    eeg_data_before$Filename <- gsub(
+      "SEGA_AuditoryOddball_189_02012025", 
+      "SEGA_189_AuditoryOddball_02012025", 
+      eeg_data_before$Filename)
+    # Correct EEG file name for SEGA_153
+    eeg_data_before$Filename <- gsub(
+      "SEGA_AuditoryOddball_153_22042025", 
+      "SEGA_153_AuditoryOddball_22042025", 
+      eeg_data_before$Filename)
+    # Correct EEG file name for SEGA_022
+    eeg_data_before$Filename <- gsub(
+      "SEGA_AuditoryOddball_022_24102022", 
+      "SEGA_022_AuditoryOddball_24102022", 
+      eeg_data_before$Filename)
+    # Correct file name for SEGA_003
+    eeg_data_before$Filename <- gsub(
+      "SEGA_003_05.01.23_Auditory", 
+      "SEGA_003_AuditoryOddball_05012023", 
+      eeg_data_before$Filename)
+    # Correct file name for SEGA_046
+    eeg_data_before$Filename <- gsub(
+      "SEGA_AuditoryOddball_046_24102022", 
+      "SEGA_046_AuditoryOddball_24102022", 
+      eeg_data_before$Filename)
+    # Correct file name for SEGA_148
+    eeg_data_before$Filename <- gsub(
+      "SEGA_AuditoryOddball_148_21112024", 
+      "SEGA_148_AuditoryOddball_21112024", 
+      eeg_data_before$Filename)
+    print(eeg_data_before)
     colnames(eeg_data_before)[colnames(eeg_data_before) == "Filename"] <- "SEGA_ID"
     eeg_data_before$SEGA_ID <- as.factor(substr(eeg_data_before$SEGA_ID, 6, 8))
     eeg_data_before$SEGA_ID <- sub("^0+", "", eeg_data_before$SEGA_ID)
@@ -745,6 +779,37 @@ for (file in files_single_eeg_before) {
   }
   if (grepl("P3a", file)) {
     eeg_data_before <- read.table(file, header = TRUE, fill = TRUE)
+    # Correct EEG file name for SEGA_189
+    eeg_data_before$Filename <- gsub(
+      "SEGA_AuditoryOddball_189_02012025", 
+      "SEGA_189_AuditoryOddball_02012025", 
+      eeg_data_before$Filename)
+    # Correct EEG file name for SEGA_153
+    eeg_data_before$Filename <- gsub(
+      "SEGA_AuditoryOddball_153_22042025", 
+      "SEGA_153_AuditoryOddball_22042025", 
+      eeg_data_before$Filename)
+    # Correct EEG file name for SEGA_022
+    eeg_data_before$Filename <- gsub(
+      "SEGA_AuditoryOddball_022_24102022", 
+      "SEGA_022_AuditoryOddball_24102022", 
+      eeg_data_before$Filename)
+    # Correct file name for SEGA_003
+    eeg_data_before$Filename <- gsub(
+      "SEGA_003_05.01.23_Auditory", 
+      "SEGA_003_AuditoryOddball_05012023", 
+      eeg_data_before$Filename)
+    # Correct file name for SEGA_046
+    eeg_data_before$Filename <- gsub(
+      "SEGA_AuditoryOddball_046_24102022", 
+      "SEGA_046_AuditoryOddball_24102022", 
+      eeg_data_before$Filename)
+    # Correct file name for SEGA_148
+    eeg_data_before$Filename <- gsub(
+      "SEGA_AuditoryOddball_148_21112024", 
+      "SEGA_148_AuditoryOddball_21112024", 
+      eeg_data_before$Filename)
+    print(eeg_data_before)
     colnames(eeg_data_before)[colnames(eeg_data_before) == "Filename"] <- "SEGA_ID"
     eeg_data_before$SEGA_ID <- as.factor(substr(eeg_data_before$SEGA_ID, 6, 8))
     eeg_data_before$SEGA_ID <- sub("^0+", "", eeg_data_before$SEGA_ID)
@@ -764,6 +829,37 @@ P3a_df_trial_after <- data.frame()
 for (file in files_single_eeg_after) {
   if (grepl("MMN", file)){
     eeg_data_after <- read.table(file, header = TRUE, fill = TRUE)
+    # Correct EEG file name for SEGA_189
+    eeg_data_after$Filename <- gsub(
+      "SEGA_AuditoryOddball_189_02012025", 
+      "SEGA_189_AuditoryOddball_02012025", 
+      eeg_data_after$Filename)
+    # Correct EEG file name for SEGA_153
+    eeg_data_after$Filename <- gsub(
+      "SEGA_AuditoryOddball_153_22042025", 
+      "SEGA_153_AuditoryOddball_22042025", 
+      eeg_data_after$Filename)
+    # Correct EEG file name for SEGA_022
+    eeg_data_after$Filename <- gsub(
+      "SEGA_AuditoryOddball_022_24102022", 
+      "SEGA_022_AuditoryOddball_24102022", 
+      eeg_data_after$Filename)
+    # Correct file name for SEGA_003
+    eeg_data_after$Filename <- gsub(
+      "SEGA_003_05.01.23_Auditory", 
+      "SEGA_003_AuditoryOddball_05012023", 
+      eeg_data_after$Filename)
+    # Correct file name for SEGA_046
+    eeg_data_after$Filename <- gsub(
+      "SEGA_AuditoryOddball_046_24102022", 
+      "SEGA_046_AuditoryOddball_24102022", 
+      eeg_data_after$Filename)
+    # Correct file name for SEGA_148
+    eeg_data_after$Filename <- gsub(
+      "SEGA_AuditoryOddball_148_21112024", 
+      "SEGA_148_AuditoryOddball_21112024", 
+      eeg_data_after$Filename)
+    print(eeg_data_after)
     colnames(eeg_data_after)[colnames(eeg_data_after) == "Filename"] <- "SEGA_ID"
     eeg_data_after$SEGA_ID <- as.factor(substr(eeg_data_after$SEGA_ID, 6, 8))
     eeg_data_after$SEGA_ID <- sub("^0+", "", eeg_data_after$SEGA_ID)
@@ -776,6 +872,36 @@ for (file in files_single_eeg_after) {
   }
   if (grepl("P3a", file)){
     eeg_data_after <- read.table(file, header = TRUE, fill = TRUE)
+    # Correct EEG file name for SEGA_189
+    eeg_data_after$Filename <- gsub(
+      "SEGA_AuditoryOddball_189_02012025", 
+      "SEGA_189_AuditoryOddball_02012025", 
+      eeg_data_after$Filename)
+    # Correct EEG file name for SEGA_153
+    eeg_data_after$Filename <- gsub(
+      "SEGA_AuditoryOddball_153_22042025", 
+      "SEGA_153_AuditoryOddball_22042025", 
+      eeg_data_after$Filename)
+    # Correct EEG file name for SEGA_022
+    eeg_data_after$Filename <- gsub(
+      "SEGA_AuditoryOddball_022_24102022", 
+      "SEGA_022_AuditoryOddball_24102022", 
+      eeg_data_after$Filename)
+    # Correct file name for SEGA_003
+    eeg_data_after$Filename <- gsub(
+      "SEGA_003_05.01.23_Auditory", 
+      "SEGA_003_AuditoryOddball_05012023", 
+      eeg_data_after$Filename)
+    # Correct file name for SEGA_046
+    eeg_data_after$Filename <- gsub(
+      "SEGA_AuditoryOddball_046_24102022", 
+      "SEGA_046_AuditoryOddball_24102022", 
+      eeg_data_after$Filename)
+    # Correct file name for SEGA_148
+    eeg_data_after$Filename <- gsub(
+      "SEGA_AuditoryOddball_148_21112024", 
+      "SEGA_148_AuditoryOddball_21112024", 
+      eeg_data_after$Filename)
     colnames(eeg_data_after)[colnames(eeg_data_after) == "Filename"] <- "SEGA_ID"
     eeg_data_after$SEGA_ID <- as.factor(substr(eeg_data_after$SEGA_ID, 6, 8))
     eeg_data_after$SEGA_ID <- sub("^0+", "", eeg_data_after$SEGA_ID)
@@ -1131,9 +1257,10 @@ reshaped_MMN_amplitude_750$id <- str_replace(
   reshaped_MMN_amplitude_750$id, "SEGA_AuditoryOddball_046_24102022", "SEGA_046_AuditoryOddball_24102022")
 reshaped_MMN_amplitude_750$id <- str_replace(
   reshaped_MMN_amplitude_750$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
-
 reshaped_MMN_amplitude_750$id <- str_replace(
   reshaped_MMN_amplitude_750$id, "SEGA_AuditoryOddball_189_02012025", "SEGA_189_AuditoryOddball_02012025")
+reshaped_MMN_amplitude_750$id <- str_replace(
+  reshaped_MMN_amplitude_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 reshaped_MMN_amplitude_750$SEGA_ID <- as.factor(substr(reshaped_MMN_amplitude_750$id, 6, 8))
 reshaped_MMN_amplitude_750$SEGA_ID <- sub("^0+", "", reshaped_MMN_amplitude_750$SEGA_ID)
 
@@ -1209,6 +1336,8 @@ reshaped_MMN_latency_750$id <- str_replace(
   reshaped_MMN_latency_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 reshaped_MMN_latency_750$id <- str_replace(
   reshaped_MMN_latency_750$id, "SEGA_AuditoryOddball_189_02012025", "SEGA_189_AuditoryOddball_02012025")
+reshaped_MMN_latency_750$id <- str_replace(
+  reshaped_MMN_latency_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 reshaped_MMN_latency_750$SEGA_ID <- as.factor(substr(reshaped_MMN_latency_750$id, 6, 8))
 reshaped_MMN_latency_750$SEGA_ID <- sub("^0+", "", reshaped_MMN_latency_750$SEGA_ID)
 
@@ -1286,6 +1415,8 @@ reshaped_P3a_amplitude_750$id <- str_replace(
   reshaped_P3a_amplitude_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 reshaped_P3a_amplitude_750$id <- str_replace(
   reshaped_P3a_amplitude_750$id, "SEGA_AuditoryOddball_189_02012025", "SEGA_189_AuditoryOddball_02012025")
+reshaped_P3a_amplitude_750$id <- str_replace(
+  reshaped_P3a_amplitude_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 reshaped_P3a_amplitude_750$SEGA_ID <- as.factor(substr(reshaped_P3a_amplitude_750$id, 6, 8))
 reshaped_P3a_amplitude_750$SEGA_ID <- sub("^0+", "", reshaped_P3a_amplitude_750$SEGA_ID)
 
@@ -1362,6 +1493,8 @@ reshaped_P3a_latency_750$id <- str_replace(
   reshaped_P3a_latency_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 reshaped_P3a_latency_750$id <- str_replace(
   reshaped_P3a_latency_750$id, "SEGA_AuditoryOddball_189_02012025", "SEGA_189_AuditoryOddball_02012025")
+reshaped_P3a_latency_750$id <- str_replace(
+  reshaped_P3a_latency_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 reshaped_P3a_latency_750$SEGA_ID <- as.factor(substr(reshaped_P3a_latency_750$id, 6, 8))
 reshaped_P3a_latency_750$SEGA_ID <- sub("^0+", "", reshaped_P3a_latency_750$SEGA_ID)
 
@@ -1436,9 +1569,10 @@ reshaped_P3b_amplitude_750$id <- str_replace(
   reshaped_P3b_amplitude_750$id, "SEGA_003_05.01.23_Auditory", "SEGA_003_AuditoryOddball_05012023")
 reshaped_P3b_amplitude_750$id <- str_replace(
   reshaped_P3b_amplitude_750$id, "SEGA_AuditoryOddball_189_02012025", "SEGA_189_AuditoryOddball_02012025")
+reshaped_P3b_amplitude_750$id <- str_replace(
+  reshaped_P3b_amplitude_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 reshaped_P3b_amplitude_750$SEGA_ID <- as.factor(substr(reshaped_P3b_amplitude_750$id, 6, 8))
 reshaped_P3b_amplitude_750$SEGA_ID <- sub("^0+", "", reshaped_P3b_amplitude_750$SEGA_ID)
-
 reshaped_P3b_amplitude_750$id <- str_replace(
   reshaped_P3b_amplitude_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 
@@ -1514,6 +1648,8 @@ reshaped_P3b_latency_750$id <- str_replace(
   reshaped_P3b_latency_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 reshaped_P3b_latency_750$id <- str_replace(
   reshaped_P3b_latency_750$id, "SEGA_AuditoryOddball_189_02012025", "SEGA_189_AuditoryOddball_02012025")
+reshaped_P3b_latency_750$id <- str_replace(
+  reshaped_P3b_latency_750$id, "SEGA_AuditoryOddball_148_21112024", "SEGA_148_AuditoryOddball_21112024")
 reshaped_P3b_latency_750$SEGA_ID <- as.factor(substr(reshaped_P3b_latency_750$id, 6, 8))
 reshaped_P3b_latency_750$SEGA_ID <- sub("^0+", "", reshaped_P3b_latency_750$SEGA_ID)
 
