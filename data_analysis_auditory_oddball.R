@@ -773,9 +773,6 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm)
 
-## Post-hoc: Age
-emtrends(lmm, ~ age, var = "age")
-
 ## Correlation with age
 corr_by_group <- et_erp_subject %>%
   group_by(group) %>%
@@ -803,9 +800,6 @@ lmm <- lmer(
   data = et_erp_subject)
 anova(lmm)
 r2_nakagawa(lmm)
-
-## Post-hoc: age
-emtrends(lmm, ~ age, var = "age")
 
 ## Post-hoc: stimulus * group * block
 contrast(emmeans(lmm, ~ stimulus|group * block), "pairwise")
@@ -947,8 +941,6 @@ contrast(emmeans(lmm, ~ manipulation), "pairwise")
 confint(contrast(emmeans(lmm, ~ manipulation), "pairwise"))
 emmip(lmm, ~ manipulation, linearg = list(linetype = "blank"), CI = T)
 
-## Post-hoc: Age
-emtrends(lmm, ~ age, var = "age")
 
 # RESULT 10: P3B LATENCY ON SUBJECT LEVEL
 lmm <- lmer(
@@ -1069,8 +1061,6 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
-## Post-hoc: Age
-emtrends(lmm, ~ age, var = "age")
 
 ## Post-hoc: stimulus
 contrast(emmeans(lmm, ~ stimulus), "pairwise")
@@ -1139,9 +1129,6 @@ lmm <- lmer(
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm)
-
-### Post-hoc: Age
-emtrends(lmm, ~ age, var = "age")
 
 ## Post-hoc: manipulation * group
 contrast(emmeans(lmm, ~ manipulation|group), "revpairwise")
@@ -1235,9 +1222,6 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm) 
 
-## Post-hoc: Age
-emtrends(lmm, ~ age, var = "age")
-
 ## Post-hoc: stimulus
 contrast(emmeans(lmm, ~ stimulus), "pairwise")
 confint(contrast(emmeans(lmm, ~ stimulus), "pairwise"))
@@ -1312,14 +1296,6 @@ lmm <- lmer(
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm) 
-
-## Post-hoc: Age
-emtrends(lmm, ~ age, var = "age")
-
-## Post-hoc: Gender
-contrast(emmeans(lmm, ~ gender), "pairwise")
-confint(contrast(emmeans(lmm, ~ gender), "pairwise"))
-emmip(lmm, ~ gender, linearg = list(linetype = "blank"), CI = T)
 
 ## Post-hoc: stimulus * group * block
 contrast(emmeans(lmm, ~ stimulus|group * block), "pairwise")
@@ -1551,32 +1527,12 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm)
 
-## Post-hoc: grip strength
-summary(emtrends(lmm, ~ z_grip_strength, var = "z_grip_strength"), infer = T)
-
 ## BPS
 lmm <- lmer(
   z_rpd_low ~ stimulus * group * block * z_grip_strength + (1|SEGA_ID) + age + gender,
   data = et_erp_subject[et_erp_subject$manipulation == "after", ])
 anova(lmm) 
 r2_nakagawa(lmm)
-
-## Post-hoc: grip strength
-summary(emtrends(lmm, ~ z_grip_strength, var = "z_grip_strength"), infer = T)
-
-## Scatterplot: BPS-grip_strength
-ggplot(data = subset(et_erp_subject, !is.na(z_grip_strength) & !is.na(z_rpd_low)), 
-       aes(x = z_grip_strength, y = z_rpd_low)) +
-  geom_point() +
-  geom_smooth(method = "lm", se = TRUE, color = "red") +
-  labs(x = "grip_strength [z]", y = "BPS [z]")
-
-## Post-hoc: group * grip_strength
-emt <- emtrends(lmm, ~ group, var = 'z_grip_strength')
-contrast(emt)
-confint(contrast(emt))
-contrast(emt, "pairwise")
-confint(contrast(emt, "pairwise"))
 
 # RESULT 20: Covariates Models (on subject + trial level)
 ## MMN amplitude
@@ -1599,14 +1555,14 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm)
 
+## Post-hoc: age
+emtrends(lmm, ~ age, var = "age")
+
 lmm <- lmer(
   z_MMN_latency ~ stimulus * manipulation * group * block + (1|SEGA_ID) + gender + age + verbal_IQ + non_verbal_IQ,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm)
-
-## Post-hoc: age
-emtrends(lmm, ~ age, var = "age")
 
 ## MMN diff amplitude
 lmm <- lmer(
@@ -1629,14 +1585,15 @@ lmm <- lmer(
 anova(lmm)
 r2_nakagawa(lmm)
 
+## Post-hoc: age
+emtrends(lmm, ~ age, var = "age")
+
 lmm <- lmer(
   z_P3a_amplitude ~ stimulus * manipulation * group * block + (1|SEGA_ID) + gender + age + verbal_IQ + non_verbal_IQ,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm)
 
-## Post-hoc: age
-emtrends(lmm, ~ age, var = "age")
 
 ## P3a latency
 lmm <- lmer(
@@ -1669,16 +1626,16 @@ lmm <- lmer(
   z_rpd_low ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender + verbal_IQ + non_verbal_IQ,
   data = et_erp_subject)
 anova(lmm)
-r2_nakagawa(lmm) 
+r2_nakagawa(lmm)
+
+## Post-hoc: age
+emtrends(lmm, ~ age, var = "age")
 
 lmm <- lmer(
   z_rpd ~ stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender + verbal_IQ + non_verbal_IQ,
   data = et_erp_trial)
 anova(lmm)
 r2_nakagawa(lmm)
-
-## Post-hoc: age
-emtrends(lmm, ~ age, var = "age")
 
 # ANALYSIS OF df (ONLY PUPIL DATA-ALL DATA POINTS) ####
 # Baseline phase
