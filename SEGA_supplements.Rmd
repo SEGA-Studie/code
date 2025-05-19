@@ -8,6 +8,10 @@ output:
     toc: yes
     toc_depth: 2
     latex_engine: xelatex
+  html_document:
+    toc: yes
+    toc_depth: '2'
+    df_print: paged
 header-includes:
 - \usepackage{tocloft}
 - \setlength{\cftbeforesecskip}{2pt}
