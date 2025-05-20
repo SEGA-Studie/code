@@ -1411,6 +1411,10 @@ summary(emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low"), infer = T)
 ### post-hoc: SEPR * BPS *group
 summary(emtrends(lmm, ~  z_rpd * z_rpd_low|group,  var = 'z_rpd', at = list(z_rpd_low = c(-2,0, 2))), infer = T)
 
+emtr <- emtrends(lmm, ~ group | z_rpd_low, var = "z_rpd", at = list(z_rpd_low = c(-2, 0, 2)))
+contrast_summary <- summary(pairs(emtr), infer = TRUE)
+print(contrast_summary)
+
 ## P3a amplitude
 lmm <- lmer(
   z_P3a_amplitude ~ z_rpd * z_rpd_low * stimulus *  manipulation * group + (1|SEGA_ID) + age + gender,
