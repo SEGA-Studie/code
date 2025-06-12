@@ -153,7 +153,7 @@ fun_return_descriptives <- function(group){
   # SP2
   SP2_mean <- round(mean(group_df$SP2, na.rm = TRUE), digits = 1)
   SP2_sd <- round(sd(group_df$SP2, na.rm = TRUE), digits = 1)
-  SP2 <- paste(SCQ_mean, "(", SP2_sd, ")")
+  SP2 <- paste(SP2_mean, "(", SP2_sd, ")")
   # grip strength
   grip_strength_mean <- round(mean(group_df$z_grip_strength, na.rm = TRUE), digits = 1)
   grip_strength_sd <- round(sd(group_df$z_grip_strength, na.rm = TRUE), digits = 1)
@@ -1233,13 +1233,6 @@ emm <- emmeans(lmm, ~ block * manipulation)
 emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
   theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 
-## custom contrast: Manipulation effect in block 3?  (block 2 vs. 3).
-emm <- emmeans(lmm, ~ block * manipulation)
-contrast(emm, method = list(
-  "reverse.before vs forward.after" = c(0, -1, 1, 0)), infer = T)
-emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRUE) +
-  theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
-
 ## Plot Manipulation effect on MMN Latency 
 plot_data <- as.data.frame(emmeans(lmm, ~ block * manipulation))
 plot_data <- na.omit(plot_data)
@@ -1313,8 +1306,9 @@ emmip(emm, ~  block * manipulation, linearg = list(linetype = "blank"), CI = TRU
   theme_bw() + labs(x = "task block", y = "Estimated Marginal Means")
 
 ## custom contrast: Manipulation effect in block 3?  (block 2 vs. 3).
+emm <- emmeans(lmm, ~ block * manipulation)
 contrast(emm, method = list(
-  "reverse.before vs forward.after" = c(0, 1, -1, 0)), infer = T)
+  "reverse.before vs forward.after" = c(0, -1, 1, 0)), infer = T)
 
 ## custom contrast: Manipulation effect in block 4? (block 2 vs 4).
 contrast(emm, method = list(

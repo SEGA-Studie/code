@@ -171,7 +171,7 @@ fun_return_descriptives <- function(group){
   # SP2
   SP2_mean <- round(mean(group_df$SP2, na.rm = TRUE), digits = 1)
   SP2_sd <- round(sd(group_df$SP2, na.rm = TRUE), digits = 1)
-  SP2 <- paste(SCQ_mean, "(", SP2_sd, ")")
+  SP2 <- paste(SP2_mean, "(", SP2_sd, ")")
   # grip strength
   grip_strength_mean <- round(mean(group_df$z_grip_strength, na.rm = TRUE), digits = 1)
   grip_strength_sd <- round(sd(group_df$z_grip_strength, na.rm = TRUE), digits = 1)
