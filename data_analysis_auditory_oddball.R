@@ -6,12 +6,9 @@ require(performance) # marginal + conditional R2
 require(lme4) # linear-mixed-effects models
 require(lmerTest, warn.conflicts = FALSE) # linear-mixed-effects models
 require(emmeans, warn.conflicts = FALSE) # estimated marginal means (EMMs)
-require(ggplot2, warn.conflicts = FALSE) # creating graphs
-require(dplyr, warn.conflicts = FALSE) # for %>% operator
 library(ggpubr, warn.conflicts = FALSE) # ggscatter()-function
 library(knitr) # dynamic report generation
 library(kableExtra) # table formatting
-library(stringr) # for string modifications
 library(tidyverse)
 library(cowplot, warn.conflicts = FALSE) # get only legend from plot
 library(simr) # power analysis
@@ -802,9 +799,12 @@ anova(lmm)
 r2_nakagawa(lmm)
 
 ## Post-hoc: stimulus * group * block
-contrast(emmeans(lmm, ~ stimulus|group * block), "pairwise")
-confint(contrast(emmeans(lmm, ~ stimulus|group * block), "pairwise"))
-emmip(lmm, ~ stimulus | block * group, linearg = list(linetype = "blank"), CI = T)
+emm <- emmeans(lmm, ~ group * stimulus * block)
+stimulus_diff <- contrast(emm, method = "pairwise", by = c("group", "block"))
+stimulus_diff_emm <- as.emm_list(stimulus_diff)
+group_diff <- contrast(stimulus_diff_emm, method = "pairwise", by = "block")
+summary(group_diff)
+confint(group_diff)
 
 ## WTAS: Plot with stimulus * group
 emm_data <- emmip(lmm, ~ stimulus | group, CIs = TRUE, plotit = FALSE)
@@ -1298,8 +1298,12 @@ anova(lmm)
 r2_nakagawa(lmm) 
 
 ## Post-hoc: stimulus * group * block
-contrast(emmeans(lmm, ~ stimulus|group * block), "pairwise")
-confint(contrast(emmeans(lmm, ~ stimulus|group * block), "pairwise"))
+emm <- emmeans(lmm, ~ group * stimulus * block)
+stimulus_diff <- contrast(emm, method = "pairwise", by = c("group", "block"))
+stimulus_diff_emm <- as.emm_list(stimulus_diff)
+group_diff <- contrast(stimulus_diff_emm, method = "pairwise", by = "block")
+summary(group_diff)
+confint(group_diff)
 
 # Post-hoc: manipulation * block
 contrast(emmeans(lmm, ~ manipulation|block), "pairwise")
