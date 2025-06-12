@@ -69,7 +69,7 @@ Code is independent of OS although paths have to be adjusted.
 ## MERGE PUPIL AND TRIAL DATA
 - Merge pupil and trial data using the user-defined function *fun_merge_all_ids*, and store the result in a new list of DataFrames (*df_list*).
 
-## NEW VARIABLES, REMOVE 3 STANDARDS + RESHAPE INTO LIST OF TRIALS
+## NEW VARIABLES, REMOVE 3 STANDARDS
 - Add two new variables: *trial_index* and _trial_number
 - Remove the first 3 trials (standards) of each block which were were included by design to establish standards in the oddball paradigm
 - Reshape data into *list_split_trial*, a a list of all trials of all subjects. Each list element contains a data frame of trial data.
@@ -79,12 +79,12 @@ Code is independent of OS although paths have to be adjusted.
 - *fun_blink_cor* is a UDF that defines blinks between 75–250 ms of NAs and replaces data during blinks + 8 seconds around blinks with NA
 - *func_pd_preprocess* is a UDF that detects + removes pupil diameter outliers (<2 mm or > 8 mm), calculates + removes dilation speed outliers (3 x median change values), performs robust scatter plot smoothing, interpolation and averages pupil diameter of both eyes (right, left) to one data point, *pd*.
 
-## DEFINE BPS, RESHAPING INTO DATA FRAME + CALCULATE BASELINES 
+## CALCULATE BPS AND BASELINES 
 - Define Baseline Pupil Size (BPS) as the average pupil diameter during the first 250 ms of each trial. BPS serves as a primary outcome variable in subsequent analyses.
 - Reshape *list_split_trial* into a large DataFrame (*df*)
 - Pupil diameter of each of the 2 baseline phases before (block counters 3, 5) + 2 baseline phases after the manipulation (block counters 10, 12) are averaged. Visualize the results using a boxplot to assess potential habituation effects across task blocks.
 
-## ADD NEW VARIABLES IN TASK BLOCK STRUCTURE + RESHAPE INTO LIST OF TRIALS
+## ADD VARIABLES IN TASK BLOCK STRUCTURE
 - Split the DataFrame *df* into a list of DataFrames (*list_split_block*), grouped by block_counter.
 - Add 2 new variables: *trial_index_in_block* + *trial_number_in_block*
 - Recombine *list_split_block* into a single DataFrame (*df)
@@ -94,7 +94,7 @@ Code is independent of OS although paths have to be adjusted.
 ## AREA UNDER THE CURVE (AUC)
 - AUC as another approach to calculate the pupil response
 
-## DEFINE SEPR + ADD 2 NEW VARIABLES FOR TRIAL INDEXING
+## SEPR + ADD NEW VARIABLES FOR TRIAL INDEXING
 - Define Stimulus-Evoked Pupillary Response (*SEPR*) as the mean pupil diameter within the 500–1500 ms window of each trial.
 - Compute Baseline Pupil Size (*BPS*) for the newly created DataFrame *et_df_trial*.
 - Add two indexing variables (*trial_number* + *trial_number_in_block*) to each element in list_split_trial for trial identification.
@@ -127,7 +127,7 @@ Code is independent of OS although paths have to be adjusted.
 ## SAVE DATA FRAME "DF" AS RDS FILE
 - The data frame *df* is saved as .Rds to read it in the analysis script.
 
-## MMN DIFFERENCE WACE
+## MMN DIFFERENCE WAVE
 - Read as MMN difference wave preprocessed EEG data
 - add questionnaire data: SCQ, SRS, CBCL, YSR, SP2
 - z-standardization of dependent variables for subsequent analysis
