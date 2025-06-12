@@ -1,10 +1,13 @@
-# Script purpose: READ AND ANALYZE DATA - SEGA PROJECT - AUDITORY ODDBALL
+# ===========================================================
+# Script purpose: SEGA PROJECT - AUDITORY ODDBALL -
+# READ, PREPROCESS PUPIL DATA AND MERGE WITH EEG DATA
 # Author: Nico Bast
 # Date Created: `r paste(Sys.Date())`
 # Copyright (c) Nico Bast, `r paste(format(Sys.Date(), "%Y"))`
 # Email: bast@med.uni-frankfurt.de
+# ===========================================================
 
-### NOTOES ON MISSING DATA ####
+## NOTES ON MISSING DATA ####
 # - 007: no SCQ
 # - 024 no EEG because EEG files do not exist
 # - 027 without task data
@@ -28,29 +31,26 @@
 # - 161 no EEG because wearing wig
 # - 164 no EEG due to subject's aversion
 # - 185 no EEG because wrong EEG gel used (noisy)
-# - 191 no data on trial level because missing .csv file
+# - 191 no data on trial level because missing .csv file (ET, EEG)
 # - 196: no CBCL + YSR
 
 ## SETUP ####
 
 sessionInfo()
 
-# REQUIRED PACKAGES
-library(rhdf5, warn.conflicts = FALSE)
+# Required packages
+library(rhdf5, warn.conflicts = FALSE) # read hdf file format
 library(data.table, warn.conflicts = FALSE) # efficient due to parallelization
 library(zoo, warn.conflicts = FALSE) # used for na.approx
 library(pbapply, warn.conflicts = FALSE) # progress bar for apply functions
 library(lme4, warn.conflicts = FALSE) # linear-mixed-effects models
 library(lmerTest, warn.conflicts = FALSE) # linear-mixed-effects models
-library(emmeans, warn.conflicts = FALSE) # estimated marginal means (EMMs)
-library(ggplot2, warn.conflicts = FALSE) # creating graphs
+library(emmeans, warn.conflicts = FALSE) # estimated marginal means in LMMs
 library(hexbin, warn.conflicts = FALSE) # binning + plotting functions
 library(gridExtra, warn.conflicts = FALSE) # multiple plots arrangement
-library(dplyr, warn.conflicts = FALSE) # for %>% operator
 library(cowplot, warn.conflicts = FALSE) # get only legend from plot
 library(ggpubr, warn.conflicts = FALSE) # save legend from plot
-library(stringr)
-library(tidyverse)
+library(tidyverse) # includes ggplot, stringr, dplyr
 
 # PATHS
 if (Sys.info()["sysname"] == "Linux") {
@@ -95,43 +95,36 @@ if (Sys.info()["sysname"] == "Darwin") {
     list.files(path = datapath_task, full.names = TRUE))
 }
 
-# DATA IMPORT AND RESHAPING ####
 
-# Get eye tracking data and store them in a list of df (one per subject)
+## DATA IMPORT AND RESHAPING ####
+# Get eye tracking data
 data_files_et <- data_files[grepl(".hdf5", data_files)]
-
-#exclude files that cannot be read
-exclude_unreadable<-c("C:/Users/Nico/PowerFolders/project_sega/data/et auditory oddball/auditory_103_2024-04-28-1236.hdf5",
-                      "C:/Users/Nico/PowerFolders/project_sega/data/et auditory oddball/auditory_2022-10-04-0911.hdf5",
-                      "C:/Users/Nico/PowerFolders/project_sega/data/et auditory oddball/auditory_2022-10-05-1440.hdf5",
-                      "C:/Users/Nico/PowerFolders/project_sega/data/et auditory oddball/auditory_2022-10-19-1220.hdf5")
-
-
+# Exclude files that cannot be read
+exclude_unreadable<-c(
+  "C:/Users/Nico/PowerFolders/project_sega/data/et auditory oddball/auditory_103_2024-04-28-1236.hdf5",
+  "C:/Users/Nico/PowerFolders/project_sega/data/et auditory oddball/auditory_2022-10-04-0911.hdf5",
+  "C:/Users/Nico/PowerFolders/project_sega/data/et auditory oddball/auditory_2022-10-05-1440.hdf5",
+  "C:/Users/Nico/PowerFolders/project_sega/data/et auditory oddball/auditory_2022-10-19-1220.hdf5")
 data_files_et<-data_files_et[!data_files_et %in% exclude_unreadable]
-
+# Read eye tracking files and store them in a list of df (one per subject)
 list_et_data <- list(0)
 for (i in 1:length(data_files_et)) {
   print(paste0("now reading: ", data_files_et[i]))
   list_et_data[[i]] <- h5read(
     file = data_files_et[i],
-    name = "data_collection/events/eyetracker/BinocularEyeSampleEvent")
-  #print(paste0("completed reading: ", data_files_et[i]))
- }
+    name = "data_collection/events/eyetracker/BinocularEyeSampleEvent")}
 h5closeAll()
 
 # List names for each subject are unique including date and time of recording.
-#NICO: removed magic number here
-
 id_names <- substr(
   data_files_et,
   nchar(datapath) + 2,
   nchar(data_files_et))
-
 names(list_et_data) <- id_names
 
-# These eye tracker variables are being dropped, keeping variables
+# These eye tracker variables are being dropped, keeping variables:
 # left_pupil_measure1, right_pupil_measure1, logged_time,
-# left_gaze_x and left_gaze_y.
+# left_gaze_x and left_gaze_y
 constant_variables <- c(
   "experiment_id",
   "status",
@@ -164,7 +157,6 @@ constant_variables <- c(
 list_et_data <- lapply(
   list_et_data, function(x) {
     x[!(names(x) %in% constant_variables)]})
-
 
 # Get trial data and store them in a list of df (one per subject)
 data_files_trial <- data_files[grepl(".csv", data_files)]
@@ -201,29 +193,21 @@ id_names <- substr(
   nchar(data_files_trial))
 names(list_trial_data) <- id_names
 
-#check: which ET data and task data per participant do not match
-#task_data<-substr(data_files_trial,nchar(datapath_task)+2,nchar(data_files_trial)-4)
-#et_data<-substr(data_files_et,nchar(datapath)+2,nchar(data_files_et)-5)
-#unmatched_et<-et_data[!(et_data %in% task_data)]
-#unmatched_task<-task_data[!(task_data %in% et_data)]
-
 # Check for .csv- + .hdf5- file matching (path-independent):
 unmatched_et <- tools::file_path_sans_ext(basename(data_files_et))[
   !(tools::file_path_sans_ext(basename(data_files_et)) %in% tools::file_path_sans_ext(basename(data_files_trial)))]
 unmatched_task <- tools::file_path_sans_ext(basename(data_files_trial))[
   !(tools::file_path_sans_ext(basename(data_files_trial)) %in% tools::file_path_sans_ext(basename(data_files_et)))]
-
-# print unmatching files in console
+# Print unmatching files in console
 cat(unmatched_task, "do not have a matching et file", sep = "\n") 
 cat(unmatched_et, "do not have a matching trial file", sep = "\n")
-
-#reduce data files for participant with ET and task data
+# Reduce data files for participant with ET and task data
 list_et_data<-list_et_data[!(names(list_et_data) %in% paste0(unmatched_et,'.hdf5'))]
 list_trial_data<-list_trial_data[!(names(list_trial_data) %in% paste0(unmatched_task,'.csv'))]
   
-  #TODO: function below fails with this ID
-  list_et_data<-list_et_data[names(list_et_data)!="auditory_77_2023-04-17-1831.hdf5"]
-  list_trial_data<-list_trial_data[names(list_trial_data)!="auditory_77_2023-04-17-1831.csv"]
+# Exclude this data set because script throws an error with this (disrupted file?)
+list_et_data<-list_et_data[names(list_et_data)!="auditory_77_2023-04-17-1831.hdf5"]
+list_trial_data<-list_trial_data[names(list_trial_data)!="auditory_77_2023-04-17-1831.csv"]
 
 # Grip strength variable
 list_trial_data <- lapply(list_trial_data, function(x) {
@@ -235,6 +219,7 @@ list_trial_data <- lapply(list_trial_data, function(x) {
 # subject data frames are row-wise combined
 df_trial <- plyr::rbind.fill(list_trial_data)
 
+## MERGE PUPIL AND TRIAL DATA ####
 # Eye tracking data (logged_time) are assigned to trials (timestamp_exp).
 # Before it needs to be checked that trial data matches to ET data
 fun_merge_all_ids <- function(et_data, trial_data) {
@@ -256,8 +241,7 @@ fun_merge_all_ids <- function(et_data, trial_data) {
         rep(x, length(matched_time))}, simplify = FALSE))
         merged_data <- data.frame(repeated_trial_data, selected_et_data)
   }
-  
-  print(paste0("merge: ", unique(trial_data$id))) #debugging print
+  print(paste0("merge: ", unique(trial_data$id)))
   
   df_one_id <- mapply(
     fun_merge_data,
@@ -274,10 +258,11 @@ df_list <- pbmapply(
   et_data = list_et_data,
   trial_data = list_trial_data, SIMPLIFY = FALSE)
 
-#drop empty list elements (unmatched)
+# Drop empty list elements (unmatched)
 df_list<-df_list[sapply(df_list,function(x){length(x)!=0})]
 
-#create trial_index and trial_number variables
+## NEW VARIABLES AND REMOVE 3 STANDARDS ####
+# Create variables "trial_index" + "trial_number"
 df_list <- pblapply(df_list, function(x) {
   # New variable trial_index
   x$trial_index <- with(x, droplevels(interaction(
@@ -300,14 +285,14 @@ list_split_trial <- pblapply(df_list, function(x) {
   split(x, x$trial_number)})
 list_split_trial <- unlist(list_split_trial, recursive = FALSE)
 
-# New variable ts_trial: Timestamp for each et event within a trial
+# New variable ts_trial: Timestamp for each pupil data point within a trial
 list_split_trial <- pblapply(list_split_trial, function(x) {
   x$ts_trial <- x$logged_time - x$timestamp_exp
   return(x)
   })
 
-# DATA PREPROCESSING ####
-# Blinks are defined as consecutive missing et data for 75–250 ms
+## DATA PREPROCESSING ####
+# Blinks are defined as consecutive missing pupil data for 75–250 ms
 fun_blink_cor <- function(
   signal, lower_threshold = 23, upper_threshold = 75,
   samples_before = 8, samples_after = 8) {
@@ -398,7 +383,7 @@ func_pd_preprocess <- function(x) {
     is_even(smooth_size) == TRUE,
     smooth_size + 1, smooth_size) # odd values for runmed()-function
   # for left and right eye:
-  # giving the smooth function Na would raise an error
+  # giving the smooth function NA would raise an error
   pl_smooth <- na.approx(pl, na.rm = FALSE, rule = 2)
   # Robust Scatter Plot Smoothing
   if (sum(!is.na(pl_smooth)) != 0) {
@@ -460,6 +445,7 @@ func_pd_preprocess <- function(x) {
 list_split_trial <- pblapply(
   list_split_trial, func_pd_preprocess)
 
+## CALCULATE BPS AND BASELINELINES ####
 # Add rpd_low (< 250 ms of each trial) for trial-baseline correction
 list_split_trial <- lapply(list_split_trial, function(x){
   x$rpd_low <- mean(x$pd[x$ts_trial <= 0.250], na.rm = T)
@@ -506,15 +492,17 @@ baseline_means$baseline_trial_counter <- as.factor(baseline_means$baseline_trial
 
 # Pupil size for baselines
 ggplot(
-  baseline_means,
+  baseline_means[is.finite(baseline_means$block_baseline_mean), ],
   aes(x = baseline_trial_counter,
       y = block_baseline_mean)) + 
   geom_boxplot(fill = "steelblue")
 
+
+
+## ADD VARIABLES IN TASK BLOCK STRUCTURE ####
 # split by block and id
 list_split_blocks <- split(df,
 droplevels(interaction(df$block_counter, df$id)))
-
 list_split_blocks <- pblapply(list_split_blocks, function(x) {
   # name to identify individual trials within BLOCK
   x$trial_index_in_block <- with(x,
@@ -526,52 +514,48 @@ list_split_blocks <- pblapply(list_split_blocks, function(x) {
   return(x)})
 
 df <- data.table::rbindlist(list_split_blocks)
+
+table(df$phase) # Number of et event per phase
+table(df$trial) # Number of et events per trial
+hist(df$pd) # Frequency of pupil diameter (mm)
+# preprocessed pupil diameter for each participant
+ggplot(
+df[is.finite(df$pd), ],
+aes(x = pd)) + geom_histogram(bins = 100) + facet_wrap(~id)
+
+# Remove variables for memory reasons
 rm(list_split_trial)
 rm(list_split_blocks)
-df$id <- as.character(df$id)
 
 # split by trial (for further processing)
+df$id <- as.character(df$id)
 list_split_trial <- split(df, droplevels(interaction(df$id, df$trial_number)))
 
-  # Number of et event per phase
-  table(df$phase)
-  # Number of et events per trial
-  table(df$trial)
-  # Frequency of pupil diameter (mm) in 5 size categories
-  hist(df$pd)
-  # preprocessed pupil diameter for each participant
-  # ggplot(
-  #   df[is.finite(df$pd), ],
-  #   aes(x = pd)) + geom_histogram(bins = 100) + facet_wrap(~id)
-  
-  
-# reduce ET data to per trial data (and merge with df_trial)
-# pupil diameter late in trial duration
-# rpd_high <- sapply(list_split_trial, function(x) {
-#   mean(x$pd[x$ts_trial > 0.875 & x$ts_trial < 1.125])})
-
-require(DescTools) #AUC function  
+## AREA UNDER THE CURVE (AUC) ####
+require(DescTools)
 rpd_auc <- sapply(list_split_trial, function(x) {
   AUC(x$ts_trial,x$pd,na.rm=T)})
 rpd_auc<-ifelse(rpd_auc>15,NA,rpd_auc)
 
+## SEPR + ADD NEW VARIABLES FOR TRIAL INDEXING ####
+# SEPR
 rpd_high <- sapply(list_split_trial, function(x) {
   mean(x$pd[x$ts_trial > 0.500 & x$ts_trial < 1.5])})
 
-# trial-baseline
+# BPS as separate variable 
 rpd_low <- sapply(list_split_trial, function(x) {
   mean(x$pd[x$ts_trial < 0.250])})
 
-# new variables to index specific trials
+# New variables to index specific trials
 trial_number <- sapply(list_split_trial, function(x) {
   unique(x$trial_number)})
 trial_number_in_block <- sapply(list_split_trial, function(x) {
   unique(x$trial_number_in_block)[1]})
 
-# merge data
+## COMPLEMENT + SAVE *df_trial* ####
+# Merge data into "df_et_trial" (for "df_trial")
 merger_id <- sapply(list_split_trial, function(x) {
   interaction(x$id, x$trial_index)[1]})
-
 df_et_trial <- data.frame(
   merger_id,
   rpd_auc,
@@ -580,10 +564,7 @@ df_et_trial <- data.frame(
   trial_number,
   trial_number_in_block)
 
-##save trialwise structure
-df_trial_backup<-df_trial
-
-# name to identify individual trials
+# New variable "trial_index" to index individual trials
 df_trial$trial_index <- with(df_trial,
 interaction(.thisTrialN, .thisRepN, block_counter))
 df_trial$merger_id <- interaction(df_trial$id, df_trial$trial_index)
@@ -598,26 +579,26 @@ df_trial$rpd <- df_trial$rpd_high - df_trial$rpd_low
 baseline_means <- subset(baseline_means, select = -c(baseline_trial_counter))
 df_trial <- merge(x = baseline_means, y = df_trial, by = c("id", "block_counter"), all.y = TRUE)
 
-# new variable rpd_block is block baseline corrected rpd_high
+# New variable "rpd_block" is block baseline corrected "rpd_high"
 df_trial$rpd_block <- df_trial$rpd_high - df_trial$block_baseline_mean
 
-# new variables manipulation indicates whether before or after manipulation
+# The variable "manipulation" indicates before/after manipulation
 df_trial$manipulation <- factor(
   ifelse(df_trial$block_counter < 8, "before",
   ifelse(df_trial$block_counter > 8, "after",
   ifelse(df_trial$block_counter == 8, "during", "manipulation"))),
   levels = c("before", "after", "during"))
 
-# distinguish pitch: oddball or standard frequency
+# Distinguish pitch: oddball or standard frequency
 df_trial$pitch <- ifelse(df_trial$trial == "oddball", df_trial$oddball_frequency,
                              ifelse(df_trial$trial == "standard", df_trial$standard_frequency,
                                     ifelse(df_trial$trial == "oddball_rev", df_trial$standard_frequency,
                                            ifelse(df_trial$trial == "standard_rev", df_trial$oddball_frequency, NA)))
 )
-# distinguish between (forward) oddball blocks and reverse oddball blocks
+# Distinguish between oddball blocks (forward, reverse)
 df_trial$block <- ifelse(
   df_trial$phase == "oddball_block_rev", "reverse", "forward")
-# distinguish between oddball and standards trials
+# Distinguish between oddball and standards trials
 df_trial$trial <- as.factor(ifelse(grepl(
   "oddball",
   df_trial$trial),
@@ -626,26 +607,24 @@ df_trial$trial <- as.factor(ifelse(grepl(
 # Add trial-baseline corrected pd
 df$trial_corr_rpd <- with(df, pd - rpd_low)
 
-### VISUALIZATION ####
+# Can be used to skip preprocessing and directly read proprocessed data from .rds file:
+saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
+df_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
 
-##manipulation check
-sampled_rows<-sample(1:nrow(df),nrow(df)/1000) #randomly select rows
-ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<2,],aes(x=ts_trial,y=pd,group=trial,color=trial))+geom_smooth()+facet_wrap(~block_counter)+theme_bw()  
+## VISUALIZATION ####
+# Manipulation check
+sampled_rows<-sample(1:nrow(df),nrow(df)/1000) # randomly select rows
+ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<2,],aes(x=ts_trial,y=pd,group=trial,color=trial))+geom_smooth()+facet_wrap(~block_counter)+theme_bw()
 ggplot(df[sampled_rows & df$phase=='oddball_block_rev' & df$ts_trial<2,],aes(x=ts_trial,y=pd,group=trial,color=trial))+geom_smooth()+facet_wrap(~block_counter)+theme_bw()  
-###--> select rpd high based on data inspection
-
 ggplot(df[sampled_rows & df$ts_trial<1 & df$phase=='oddball_block',],aes(x=ts_trial,y=rpd,group=trial,color=trial))+geom_smooth()+
   facet_wrap(~block_counter)+
   theme_bw()  
-
 ggplot(df[sampled_rows & df$ts_trial<1 & df$phase=='oddball_block_rev',],aes(x=ts_trial,y=rpd,group=trial,color=trial))+geom_smooth()+
   facet_wrap(~block_counter)+
   theme_bw()  
 
-
-require(wesanderson) #custom color palettes
+require(wesanderson) # custom color palettes
 custom_condition_colors <- wes_palette('Darjeeling1',2,type='discrete') #reverse custom colors to match color coding in other figures
-
 ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<0.7 & df$block_counter<8,],
        aes(x=ts_trial,y=rpd,group=trial,color=trial))+geom_smooth()+
        labs(x='trial duration (s)',y='pupillary response (mm)')+
@@ -656,6 +635,7 @@ ggplot(df[sampled_rows & df$phase=='oddball_block' & df$ts_trial<0.7 & df$block_
 hist(df_trial$rpd_block, xlim = c(-2, 2))
 hist(df_trial$rpd, xlim = c(-1, 1))
 
+## SAMPLE DESCRIPTIVES ####
 # exp_group.csv is a file created manually including information on
 # group, date of data collection, grip strength values and IQ scores.
 exp_groups <- read.csv("exp_groups.csv", header = TRUE)
@@ -697,21 +677,7 @@ for (row in 1:length(df_trial$id)) {
   df_trial[row, "verbal_IQ"] <- verbal_IQ
   df_trial[row, "non_verbal_IQ"] <- non_verbal_IQ}
 
-##--> save preprocess df_trial ####
-#saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
-saveRDS(df_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata_24092024.rds'))
-
-# # Can be used to skip preprocessing and directly read proprocessed data from .rds file:
-# df_trial <- readRDS(paste0(home_path,project_path,'/data/preprocessed_auditory_ETdata.rds'))
-# 
-# #changed random intercept to a factor
-# df_trial$id<-as.factor(df_trial$id) #change ID to factor
-# #df_trial$trial<-as.factor(df_trial$trial)
-# 
-# require(performance)
-
-### Data plausibility check ####
-
+# Data plausibility check
 table(df_trial$block_counter, df_trial$phase)
 table(df_trial$trial)
 # Number of trials for forward and reverse oddball blocks
@@ -719,6 +685,7 @@ table(df_trial$block, df_trial$trial)
 hist(df_trial$rpd, 50)
 with(df_trial, by(rpd, trial, mean, na.rm = TRUE))
 
+## ADD SINGLE TRIAL EEG DATA ####
 # Read EEG single trial data
 # Single trial EEG data is stored in 2 files (before + after manipulation) per subject
 # List all files separately for before + after
@@ -919,6 +886,7 @@ single_trial_eeg_after <- merge(MMN_df_trial_after, P3a_df_trial_after, by = c("
 # EEG_df_trial contains EEG data on trial level for oddball_blocks + reverse_blocks
 EEG_df_trial <- rbind(single_trial_eeg_before, single_trial_eeg_after)
 
+## MERGE PUPIL + EEG DATA ON TRIAL LEVEL ####
 # Merge ET and ERP data on trial level
 # ET_df_trial = subset of df_trial with ET data only from oddball_block(rev)
 ET_df_trial <- df_trial[df_trial$phase %in% c("oddball_block", "oddball_block_rev"), ]
@@ -1000,7 +968,7 @@ ET_ERP_trial$gender <- as.factor(ET_ERP_trial$gender)
 # Remove unused factor level
 ET_ERP_trial$manipulation <- droplevels(ET_ERP_trial$manipulation)
 
-# Scaled values for correlation plots of dependend variables
+# Scaled values for correlation plots of dependent variables
 ET_ERP_trial$z_rpd <- as.numeric(scale(ET_ERP_trial$rpd))
 ET_ERP_trial$z_rpd_low <- as.numeric(scale(ET_ERP_trial$rpd_low))
 ET_ERP_trial$z_MMN_amplitude <- as.numeric(scale(ET_ERP_trial$MMN_amplitude))
@@ -1011,7 +979,7 @@ ET_ERP_trial$z_P3a_latency <- as.numeric(scale(ET_ERP_trial$P3a_latency))
 # Save .Rds file for analysis on trial level
 saveRDS(ET_ERP_trial,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_trial.rds'))
 
-## CONDITION LEVEL
+## ADD AGGREGATED EEG AND PUPIL DATA ####
 # List and read EEG files
 data_files_eeg <- list.files(
   path = datapath_eeg, full.names = TRUE)
@@ -1778,10 +1746,10 @@ for (i in unique_ids){
   ET_df <- rbind(ET_df, data.frame(SEGA_ID, block, manipulation, trial, block_counter, rpd, rpd_block, rpd_low))
 }
 
-# Trial variable with capital letters due to congruence with eeg format
+# Trial variable with capital letters due to congruence with EEG format
 ET_df$trial <- str_to_sentence(ET_df$trial)
 
-# Merge EEG and ET
+## MERGE PUPIL + EEG DATA ON AGGREGATED LEVEL ####
 ET_ERP_subject <- merge(ET_df, ERP_df, by = c("SEGA_ID", "block", "trial", "manipulation"), all = T)
 
 # Add sample characteristics to ET_ERP_subject
@@ -1878,10 +1846,10 @@ names(baseline_means)[names(baseline_means) == "SEGA_ID"] <- "id"
 # Save .Rds file for analysis on subject level
 saveRDS(ET_ERP_subject,file=paste0(home_path,project_path,'/data/preprocessed_auditory_ET_ERP_subject.rds'))
 
-
+## SAVE DATA FRAME "DF" AS RDS FILE ####
 saveRDS(df, file = paste0(home_path, project_path, '/data/preprocessed_auditory_df.rds'))
 
-### MMN Difference Wave
+## MMN Difference Wave ####
 list_diff_MMN <- lapply(
   data_files_diff_MMN,
   read.table,
