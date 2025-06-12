@@ -1,5 +1,6 @@
 ---
-title: "SEGA Auditory Oddball: Final Analysis"
+title: "SEGA Auditory Oddball"
+subtitle: "Analysis results for internal discussion"
 date: "`r Sys.Date()`"
 output:
   html_document:
@@ -24,16 +25,13 @@ require(performance) # marginal + conditional R2
 require(lme4) # linear-mixed-effects models
 require(lmerTest, warn.conflicts = FALSE) # linear-mixed-effects models
 require(emmeans, warn.conflicts = FALSE) # estimated marginal means (EMMs)
-require(ggplot2, warn.conflicts = FALSE) # creating graphs
-require(dplyr, warn.conflicts = FALSE) # for %>% operator
 library(ggpubr, warn.conflicts = FALSE) # ggscatter()-function
 library(knitr) # dynamic report generation
 library(kableExtra) # table formatting
-library(stringr) # for string modifications
-library(tidyverse) 
-library(simr) # power simulation
+library(tidyverse)
+library(cowplot, warn.conflicts = FALSE) # get only legend from plot
+library(simr) # power analysis
 library(gridExtra) # arrange ggplots
-library(ggpubr) # get legend of ggplots
 
 # PATHS 
 if (Sys.info()["sysname"] == "Linux") {
@@ -718,8 +716,12 @@ r2_nakagawa(lmm)
 
 ### Post-hoc: *stimulus* x *group* x *block*
 ```{r, warning=FALSE}
-contrast(emmeans(lmm, ~ stimulus|group * block), "pairwise")
-confint(contrast(emmeans(lmm, ~ stimulus|group * block), "pairwise"))
+emm <- emmeans(lmm, ~ group * stimulus * block)
+stimulus_diff <- contrast(emm, method = "pairwise", by = c("group", "block"))
+stimulus_diff_emm <- as.emm_list(stimulus_diff)
+group_diff <- contrast(stimulus_diff_emm, method = "pairwise", by = "block")
+summary(group_diff)
+confint(group_diff)
 ```
 
 ### Post-hoc: *manipulation* x *block*
@@ -967,8 +969,12 @@ contrast(emm, method = list(
 
 ### post-hoc: *stimulus* x *group* x *block*
 ```{r, warning=FALSE}
-contrast(emmeans(lmm, ~ stimulus|group * block), "pairwise")
-confint(contrast(emmeans(lmm, ~ stimulus|group * block), "pairwise"))
+emm <- emmeans(lmm, ~ group * stimulus * block)
+stimulus_diff <- contrast(emm, method = "pairwise", by = c("group", "block"))
+stimulus_diff_emm <- as.emm_list(stimulus_diff)
+group_diff <- contrast(stimulus_diff_emm, method = "pairwise", by = "block")
+summary(group_diff)
+confint(group_diff)
 ```
 
 ## P3a Latency
@@ -1128,13 +1134,6 @@ r2_nakagawa(lmm)
 emtrends(lmm, ~ age, var = "age")
 ```
 
-#### Post-hoc: *gender*
-```{r, warning=FALSE}
-contrast(emmeans(lmm, ~ gender), "pairwise")
-confint(contrast(emmeans(lmm, ~ gender), "pairwise"))
-emmip(lmm, ~ gender, linearg = list(linetype = "blank"), CI = T)
-```
-
 ### P3a latency
 ```{r, warning=FALSE}
 lmm <- lmer(
@@ -1229,11 +1228,6 @@ kable(anova_table) %>%
 r2_nakagawa(lmm) 
 ```
 
-#### Post-hoc: *grip strength*
-```{r, warning=FALSE}
-summary(emtrends(lmm, ~ z_grip_strength, var = "z_grip_strength"), infer = T)
-```
-
 ### BPS
 ```{r, warning=FALSE}
 lmm <- lmer(
@@ -1243,11 +1237,6 @@ anova_table <- anova(lmm)
 kable(anova_table) %>%
   kable_styling(latex_options = "scale_down")
 r2_nakagawa(lmm)
-```
-
-#### Post-hoc: *grip strength*
-```{r, warning=FALSE}
-summary(emtrends(lmm, ~ z_grip_strength, var = "z_grip_strength"), infer = T)
 ```
 
 ## Correl. Trial-Block baseline
