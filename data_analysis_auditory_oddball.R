@@ -41,7 +41,7 @@ if (Sys.info()["sysname"] == "Windows") {
 }
 
 if (Sys.info()["sysname"] == "Darwin") {
-  home_path <- "~"
+  home_path <- "/Volumes/common/"
   project_path <- "/code"
   data_path <- "/code/input/AuditoryOddball/eyetracking"
   data_path_task <- "/code/input/AuditoryOddball/taskdata"
@@ -446,6 +446,23 @@ plot_non_verbal_iq <- ggplot(sample_description_df, aes(x = group, y = non_verba
   
 grid.arrange(plot_verbal_iq, plot_non_verbal_iq, ncol = 2)
 
+# Trial duration by group (REVIEWER 2025-10)
+et_erp_trial$stimulus_isi_duration <- et_erp_trial$stimulus_duration + et_erp_trial$ISI_duration
+ggplot(et_erp_trial, aes(x = stimulus_isi_duration)) +
+  geom_histogram(binwidth = 0.020, fill = "grey", color = "white") +
+  labs(x = "Duration (s)", y = "Count") +
+  coord_cartesian(xlim = c(1.85, 3.4)) +
+  facet_wrap(~ group) +   # separate histogram per group
+  theme_minimal() +
+  theme(
+    strip.text = element_text(face = "bold"))
+
+et_erp_trial %>%
+  group_by(group) %>%
+  summarise(
+    mean_stimulus_isi = round(mean(stimulus_isi_duration, na.rm = TRUE), 1),
+    sd_stimulus_isi = round(sd(stimulus_isi_duration, na.rm = TRUE), 1))
+
 # Power Analysis
 n_size<- 150 # sample size
 k_size<-4*100 # number of trials --> auditory oddball: 
@@ -473,6 +490,46 @@ print(power_interaction)
 power_curve_interaction <- powerCurve(model, test = fcompare(y ~ group + condition), along = "id")
 plot(power_curve_interaction)
 
+# EXPLORATORY (Reviewer's comment): Correlation SP2-P3a amplitude
+## new df with mean P3a amplitude across conditions per participant
+df_SP2_P3a <- et_erp_subject %>%
+  group_by(SEGA_ID) %>%                             
+  summarise(
+    mean_z_P3a_amplitude = mean(z_P3a_amplitude),  
+    SP2 = first(SP2)) %>% # just take the first value, is the same
+  ungroup()
+
+
+corr_Sp2_P3a <- df_SP2_P3a %>%
+  summarise(
+    cor = cor(mean_z_P3a_amplitude, SP2, use = "complete.obs"),
+    p_value = cor.test(mean_z_P3a_amplitude, SP2)$p.value,
+    conf_low = cor.test(mean_z_P3a_amplitude, SP2)$conf.int[1],
+    conf_high = cor.test(mean_z_P3a_amplitude, SP2)$conf.int[2]
+  )
+print(corr_Sp2_P3a)
+
+ggplot(df_SP2_P3a, aes(x = SP2, y = mean_z_P3a_amplitude)) +
+  geom_point(size = 3, color = "steelblue") +
+  geom_smooth(method = "lm", color = "darkred", se = TRUE) +
+  labs(
+    x = "SP2",
+    y = "Mean z_P3a amplitude",
+    title = "Correlation between SP2 and Mean z_P3a amplitude"
+  ) +
+  annotate(
+    "text", 
+    x = min(df_SP2_P3a$SP2), 
+    y = max(df_SP2_P3a$mean_z_P3a_amplitude), 
+    label = paste0("r = ", round(corr_test$estimate, 2),
+                   "\n95% CI [", round(corr_test$conf.int[1],2),
+                   ", ", round(corr_test$conf.int[2],2), "]\n",
+                   "p = ", round(corr_test$p.value, 3)),
+    hjust = 0, vjust = 1, size = 4
+  ) +
+  theme_minimal(base_size = 14)
+
+
 # CORRELATION: BLOCK-BASELINE vs. TRIALBASELINE
 corr_block_trial_bl <- et_erp_subject %>%
   summarise(
@@ -482,6 +539,21 @@ corr_block_trial_bl <- et_erp_subject %>%
     conf_high = cor.test(block_baseline_mean, rpd_low)$conf.int[2]
   )
 print(corr_block_trial_bl)
+
+# Scatter plot with regression line and annotated correlation
+ggplot(et_erp_subject, aes(x = block_baseline_mean, y = rpd_low)) +
+  geom_point(alpha = 0.6, color = "#0072B2", size = 3) +          # points
+  geom_smooth(method = "lm", se = TRUE, color = "#D55E00") +      # regression line + CI
+  annotate("text", x = Inf, y = -Inf, 
+           hjust = 1.1, vjust = -0.5,
+           label = sprintf("r = %.2f, p < .001", corr_block_trial_bl$cor),  # add correlation
+           size = 5) +
+  labs(
+    x = "separate baseline phase",
+    y = "BPS",
+    title = "Correlation between separate baseline phase and BPS"
+  ) +
+  theme_minimal(base_size = 14)
 
 # RESULT 1: SEPR ON SUBJECT LEVEL
 lmm <- lmer(
@@ -1362,6 +1434,54 @@ summary(emtrends(lmm, ~ z_rpd_low, var = "z_rpd_low"), infer = T)
 emt <- emtrends(lmm, ~ manipulation|block, var = "z_rpd_low")
 contrast(emt, "revpairwise")
 confint(contrast(emt, "revpairwise"))
+
+### EXPLORATORY (Reviewer's comment, 2025-10-27)
+# lmer()-, but not poly()-function can handle NAs in the predictors, so
+# et_erp_trial_for_model_fit excludes NAs for these exploratory model fit comparisons. 
+et_erp_trial_for_model_fit <- na.omit(et_erp_trial[ , c(
+  "z_rpd",
+  "z_rpd_low",
+  "stimulus",
+  "manipulation",
+  "group",
+  "block",
+  "SEGA_ID",
+  "age",
+  "gender")])
+
+# linear
+lmm_linear_fit <- lmer(
+  z_rpd ~ z_rpd_low * stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial_for_model_fit, REML = F)
+anova(lmm_linear_fit)
+r2_nakagawa(lmm_linear_fit) 
+
+# quadratic
+lmm_quadratic_fit <- lmer(
+  z_rpd ~ poly(z_rpd_low, 2) * stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial_for_model_fit, REML = F)
+anova(lmm_quadratic_fit)
+r2_nakagawa(lmm_quadratic_fit) 
+# cubic
+lmm_cubic_fit <- lmer(
+  z_rpd ~ poly(z_rpd_low, 3) * stimulus * manipulation * group * block + (1|SEGA_ID) + age + gender,
+  data = et_erp_trial_for_model_fit, REML = F)
+anova(lmm_cubic_fit)
+r2_nakagawa(lmm_cubic_fit) 
+
+table_model_compare <- anova(lmm_linear_fit, lmm_quadratic_fit, lmm_cubic_fit)
+
+table_model_compare <- cbind(
+  c("linear_fit", "quadratic_fit", "cubic_fit"),
+  table_model_compare)
+
+table_formatted_BPS_SEPR <- table_model_compare %>% 
+  kbl(caption = "Model comparision of BPS-SEPR association",
+      col.names = c("","number of parameters",'AIC','BIC','log likelihood','deviance','Chi-squared','df','p-value'),
+      row.names = F) %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+table_formatted_BPS_SEPR
 
 # RESULT 15: Correlation: Pupil-ERP
 crl <- cor(et_erp_trial[et_erp_trial$stimulus == "oddball", c(
