@@ -447,6 +447,7 @@ plot_non_verbal_iq <- ggplot(sample_description_df, aes(x = group, y = non_verba
 grid.arrange(plot_verbal_iq, plot_non_verbal_iq, ncol = 2)
 
 # Trial duration by group (REVIEWER 2025-10)
+## on TRIAL level
 et_erp_trial$stimulus_isi_duration <- et_erp_trial$stimulus_duration + et_erp_trial$ISI_duration
 ggplot(et_erp_trial, aes(x = stimulus_isi_duration)) +
   geom_histogram(binwidth = 0.020, fill = "grey", color = "white") +
@@ -462,6 +463,51 @@ et_erp_trial %>%
   summarise(
     mean_stimulus_isi = round(mean(stimulus_isi_duration, na.rm = TRUE), 1),
     sd_stimulus_isi = round(sd(stimulus_isi_duration, na.rm = TRUE), 1))
+
+stimulus_isi_duration_anova <- aov(stimulus_isi_duration ~ group, data = et_erp_trial)
+stimulus_isi_duration_p <- summary(stimulus_isi_duration_anova)[[1]][["Pr(>F)"]][[1]]
+
+## on PARTICIPANT level
+et_erp_trial <- et_erp_trial %>% # same aggregated value repeated in each trial within participant
+  group_by(SEGA_ID) %>%
+  mutate(stimulus_isi_duration_aggregated = mean(stimulus_isi_duration, na.rm = TRUE)) %>%
+  ungroup()
+
+df_stimulus_isi_duration_aggregated <- et_erp_trial %>% # new data frame with 1 participant per row for anova
+  group_by(SEGA_ID, group) %>%
+  summarise(stimulus_isi_duration_aggregated = first(stimulus_isi_duration_aggregated),
+            .groups = "drop")
+
+ggplot(df_stimulus_isi_duration_aggregated, aes(x = stimulus_isi_duration_aggregated)) +
+  geom_histogram(binwidth = 0.2, fill = "grey", color = "white") +
+  labs(x = "Duration (s)", y = "Count") +
+  coord_cartesian(xlim = c(1.85, 3.4)) +
+  facet_wrap(~ group) +   # separate histogram per group
+  theme_minimal() +
+  theme(
+    strip.text = element_text(face = "bold"))
+
+stats_stimulus_isi_duration_aggregated <- df_stimulus_isi_duration_aggregated %>%
+  group_by(group) %>%
+  summarise(
+    mean_stimulus_isi_duration = mean(stimulus_isi_duration_aggregated, na.rm = TRUE),
+    sd_stimulus_isi_duration = sd(stimulus_isi_duration_aggregated, na.rm = TRUE))
+stats_stimulus_isi_duration_aggregated
+
+anova_stimulus_isi_duration_aggregated <- aov(
+  stimulus_isi_duration_aggregated ~ group, data = df_stimulus_isi_duration_aggregated)
+summary(anova_stimulus_isi_duration_aggregated)
+
+ggplot(df_stimulus_isi_duration_aggregated, aes(x = group, y = stimulus_isi_duration_aggregated, fill = group)) +
+  geom_boxplot(outlier.shape = 16, alpha = 0.6) +
+  geom_jitter(width = 0.2, alpha = 0.7, color = "black") +
+  labs(
+    x = NULL, # remioves x-axs label "group"
+    y = "Stimulus_ISI_Duration (aggregated on particiopant level)") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(face = "bold", size = "14"))
 
 # Power Analysis
 n_size<- 150 # sample size
